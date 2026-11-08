@@ -2,6 +2,10 @@
 
 Simulador de gestión deportiva y modo carrera del anime **Blue Lock** con la profundidad táctica de *Football Manager*, optimizado para despliegue serverless de **Presupuesto 0€** en **Vercel** con base de datos en **Supabase Free Tier**.
 
+- 🌐 **Despliegue en Producción:** [https://blue-lock-career-mode.vercel.app](https://blue-lock-career-mode.vercel.app)
+- 🔗 **Mirror Alias Vercel:** [https://blue-lock-career-mode-ale-e704.vercel.app](https://blue-lock-career-mode-ale-e704.vercel.app)
+- 🗄️ **Supabase Project:** `wucthebjndvwyoabztib` (EU West - Frankfurt / Ireland)
+
 ---
 
 ## ⚡ 1. Características del Dominio de Blue Lock
