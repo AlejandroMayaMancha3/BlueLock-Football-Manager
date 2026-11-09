@@ -322,23 +322,26 @@ export const LiveMatchView: React.FC = () => {
               <div className="absolute right-0 top-1/4 bottom-1/4 w-1/5 border-l-2 border-white/40" />
             </div>
 
-            {/* JUGADORES DEL EQUIPO LOCAL (11 TITULARES EN MOVIMIENTO) */}
+            {/* JUGADORES DEL EQUIPO LOCAL (11 TITULARES EN MOVIMIENTO INDIVIDUAL AUTÓNOMO) */}
             {liveMatch.homeLineup.map((pId, idx) => {
               const player = playersMap[pId];
+              const pos = liveMatch.playerPositions?.[pId];
               const base = homeCoords[idx] || { x: 20 + idx * 5, y: 50 };
-              // Desplazamiento dinámico hacia el balón
-              const shiftX = (ballX - 50) * 0.22;
-              const shiftY = (ballY - base.y) * 0.16;
-              const posX = Math.min(92, Math.max(5, 5 + (base.x / 100) * 42 + shiftX));
-              const posY = Math.min(90, Math.max(8, base.y + shiftY));
+              // Posición individual autónoma calculada por el motor táctico
+              const posX = pos ? pos.x : Math.min(92, Math.max(5, 5 + (base.x / 100) * 42));
+              const posY = pos ? pos.y : base.y;
 
+              const isCarrier = liveMatch.ballCarrierId === pId;
               const isFlow = player?.flowState;
               const shortSurname = player?.name.split(' ').pop() || `H${idx + 1}`;
 
               return (
                 <div
                   key={`home-${pId}-${idx}`}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out z-10 flex flex-col items-center pointer-events-none"
+                  className={clsx(
+                    'absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out flex flex-col items-center pointer-events-none',
+                    isCarrier ? 'z-30' : 'z-10'
+                  )}
                   style={{
                     left: `${posX}%`,
                     top: `${posY}%`,
@@ -346,8 +349,10 @@ export const LiveMatchView: React.FC = () => {
                 >
                   <div
                     className={clsx(
-                      'w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-black text-[10px] md:text-xs shadow-md border-2 transition-all',
-                      isFlow
+                      'w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-black text-[10px] md:text-xs shadow-md border-2 transition-all relative',
+                      isCarrier
+                        ? 'ring-4 ring-yellow-400 shadow-[0_0_16px_#facc15] scale-110 border-yellow-300'
+                        : isFlow
                         ? 'border-cyan-400 ring-2 ring-cyan-400 animate-pulse shadow-[0_0_12px_#00ffff]'
                         : 'border-white/60'
                     )}
@@ -357,31 +362,44 @@ export const LiveMatchView: React.FC = () => {
                     }}
                   >
                     {idx === 0 ? '1' : `${idx + 1}`}
+                    {isCarrier && (
+                      <span className="absolute -top-3 -right-2 text-[10px] filter drop-shadow">
+                        ⚽
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[9px] md:text-[10px] font-bold text-white bg-slate-950/80 px-1 rounded shadow-sm whitespace-nowrap mt-0.5 max-w-[60px] truncate">
+                  <span
+                    className={clsx(
+                      'text-[9px] md:text-[10px] font-bold px-1 rounded shadow-sm whitespace-nowrap mt-0.5 max-w-[65px] truncate',
+                      isCarrier ? 'bg-yellow-400 text-black font-black' : 'text-white bg-slate-950/80'
+                    )}
+                  >
                     {shortSurname}
                   </span>
                 </div>
               );
             })}
 
-            {/* JUGADORES DEL EQUIPO VISITANTE (11 TITULARES EN MOVIMIENTO) */}
+            {/* JUGADORES DEL EQUIPO VISITANTE (11 TITULARES EN MOVIMIENTO INDIVIDUAL AUTÓNOMO) */}
             {liveMatch.awayLineup.map((pId, idx) => {
               const player = playersMap[pId];
+              const pos = liveMatch.playerPositions?.[pId];
               const base = awayCoords[idx] || { x: 20 + idx * 5, y: 50 };
-              // Desplazamiento dinámico hacia el balón
-              const shiftX = (ballX - 50) * 0.22;
-              const shiftY = (ballY - base.y) * 0.16;
-              const posX = Math.min(95, Math.max(8, 95 - (base.x / 100) * 42 + shiftX));
-              const posY = Math.min(90, Math.max(8, base.y + shiftY));
+              // Posición individual autónoma calculada por el motor táctico
+              const posX = pos ? pos.x : Math.min(95, Math.max(8, 95 - (base.x / 100) * 42));
+              const posY = pos ? pos.y : base.y;
 
+              const isCarrier = liveMatch.ballCarrierId === pId;
               const isFlow = player?.flowState;
               const shortSurname = player?.name.split(' ').pop() || `A${idx + 1}`;
 
               return (
                 <div
                   key={`away-${pId}-${idx}`}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out z-10 flex flex-col items-center pointer-events-none"
+                  className={clsx(
+                    'absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out flex flex-col items-center pointer-events-none',
+                    isCarrier ? 'z-30' : 'z-10'
+                  )}
                   style={{
                     left: `${posX}%`,
                     top: `${posY}%`,
@@ -389,8 +407,10 @@ export const LiveMatchView: React.FC = () => {
                 >
                   <div
                     className={clsx(
-                      'w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-black text-[10px] md:text-xs shadow-md border-2 transition-all',
-                      isFlow
+                      'w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-black text-[10px] md:text-xs shadow-md border-2 transition-all relative',
+                      isCarrier
+                        ? 'ring-4 ring-yellow-400 shadow-[0_0_16px_#facc15] scale-110 border-yellow-300'
+                        : isFlow
                         ? 'border-yellow-400 ring-2 ring-yellow-400 animate-pulse shadow-[0_0_12px_#facc15]'
                         : 'border-black/50'
                     )}
@@ -400,23 +420,33 @@ export const LiveMatchView: React.FC = () => {
                     }}
                   >
                     {idx === 0 ? '1' : `${idx + 1}`}
+                    {isCarrier && (
+                      <span className="absolute -top-3 -right-2 text-[10px] filter drop-shadow">
+                        ⚽
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[9px] md:text-[10px] font-bold text-slate-200 bg-slate-950/80 px-1 rounded shadow-sm whitespace-nowrap mt-0.5 max-w-[60px] truncate">
+                  <span
+                    className={clsx(
+                      'text-[9px] md:text-[10px] font-bold px-1 rounded shadow-sm whitespace-nowrap mt-0.5 max-w-[65px] truncate',
+                      isCarrier ? 'bg-yellow-400 text-black font-black' : 'text-slate-200 bg-slate-950/80'
+                    )}
+                  >
                     {shortSurname}
                   </span>
                 </div>
               );
             })}
 
-            {/* Balón Animado con halo luminoso */}
+            {/* Balón Animado con halo luminoso - Siguiendo al portador */}
             <div
-              className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-out z-20 pointer-events-none"
+              className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out z-20 pointer-events-none"
               style={{
                 left: `${ballX}%`,
                 top: `${ballY}%`,
               }}
             >
-              <div className="w-5 h-5 bg-white rounded-full shadow-[0_0_15px_rgba(255,255,255,0.9)] border-2 border-black flex items-center justify-center animate-bounce">
+              <div className="w-4 h-4 md:w-5 md:h-5 bg-white rounded-full shadow-[0_0_15px_rgba(255,255,255,0.95)] border-2 border-black flex items-center justify-center animate-bounce">
                 <div className="w-1.5 h-1.5 bg-black rounded-full" />
               </div>
             </div>
