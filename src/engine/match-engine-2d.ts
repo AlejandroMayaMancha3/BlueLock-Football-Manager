@@ -1,7 +1,7 @@
 import { Club, Player, MatchEvent, Formation } from '@/types/football-manager';
 
 export interface SetPieceState {
-  type: 'kickoff' | 'corner' | 'dangerous_free_kick' | 'free_kick_cross' | 'midfield_foul';
+  type: 'kickoff' | 'corner' | 'dangerous_free_kick' | 'free_kick_cross' | 'midfield_foul' | 'penalty';
   teamId: string; // Equipo que ejecuta la acción a balón parado
   defendingTeamId: string; // Equipo que defiende
   x: number;
@@ -935,6 +935,156 @@ export function tickLiveMatch(
       if (currentMinute >= 90) next.isFinished = true;
       return next;
     }
+
+    // F) PENALTI REGLAMENTARIO (DUELO 1V1 DESDE LOS ONCE METROS)
+    if (pending.type === 'penalty') {
+      const penX = isHomeAction ? 84.5 : 15.5; // Punto de penalti oficial a 11 metros de la meta
+      const penY = 50;
+
+      // Especialista en penaltis: mayor finalización, ego o arma letal (Kaiser, Rin, Barou, Isagi...)
+      const penSpecialists = attPlayers.filter(
+        (p) => p.weapons.some((w) => ['shot', 'curve', 'precision', 'predator'].includes(w.type)) || p.stats.shooting >= 80
+      ).sort((a, b) => (b.stats.shooting + b.egoRating * 0.2) - (a.stats.shooting + a.egoRating * 0.2));
+      const specialist = attPlayers.find((p) => p.id === pending.takerId) || penSpecialists[0] || attPlayers[attPlayers.length - 1];
+
+      // 1. Colocar al lanzador en el punto de penalti
+      if (specialist) {
+        setPiecePositions[specialist.id] = { x: penX, y: penY };
+      }
+
+      // 2. Colocar al portero sobre la línea de meta
+      if (defGk) {
+        setPiecePositions[defGk.id] = { x: isHomeAction ? 95 : 5, y: 50 };
+      }
+
+      // 3. Los restantes 20 jugadores se sitúan estrictamente FUERA del área y del semicírculo
+      match.homeLineup.forEach((id, idx) => {
+        if (id !== specialist?.id && id !== defGk?.id) {
+          const arcX = isHomeAction ? 79 - (idx % 3) * 3 : Math.min(48, homeBase[idx]?.x || 25);
+          const arcY = 26 + (idx * 5) % 48;
+          setPiecePositions[id] = { x: arcX, y: arcY };
+        }
+      });
+      match.awayLineup.forEach((id, idx) => {
+        if (id !== specialist?.id && id !== defGk?.id) {
+          const arcX = !isHomeAction ? 21 + (idx % 3) * 3 : Math.max(52, awayBase[idx]?.x || 75);
+          const arcY = 26 + (idx * 5) % 48;
+          setPiecePositions[id] = { x: arcX, y: arcY };
+        }
+      });
+
+      next.playerPositions = setPiecePositions;
+      next.ballPosition = { x: penX, y: penY };
+      next.ballCarrierId = specialist?.id || null;
+      next.attackingTeamId = attTeam.id;
+
+      statsObj.shots += 1;
+      const weapon = specialist?.weapons?.[0];
+      const takerPower = (specialist?.stats.shooting || 78) + (weapon ? weapon.level * 0.22 : 0) + (specialist?.egoRating ? specialist.egoRating * 0.12 : 0);
+      const gkPower = (defGk?.stats.goalkeeping || 72) + (defGk?.weapons?.[0] ? defGk.weapons[0].level * 0.20 : 0);
+
+      // En el fútbol profesional la tasa de conversión de penaltis ronda el 76-78%
+      const goalProbability = 0.77 * (takerPower / (takerPower + gkPower * 0.82));
+      const penRoll = Math.random();
+
+      if (penRoll < goalProbability) {
+        // ¡GOOOOOOL DE PENALTI!
+        statsObj.shotsOnTarget += 1;
+        statsObj.chances += 1;
+        if (isHomeAction) next.homeScore += 1;
+        else next.awayScore += 1;
+
+        if (specialist) {
+          next.playerRatings[specialist.id] = Math.min(10, (next.playerRatings[specialist.id] || 6.0) + 1.2);
+        }
+
+        next.ballPosition = { x: isHomeAction ? 97 : 3, y: 50 };
+        // Saque de centro reglamentario tras el gol para el equipo que encajó
+        next.pendingSetPiece = {
+          type: 'kickoff',
+          teamId: defTeam.id,
+          defendingTeamId: attTeam.id,
+          x: 50,
+          y: 50,
+        };
+
+        let desc = `⚽ ¡¡GOOOOOOL DE PENALTI!! (${currentMinute}') `;
+        if (weapon) {
+          desc += `¡${specialist.name} ejecuta la pena máxima desatando su ${weapon.name}: fusila la red con un disparo imparable!`;
+        } else {
+          desc += `¡${specialist.name} define con sangre fría desde los once metros, engañando por completo a ${defGk?.name}!`;
+        }
+
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'goal',
+          teamId: attTeam.id,
+          playerId: specialist?.id,
+          playerName: specialist?.name,
+          description: desc,
+          ballZone: next.ballPosition,
+        });
+      } else if (penRoll < 0.91) {
+        // PARADA DEL PORTERO
+        statsObj.shotsOnTarget += 1;
+        next.ballPosition = { x: isHomeAction ? 94 : 6, y: 50 };
+        if (defGk) {
+          next.ballCarrierId = defGk.id;
+          next.playerRatings[defGk.id] = Math.min(10, (next.playerRatings[defGk.id] || 6.0) + 0.8);
+        }
+
+        // 40% de probabilidad de que el portero desvíe el penalti a córner por la línea de fondo
+        if (Math.random() < 0.40) {
+          const cornerTargetX = isHomeAction ? 98 : 2;
+          next.pendingSetPiece = {
+            type: 'corner',
+            teamId: attTeam.id,
+            defendingTeamId: defTeam.id,
+            x: cornerTargetX,
+            y: Math.random() > 0.5 ? 2 : 98,
+          };
+          statsObj.corners += 1;
+
+          next.events.unshift({
+            minute: currentMinute,
+            type: 'save',
+            teamId: defTeam.id,
+            playerId: defGk?.id,
+            playerName: defGk?.name,
+            description: `🧤 ¡¡PARADÓN HISTÓRICO DE PENALTI!! (${currentMinute}') ¡${defGk?.name} adivina la trayectoria del disparo de ${specialist?.name} y desvía la pena máxima a saque de esquina!`,
+            ballZone: next.ballPosition,
+          });
+        } else {
+          next.pendingSetPiece = null;
+          next.events.unshift({
+            minute: currentMinute,
+            type: 'save',
+            teamId: defTeam.id,
+            playerId: defGk?.id,
+            playerName: defGk?.name,
+            description: `🧤 ¡¡PARADÓN DE PENALTI!! (${currentMinute}') ¡${defGk?.name} se estira felinamente y atrapa el disparo desde los once metros de ${specialist?.name}!`,
+            ballZone: next.ballPosition,
+          });
+        }
+      } else {
+        // PENALTI AL PALO O FUERA
+        next.ballPosition = { x: isHomeAction ? 96 : 4, y: Math.random() > 0.5 ? 26 : 74 };
+        next.pendingSetPiece = null;
+
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'penalty',
+          teamId: attTeam.id,
+          playerId: specialist?.id,
+          playerName: specialist?.name,
+          description: `❌ ¡¡AL PALO / FUERA!! (${currentMinute}') ¡${specialist?.name} estrella la pena máxima en la madera! El balón sale despedido y se esfuma la ocasión de gol.`,
+          ballZone: { x: penX, y: penY },
+        });
+      }
+
+      if (currentMinute >= 90) next.isFinished = true;
+      return next;
+    }
   }
 
   // 2. SIMULACIÓN EN JUEGO ABIERTO (OPEN PLAY)
@@ -1092,21 +1242,67 @@ export function tickLiveMatch(
       Math.hypot((targetGoalX - foulX) * 1.05, (50 - foulY) * 0.68)
     );
 
-    // 1. TIRO LIBRE DIRECTO A PUERTA (Solo si está entre 16m y 27m, en pasillo central Y en el último tercio)
+    // 1. PENALTI (Infracción cometida dentro del área de penalti rival)
+    const isPenaltyZone = isHomeAttack
+      ? foulX >= 83 && foulY >= 24 && foulY <= 76
+      : foulX <= 17 && foulY >= 24 && foulY <= 76;
+
+    // 2. TIRO LIBRE DIRECTO A PUERTA (Entre 16m y 27m, en pasillo central pero FUERA del área)
     const isDirectFkZone =
+      !isPenaltyZone &&
       distMeters >= 16 &&
       distMeters <= 27 &&
       foulY >= 28 &&
       foulY <= 72 &&
       (isHomeAttack ? foulX >= 70 : foulX <= 30);
 
-    // 2. FALTA COLGADA AL ÁREA (Distancia intermedia de 28m a 44m, o faltas laterales en campo contrario)
+    // 3. FALTA COLGADA AL ÁREA (Distancia intermedia de 28m a 44m, o faltas laterales en campo contrario)
     const isCrossingFkZone =
+      !isPenaltyZone &&
       !isDirectFkZone &&
       distMeters <= 44 &&
       (isHomeAttack ? foulX >= 52 : foulX <= 48);
 
-    if (isDirectFkZone) {
+    if (isPenaltyZone) {
+      const penSpecialists = attPlayers.filter(
+        (p) => p.weapons.some((w) => ['shot', 'curve', 'precision', 'predator'].includes(w.type)) || p.stats.shooting >= 80
+      ).sort((a, b) => (b.stats.shooting + b.egoRating * 0.2) - (a.stats.shooting + a.egoRating * 0.2));
+      const specialist = penSpecialists[0] || carrier || attPlayers[attPlayers.length - 1];
+
+      const penX = isHomeAttack ? 84.5 : 15.5;
+      next.pendingSetPiece = {
+        type: 'penalty',
+        teamId: attTeam.id,
+        defendingTeamId: defTeam.id,
+        x: penX,
+        y: 50,
+        takerId: specialist.id,
+      };
+
+      const isYellow = Math.random() < 0.60;
+      if (isYellow && defender) {
+        next.playerRatings[defender.id] = Math.max(3.5, (next.playerRatings[defender.id] || 6.0) - 0.6);
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'yellow_card',
+          teamId: defTeam.id,
+          playerId: defender.id,
+          playerName: defender.name,
+          description: `🟨 Tarjeta amarilla para ${defender.name} por derribar a ${carrier.name} dentro del área. ¡¡PENALTI!!`,
+          ballZone: { x: penX, y: 50 },
+        });
+      } else {
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'penalty',
+          teamId: attTeam.id,
+          playerId: specialist.id,
+          playerName: specialist.name,
+          description: `🚨 ¡¡PENALTI A FAVOR DE ${attTeam.name.toUpperCase()}!! (${currentMinute}') ¡${defender.name} derriba a ${carrier.name} dentro del área de penalti!`,
+          ballZone: { x: penX, y: 50 },
+        });
+      }
+    } else if (isDirectFkZone) {
       const fkSpecialists = attPlayers.filter(
         (p) => p.weapons.some((w) => ['shot', 'curve', 'precision', 'vision'].includes(w.type)) || p.stats.shooting >= 80
       );
@@ -1398,9 +1594,37 @@ export function tickLiveMatch(
         }
       }
     } else {
-      // 30% de los tiros desviados son taponados por un central saliendo a córner
+      // Taponazos y desvíos defensivos dentro del área
       const blocker = defPlayers.find((p) => ['DFC', 'MCD'].includes(p.position)) || defPlayers[0];
-      if (Math.random() < 0.30) {
+      const blockRoll = Math.random();
+
+      if (blockRoll < 0.08) {
+        // Mano en el área al tirarse a cortar el tiro a bocajarro: ¡PENALTI!
+        const penSpecialists = attPlayers.filter(
+          (p) => p.weapons.some((w) => ['shot', 'curve', 'precision', 'predator'].includes(w.type)) || p.stats.shooting >= 80
+        ).sort((a, b) => (b.stats.shooting + b.egoRating * 0.2) - (a.stats.shooting + a.egoRating * 0.2));
+        const specialist = penSpecialists[0] || shooter || attPlayers[attPlayers.length - 1];
+
+        const penX = isHomeAttack ? 84.5 : 15.5;
+        next.pendingSetPiece = {
+          type: 'penalty',
+          teamId: attTeam.id,
+          defendingTeamId: defTeam.id,
+          x: penX,
+          y: 50,
+          takerId: specialist.id,
+        };
+
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'penalty',
+          teamId: attTeam.id,
+          playerId: specialist.id,
+          playerName: specialist.name,
+          description: `🚨 ¡¡PENALTI!! (${currentMinute}') ¡Mano en el área de ${blocker.name} interceptando el disparo de ${shooter?.name}! ¡El árbitro señala el punto fatídico!`,
+          ballZone: { x: penX, y: 50 },
+        });
+      } else if (blockRoll < 0.38) {
         statsObj.corners += 1;
         const defEndlineX = isHomeAttack ? 98 : 2;
         next.pendingSetPiece = {

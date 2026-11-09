@@ -497,6 +497,7 @@ export const LiveMatchView: React.FC = () => {
               const isCard = ev.type === 'yellow_card' || ev.type === 'red_card';
               const isCorner = ev.type === 'corner';
               const isFoul = ev.type === 'foul';
+              const isPenalty = ev.type === 'penalty';
 
               return (
                 <div
@@ -505,6 +506,8 @@ export const LiveMatchView: React.FC = () => {
                     'p-3 rounded-xl border text-xs leading-relaxed transition-all',
                     isGoal
                       ? 'bg-yellow-950/40 border-yellow-500/60 text-yellow-200'
+                      : isPenalty
+                      ? 'bg-rose-950/50 border-rose-500/70 text-rose-200 ring-1 ring-rose-500/30'
                       : isFlow
                       ? 'bg-cyan-950/40 border-cyan-500/60 text-cyan-200'
                       : isCard
@@ -521,6 +524,7 @@ export const LiveMatchView: React.FC = () => {
                   <div className="flex items-center gap-2 font-mono font-bold text-[10px] text-slate-400 mb-1">
                     <span>{ev.minute}&apos;</span>
                     {isGoal && <span className="text-yellow-400 font-bold uppercase tracking-wider">¡GOL!</span>}
+                    {isPenalty && <span className="text-rose-400 font-bold uppercase tracking-wider">🎯 PENALTI</span>}
                     {isFlow && <span className="text-cyan-400 font-bold uppercase tracking-wider">FLOW STATE</span>}
                     {isSave && <span className="text-emerald-400 font-bold uppercase tracking-wider">PARADA</span>}
                     {isCard && <span className="text-amber-400 font-bold uppercase tracking-wider">TARJETA</span>}
