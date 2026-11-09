@@ -20,6 +20,7 @@ import {
   CountryLeague,
   TierLevel,
   SeasonTransitionReport,
+  TransferNewsEntry,
 } from '@/types/football-manager';
 import { generateInitialClubsAndPlayers, calculateOvr } from '@/engine/game-data';
 import {
@@ -46,6 +47,12 @@ import { startPositionConversion, cancelPositionConversion } from '@/engine/trai
 import { DECISION_EVENTS_POOL } from '@/engine/events-data';
 import { formatMoney } from '@/lib/currency';
 import { getDivisionById } from '@/engine/data/divisions-catalog';
+import {
+  executeAiTransferMarket,
+  executeEmergencyReplacement,
+  checkSquadDepartmentDeficit,
+  rebalanceClubLineup,
+} from '@/engine/transfer-engine';
 
 const STORAGE_KEY = 'bluelock_football_manager_v2';
 
@@ -78,6 +85,7 @@ export interface GameStoreState {
   lastMatchSummary: MatchSummaryData | null;
   lastSeasonTransitionReport: SeasonTransitionReport | null;
   clearSeasonTransitionReport: () => void;
+  recentTransfers: TransferNewsEntry[];
 
   // Actions
   startNewGame: (managerName: string, clubId: string, currency?: Currency, country?: CountryLeague, divisionId?: string) => void;
@@ -145,6 +153,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   simulatedMatchSummary: null,
   lastMatchSummary: null,
   lastSeasonTransitionReport: null,
+  recentTransfers: [],
   clearSeasonTransitionReport: () => {
     set({ lastSeasonTransitionReport: null });
     get().saveToStorage();
@@ -224,6 +233,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       isSeasonCompleted: false,
       simulatedMatchSummary: null,
       lastMatchSummary: null,
+      lastSeasonTransitionReport: null,
+      recentTransfers: [],
     };
 
     set(newState);
@@ -266,6 +277,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           clubs: completeClubs,
           players: completePlayers,
           selectedCurrency: parsed.selectedCurrency || 'EUR',
+          recentTransfers: parsed.recentTransfers || [],
         });
         return true;
       }
@@ -871,12 +883,36 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       }
     });
 
+    // Mercado dinámico entre clubes rivales (IA vs IA) durante las ventanas de fichajes abiertas
+    let finalMarketClubs = updatedClubs;
+    let finalMarketPlayers = finalPlayers;
+    const existingRecentTransfers = get().recentTransfers || [];
+    let updatedRecentTransfers = [...existingRecentTransfers];
+
+    const isTransferWindowActive = currentRound <= 6 || (currentRound >= 22 && currentRound <= 28);
+    if (isTransferWindowActive && !isSeasonCompleted && Math.random() < 0.85) {
+      const rivalMarketResult = executeAiTransferMarket(
+        finalMarketClubs,
+        finalMarketPlayers,
+        currentSeason,
+        currentRound,
+        userClubId,
+        { maxTransfers: Math.floor(Math.random() * 3) + 2 }
+      );
+      finalMarketClubs = rivalMarketResult.updatedClubs;
+      finalMarketPlayers = rivalMarketResult.updatedPlayers;
+      if (rivalMarketResult.news.length > 0) {
+        updatedRecentTransfers = [...rivalMarketResult.news, ...updatedRecentTransfers].slice(0, 60);
+      }
+    }
+
     set({
       fixtures: finalFixtures,
-      players: finalPlayers,
-      clubs: updatedClubs,
+      players: finalMarketPlayers,
+      clubs: finalMarketClubs,
       ledger: updatedLedger,
       transferOffers: currentOffers,
+      recentTransfers: updatedRecentTransfers,
       boardTrust: newBoardTrust,
       squadMorale: newSquadMorale,
       currentRound: isSeasonCompleted ? currentRound : currentRound + 1,
@@ -1483,7 +1519,60 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       },
     ];
 
-    set({ players: updatedPlayers, clubs: updatedClubs, ledger: updatedLedger });
+    const sellerClub = clubs.find((c) => c.id === player.clubId);
+    const sellerClubName = sellerClub?.name || 'Club Rival';
+
+    const userTransferNews: TransferNewsEntry = {
+      id: `tr-user-buy-${Date.now()}-${player.id}`,
+      season: currentSeason,
+      round: currentRound,
+      playerId: player.id,
+      playerName: player.name,
+      playerPosition: player.position,
+      playerOverall: player.overall,
+      fromClubId: player.clubId,
+      fromClubName: sellerClubName,
+      toClubId: userClubId,
+      toClubName: userClub.name,
+      feeYen,
+      dateStr: `Jornada ${currentRound}`,
+      isImportant: true,
+    };
+
+    let postClubs = updatedClubs;
+    let postPlayers = updatedPlayers;
+    const existingTransfers = get().recentTransfers || [];
+    let updatedRecentTransfers: TransferNewsEntry[] = [userTransferNews, ...existingTransfers];
+
+    // Comprobar si el club vendedor IA quedó desprotegido en la posición del jugador vendido
+    // (Por ejemplo: vendió a su delantero y no tiene otro delantero, o se queda sin portero)
+    const sellerInUpdated = postClubs.find((c) => c.id === player.clubId);
+    if (sellerInUpdated) {
+      const sellerSquad = postPlayers.filter((p) => p.clubId === player.clubId);
+      const deficit = checkSquadDepartmentDeficit(sellerSquad);
+      if (deficit.isDeficient) {
+        const replacement = executeEmergencyReplacement(
+          sellerInUpdated,
+          postClubs,
+          postPlayers,
+          currentSeason,
+          currentRound,
+          userClubId
+        );
+        postClubs = replacement.updatedClubs;
+        postPlayers = replacement.updatedPlayers;
+        if (replacement.news) {
+          updatedRecentTransfers = [replacement.news, ...updatedRecentTransfers];
+        }
+      }
+    }
+
+    set({
+      players: postPlayers,
+      clubs: postClubs,
+      ledger: updatedLedger,
+      recentTransfers: updatedRecentTransfers.slice(0, 60),
+    });
     get().saveToStorage();
 
     return { success: true, message: `¡Fichaje completado! ${player.name} firma por ${years} temporadas.` };
@@ -1545,11 +1634,41 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       if (c.id === offer.buyerClubId) {
         return {
           ...c,
+          cashYen: Math.max(0, c.cashYen - offer.offeredFeeYen),
+          budgetYen: Math.max(0, c.budgetYen - offer.offeredFeeYen),
           substitutes: c.substitutes.length < 7 ? [...c.substitutes, offer.playerId] : c.substitutes,
         };
       }
       return c;
     });
+
+    // Rebalancear alineación del club comprador IA para integrar al fichaje si es titular
+    const buyerObj = updatedClubs.find((c) => c.id === offer.buyerClubId);
+    if (buyerObj) {
+      const buyerSquad = updatedPlayers.filter((p) => p.clubId === buyerObj.id);
+      rebalanceClubLineup(buyerObj, buyerSquad);
+    }
+
+    const userClubName = clubs.find((c) => c.id === userClubId)?.name || 'Tu Club';
+    const userSellNews: TransferNewsEntry = {
+      id: `tr-user-sell-${Date.now()}-${player.id}`,
+      season: currentSeason,
+      round: currentRound,
+      playerId: player.id,
+      playerName: player.name,
+      playerPosition: player.position,
+      playerOverall: player.overall,
+      fromClubId: userClubId,
+      fromClubName: userClubName,
+      toClubId: offer.buyerClubId,
+      toClubName: offer.buyerClubName,
+      feeYen: offer.offeredFeeYen,
+      dateStr: `Jornada ${currentRound}`,
+      isImportant: true,
+    };
+
+    const existingTransfers = get().recentTransfers || [];
+    const updatedRecentTransfers = [userSellNews, ...existingTransfers].slice(0, 60);
 
     const updatedLedger: ClubLedgerEntry[] = [
       ...ledger,
@@ -1569,6 +1688,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       clubs: updatedClubs,
       ledger: updatedLedger,
       transferOffers: transferOffers.filter((o) => o.id !== offerId),
+      recentTransfers: updatedRecentTransfers,
     });
 
     get().saveToStorage();
@@ -1730,6 +1850,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     };
 
     const userClubAfter = newClubs.find((c) => c.id === userClubId) || newClubs[0];
+    const preSeasonRivalTransfers = seasonTransitionReport.rivalTransfers || [];
+    const updatedRecentTransfers = [...preSeasonRivalTransfers, ...(get().recentTransfers || [])].slice(0, 60);
 
     set({
       currentSeason: newSeason,
@@ -1741,6 +1863,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       selectedTier: userClubAfter.tier || 1,
       seasonHistory: [seasonHistoryEntry, ...seasonHistory],
       ledger: [prizeEntry, ...ledger],
+      recentTransfers: updatedRecentTransfers,
       youthPromotedThisSeason: false,
       isSeasonCompleted: false,
       activeTab: 'office',

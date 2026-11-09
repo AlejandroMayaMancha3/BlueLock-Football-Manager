@@ -12,6 +12,7 @@ import {
 import { shouldAwakenWeapon, generateContextualWeapon } from './weapon-registry';
 import { getDivisionsByCountry, getDivisionById, COUNTRIES_CATALOG } from './data/divisions-catalog';
 import { calculatePlayerMarketValue } from './player-valuation';
+import { executeAiTransferMarket } from './transfer-engine';
 
 // Generates 22 rounds for 12 clubs using round-robin algorithm
 export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixture[] {
@@ -781,8 +782,30 @@ export function advanceToNextSeason(
     }
   });
 
-  // 5. Determinar el destino del club del usuario
-  const userClubAfter = evolvedClubs.find((c) => c.id === userClubId) || evolvedClubs[0];
+  // 5. Mercado de fichajes de pretemporada entre clubes rivales
+  // Los clubes recién ascendidos (como el CD Utrera) y clubes con presupuesto invierten activamente
+  // en reforzar sus plantillas antes del arranque de la nueva temporada.
+  const nextSeason = currentSeason + 1;
+  const promotedClubIds = new Set(allPromotions.map((p) => p.clubId));
+  const preSeasonMarket = executeAiTransferMarket(
+    evolvedClubs,
+    evolvedPlayers,
+    nextSeason,
+    1,
+    userClubId,
+    {
+      maxTransfers: 35,
+      isPreSeason: true,
+      promotedClubIds,
+    }
+  );
+
+  const finalEvolvedClubs = preSeasonMarket.updatedClubs;
+  const finalEvolvedPlayers = preSeasonMarket.updatedPlayers;
+  const preSeasonRivalTransfers = preSeasonMarket.news;
+
+  // 6. Determinar el destino del club del usuario
+  const userClubAfter = finalEvolvedClubs.find((c) => c.id === userClubId) || finalEvolvedClubs[0];
   const userNewTier = (userClubAfter.tier || getDivisionById(userClubAfter.divisionId || userClubAfter.league)?.tier || 1) as TierLevel;
 
   let userOutcome: 'champion' | 'promoted' | 'relegated' | 'stayed' = 'stayed';
@@ -794,11 +817,10 @@ export function advanceToNextSeason(
     userOutcome = userPos === 1 ? 'champion' : 'stayed';
   }
 
-  // 6. Generar nuevo calendario de 46 jornadas para la nueva división del club del usuario
-  const nextSeason = currentSeason + 1;
+  // 7. Generar nuevo calendario de 46 jornadas para la nueva división del club del usuario
   const userNewDivId = userClubAfter.divisionId || userClubAfter.league;
-  const divClubs = evolvedClubs.filter((c) => (c.divisionId || c.league) === userNewDivId);
-  const clubsForFixtures = divClubs.length >= 2 ? divClubs : evolvedClubs;
+  const divClubs = finalEvolvedClubs.filter((c) => (c.divisionId || c.league) === userNewDivId);
+  const clubsForFixtures = divClubs.length >= 2 ? divClubs : finalEvolvedClubs;
   const newFixtures = generateSeasonFixtures(nextSeason, clubsForFixtures);
 
   const userCountryDivisions = getDivisionsByCountry(userCountry);
@@ -839,12 +861,13 @@ export function advanceToNextSeason(
     champions: countryChampions[userCountry] || [],
     promotions: userPromotions,
     relegations: userRelegations,
+    rivalTransfers: preSeasonRivalTransfers,
   };
 
   return {
     newSeason: nextSeason,
-    newClubs: evolvedClubs,
-    newPlayers: evolvedPlayers,
+    newClubs: finalEvolvedClubs,
+    newPlayers: finalEvolvedPlayers,
     newFixtures,
     seasonHistoryEntry: historyEntry,
     seasonTransitionReport,

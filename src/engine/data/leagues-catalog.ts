@@ -73,7 +73,7 @@ function rnd(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-const NAME_DATABASE: Record<CountryLeague, { first: string[]; last: string[] }> = {
+export const NAME_DATABASE: Record<CountryLeague, { first: string[]; last: string[] }> = {
   Spain: {
     first: ['Hugo', 'David', 'Pablo', 'Marcos', 'Adrián', 'Álvaro', 'Sergio', 'Mateo', 'Lucas', 'Daniel', 'Iker', 'Mario', 'Rubén', 'Alejandro', 'Javier', 'Carlos', 'Diego', 'Marc', 'Pol', 'Unai', 'Gorka', 'Ander'],
     last: ['García', 'Rodríguez', 'González', 'Fernández', 'López', 'Martínez', 'Sánchez', 'Pérez', 'Gómez', 'Martín', 'Jiménez', 'Ruiz', 'Hernández', 'Díaz', 'Moreno', 'Muñoz', 'Álvarez', 'Romero', 'Alonso', 'Navarro'],

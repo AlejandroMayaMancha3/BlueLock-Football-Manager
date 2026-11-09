@@ -267,6 +267,23 @@ export interface PromotionRelegationMovement {
   finalPosition: number;
 }
 
+export interface TransferNewsEntry {
+  id: string;
+  season: number;
+  round: number;
+  playerId: string;
+  playerName: string;
+  playerPosition: Position;
+  playerOverall: number;
+  fromClubId: string;
+  fromClubName: string;
+  toClubId: string;
+  toClubName: string;
+  feeYen: number;
+  dateStr: string;
+  isImportant?: boolean;
+}
+
 export interface SeasonTransitionReport {
   seasonNumber: number;
   country: CountryLeague;
@@ -282,6 +299,7 @@ export interface SeasonTransitionReport {
   champions: { tier: number; divisionName: string; clubName: string; clubId: string }[];
   promotions: PromotionRelegationMovement[];
   relegations: PromotionRelegationMovement[];
+  rivalTransfers?: TransferNewsEntry[];
 }
 
 export interface SeasonHistoryEntry {

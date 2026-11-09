@@ -214,6 +214,36 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
               </p>
             </div>
           </div>
+
+          {/* Fichajes Destacados de Pretemporada (Clubes ascendidos y rivales) */}
+          {lastSeasonTransitionReport.rivalTransfers && lastSeasonTransitionReport.rivalTransfers.length > 0 && (
+            <div className="p-4 bg-slate-950/80 border border-cyan-500/30 rounded-2xl space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-cyan-400 font-mono uppercase tracking-wider pb-1 border-b border-slate-800">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> Fichajes Destacados de Pretemporada ({lastSeasonTransitionReport.rivalTransfers.length})
+                </span>
+                <span className="text-[10px] text-slate-400 font-sans font-normal">
+                  Inversiones de clubes ascendidos y rivales europeos
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                {lastSeasonTransitionReport.rivalTransfers.slice(0, 12).map((t) => (
+                  <div key={t.id} className="p-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-white truncate max-w-[120px]">{t.playerName}</span>
+                      <span className="text-[10px] text-cyan-400 font-mono font-bold">[{t.playerPosition} {t.playerOverall}]</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 truncate">
+                      {t.fromClubName} → <strong className="text-emerald-400">{t.toClubName}</strong>
+                    </div>
+                    <div className="text-[11px] font-mono font-black text-yellow-400">
+                      {formatMoney(t.feeYen, selectedCurrency)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
       {/* 1. NOTIFICACIONES DE OFERTAS DE COMPRA RECIBIDAS (TEMPORALES HASTA ACEPTAR O RECHAZAR) */}
