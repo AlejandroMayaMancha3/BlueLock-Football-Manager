@@ -181,8 +181,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       if (!data) return false;
       const parsed = JSON.parse(data);
       if (parsed && parsed.clubs && parsed.players && parsed.fixtures) {
+        const sanitizedClubs = parsed.clubs.map((c: any) => ({
+          ...c,
+          substitutes: Array.from(new Set<string>((c.substitutes || []) as string[]))
+            .filter((id) => !(c.startingXI || []).includes(id))
+            .slice(0, 7),
+        }));
         set({
           ...parsed,
+          clubs: sanitizedClubs,
           selectedCurrency: parsed.selectedCurrency || 'EUR',
         });
         return true;
@@ -739,17 +746,22 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       xi[outIdx] = playerInId;
       bench[inBenchIdx] = playerOutId;
     }
-    // 3. Jugador de reservas (pertenece al club pero no estaba en bench)
+    // 3. Jugador de reservas entra al 11 titular
     else if (outIdx !== -1) {
       const userPlayers = players.filter((p) => p.clubId === userClubId);
       if (userPlayers.some((p) => p.id === playerInId)) {
         xi[outIdx] = playerInId;
         bench = bench.filter((id) => id !== playerInId);
-        if (!bench.includes(playerOutId)) {
+        // Si el banquillo tiene plazas libres (< 7), el saliente se coloca en el banquillo.
+        // Si el banquillo ya está completo (>= 7), el saliente pasa a las reservas (NO se añade al banquillo).
+        if (bench.length < 7 && !bench.includes(playerOutId)) {
           bench.push(playerOutId);
         }
       }
     }
+
+    // Regla reglamentaria estricta: el banquillo nunca puede exceder los 7 jugadores
+    bench = Array.from(new Set(bench)).filter((id) => !xi.includes(id)).slice(0, 7);
 
     const updated = clubs.map((c) =>
       c.id === userClubId ? { ...c, startingXI: xi, substitutes: bench } : c
@@ -768,6 +780,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
             newBench.push(reservePlayerId);
           }
         }
+        newBench = Array.from(new Set(newBench)).filter((id) => !c.startingXI.includes(id)).slice(0, 7);
         return { ...c, substitutes: newBench };
       }
       return c;

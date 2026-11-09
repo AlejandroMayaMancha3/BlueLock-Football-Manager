@@ -139,6 +139,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
         const adaptation = calculatePositionalAdaptation(player, posCoord.role);
         const hasPenalty = adaptation.penaltyOvr > 0;
         const isSelected = selectedPlayerId === player.id;
+        const isOtherStarterWhenSelected = Boolean(selectedPlayerId && selectedPlayerId !== player.id);
         const isCaptain = club.captainId === player.id;
         const isPenalty = club.penaltyTakerId === player.id;
         const isFreeKick = club.freeKickTakerId === player.id;
@@ -159,10 +160,15 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
               top: `${posCoord.y}%`,
             }}
             className={clsx(
-              'absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group cursor-pointer transition-transform duration-200 hover:scale-110 z-10',
-              isSelected && 'scale-125 z-30'
+              'absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group cursor-pointer transition-transform duration-200 hover:scale-115 z-10',
+              isSelected && 'scale-125 z-30',
+              isOtherStarterWhenSelected && 'hover:scale-125 hover:z-25'
             )}
-            title={`${player.name} (Natural: ${player.position}) · Asignado: ${posCoord.role}\n${adaptation.description}`}
+            title={
+              isOtherStarterWhenSelected
+                ? `🔄 Clic para intercambiar posición con ${allPlayersMap[selectedPlayerId!]?.name || 'titular seleccionado'}`
+                : `${player.name} (Natural: ${player.position}) · Asignado: ${posCoord.role}\n${adaptation.description}`
+            }
           >
             {/* Chapa del Jugador */}
             <div
@@ -174,6 +180,8 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
                   ? 'border-amber-500 ring-2 ring-amber-500/80 bg-amber-950'
                   : isSelected
                   ? 'border-yellow-400 ring-4 ring-yellow-400/50 scale-105'
+                  : isOtherStarterWhenSelected
+                  ? 'group-hover:ring-2 group-hover:ring-cyan-400 group-hover:border-cyan-300'
                   : adaptation.affinityTier === 'disaster'
                   ? 'border-rose-500 ring-2 ring-rose-500 animate-pulse'
                   : adaptation.affinityTier === 'poor'
@@ -195,6 +203,13 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
               <span className={clsx(hasPenalty && 'font-black text-amber-300')}>
                 {adaptation.effectiveOvr}
               </span>
+
+              {/* Icono flotante al hacer hover para intercambiar posiciones entre titulares */}
+              {isOtherStarterWhenSelected && (
+                <span className="absolute -top-1 -right-1 bg-cyan-400 text-black text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-20">
+                  🔄
+                </span>
+              )}
 
               {/* Insignia con la penalización de media */}
               {hasPenalty && (

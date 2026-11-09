@@ -36,8 +36,24 @@ export const TacticsView: React.FC = () => {
   const clubPlayers = players.filter((p) => p.clubId === userClubId);
   const starters = userClub.startingXI.map((id) => allPlayersMap[id]).filter(Boolean);
   const nonStarters = clubPlayers.filter((p) => !userClub.startingXI.includes(p.id));
-  const benchPlayers = nonStarters.filter((p) => userClub.substitutes.includes(p.id));
-  const reservePlayers = nonStarters.filter((p) => !userClub.substitutes.includes(p.id));
+  
+  // Garantizar estrictamente que el banquillo solo contenga un máximo de 7 jugadores convocados
+  const benchIds = (userClub.substitutes || []).filter((id) => !userClub.startingXI.includes(id)).slice(0, 7);
+  const benchPlayers = nonStarters.filter((p) => benchIds.includes(p.id));
+  const reservePlayers = nonStarters.filter((p) => !benchIds.includes(p.id));
+
+  // Auto-reparar el estado del club si arrastraba más de 7 suplentes de partidas previas
+  useEffect(() => {
+    if (userClub.substitutes && userClub.substitutes.length > 7) {
+      const sanitized = Array.from(new Set(userClub.substitutes))
+        .filter((id) => !userClub.startingXI.includes(id))
+        .slice(0, 7);
+      useGameStore.setState((state) => ({
+        clubs: state.clubs.map((c) => (c.id === userClubId ? { ...c, substitutes: sanitized } : c)),
+      }));
+      useGameStore.getState().saveToStorage();
+    }
+  }, [userClub.substitutes, userClub.startingXI, userClubId]);
 
   const hasSanctionedStarter = starters.some((p) => p.isBanned);
   const hasInjuredStarter = starters.some((p) => (p.injuryWeeks || 0) > 0);
@@ -102,7 +118,7 @@ export const TacticsView: React.FC = () => {
               {tacticsSelectedPlayer && (
                 <>
                   Titular seleccionado: <b className="text-cyan-300 font-bold">{tacticsSelectedPlayer.name}</b> ({tacticsSelectedPlayer.position} · {tacticsSelectedPlayer.overall}).
-                  Pulsa en <b>&quot;Meter por {tacticsSelectedPlayer.name.split(' ').pop()}&quot;</b> en el banquillo o reservas para sustituirlo.
+                  Haz clic en <b>otro titular de la pizarra para intercambiar posiciones</b>, o pulsa en <b>&quot;Meter por {tacticsSelectedPlayer.name.split(' ').pop()}&quot;</b> en el banquillo o reservas para sustituirlo.
                 </>
               )}
               {selectedReserveForBench && (
@@ -236,10 +252,17 @@ export const TacticsView: React.FC = () => {
             allPlayersMap={allPlayersMap}
             selectedPlayerId={tacticsSelectedPlayer?.id}
             onPlayerClick={(p) => {
-              // Si pulsas en el mismo jugador, se deselecciona; si no, se selecciona para cambiarlo
-              setTacticsSelectedPlayer((prev) => (prev?.id === p.id ? null : p));
-              setSelectedReserveForBench(null);
-              setSelectedBenchForReserve(null);
+              // Si ya hay un titular seleccionado y hacemos clic en OTRO titular del 11:
+              if (tacticsSelectedPlayer && tacticsSelectedPlayer.id !== p.id && userClub.startingXI.includes(p.id)) {
+                // Intercambiar posiciones entre ambos titulares en la pizarra
+                swapStartingPlayer(tacticsSelectedPlayer.id, p.id);
+                clearAllSelections();
+              } else {
+                // Si pulsas en el mismo jugador, se deselecciona; si no, se selecciona para cambiarlo
+                setTacticsSelectedPlayer((prev) => (prev?.id === p.id ? null : p));
+                setSelectedReserveForBench(null);
+                setSelectedBenchForReserve(null);
+              }
             }}
             onPitchClick={clearAllSelections}
           />
@@ -311,7 +334,8 @@ export const TacticsView: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-300">
-                  Haz clic en el botón <b>&quot;Meter por {tacticsSelectedPlayer.name.split(' ').pop()}&quot;</b> en cualquiera de los jugadores para meterlo en el 11 titular.
+                  • <b>En la pizarra:</b> Haz clic en cualquier otro titular para intercambiar posiciones entre ellos.<br />
+                  • <b>En el banquillo o reservas:</b> Pulsa en <b>&quot;Meter por {tacticsSelectedPlayer.name.split(' ').pop()}&quot;</b> para sustituirlo.
                 </p>
               </div>
             )}
