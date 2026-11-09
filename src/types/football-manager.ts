@@ -43,6 +43,7 @@ export interface Player {
   marketValueYen: number;
   weeklyWageYen: number;
   contractYears: number;
+  isTransferListed?: boolean;
   injuryWeeks: number;
   isBanned: boolean;
   yellowCardsCount: number;

@@ -1,13 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameStore } from '@/store/game-store';
 import clsx from 'clsx';
-import { Zap, TrendingUp, AlertTriangle, Star } from 'lucide-react';
+import { Zap, TrendingUp, AlertTriangle, Star, Tag, Users, UserCheck } from 'lucide-react';
 import { formatMoney } from '@/lib/currency';
+import { Player } from '@/types/football-manager';
+import { PlayerDetailModal } from './PlayerDetailModal';
 
 export const SquadView: React.FC = () => {
   const { userClubId, clubs, players, selectedCurrency } = useGameStore();
+  const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
   const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
   const userPlayers = players.filter((p) => p.clubId === userClubId);
@@ -50,16 +53,33 @@ export const SquadView: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+      {/* CABECERA CON LÍMITE REGLAMENTARIO DE 25 JUGADORES */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h3 className="text-xl font-black text-white">
-            Plantilla del Primer Equipo ({userPlayers.length} jugadores)
-          </h3>
-          <p className="text-xs text-slate-400">
-            Los jugadores que juegan partidos aumentan su media hacia su potencial. Los que pasan semanas en el banquillo se estancan y pierden potencial.
+          <div className="flex items-center gap-3 flex-wrap">
+            <h3 className="text-xl font-black text-white">
+              Plantilla del Primer Equipo
+            </h3>
+            <span
+              className={clsx(
+                'px-3 py-1 rounded-full text-xs font-mono font-black border flex items-center gap-1.5 shadow-sm',
+                userPlayers.length >= 25
+                  ? 'bg-rose-950/80 border-rose-500/70 text-rose-300 animate-pulse'
+                  : userPlayers.length >= 22
+                  ? 'bg-amber-950/70 border-amber-500/60 text-amber-300'
+                  : 'bg-cyan-950/70 border-cyan-500/50 text-cyan-300'
+              )}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Plantilla: {userPlayers.length} / 25 jugadores
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Límite reglamentario de 25 fichas. Haz click <b>únicamente en el nombre</b> de cualquier jugador para abrir su expediente, renovar contrato o ponerlo en venta.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs">
+
+        <div className="flex items-center gap-2 text-xs flex-wrap">
           <span className="px-2.5 py-1 bg-amber-950/50 border border-amber-500/40 text-amber-300 rounded-lg font-bold flex items-center gap-1">
             🌟 95+ Mundial
           </span>
@@ -69,13 +89,26 @@ export const SquadView: React.FC = () => {
         </div>
       </div>
 
+      {/* ADVERTENCIA DE LÍMITE DE PLANTILLA ALCANZADO */}
+      {userPlayers.length >= 25 && (
+        <div className="p-3.5 bg-rose-950/50 border border-rose-500/50 rounded-2xl flex items-center justify-between text-xs text-rose-300 font-semibold shadow-lg">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>
+              <b>Plantilla al completo (25/25):</b> No podrás fichar nuevos jugadores ni promocionar promesas de la cantera hasta vender a futbolistas en su menú personal para liberar plazas.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* TABLA DE JUGADORES */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
               <tr>
                 <th className="p-3">Pos</th>
-                <th className="p-3">Jugador</th>
+                <th className="p-3">Jugador (Click en nombre para expediente)</th>
                 <th className="p-3">Edad</th>
                 <th className="p-3">Media Actual</th>
                 <th className="p-3 text-center">Potencial Máx</th>
@@ -94,6 +127,7 @@ export const SquadView: React.FC = () => {
                   const tier = getPotentialTier(player.potential);
                   const isStagnating = (player.consecutiveMatchesWithoutPlaying || 0) >= 3;
                   const isWasted = (player.consecutiveMatchesWithoutPlaying || 0) >= 6;
+                  const isExpiring = player.contractYears <= 1;
 
                   return (
                     <tr
@@ -106,8 +140,29 @@ export const SquadView: React.FC = () => {
                         </span>
                       </td>
                       <td className="p-3">
-                        <div className="font-bold text-white text-sm flex items-center gap-1.5">
-                          {player.name}
+                        <div className="font-bold text-white text-sm flex items-center gap-1.5 flex-wrap">
+                          {/* CLICK SOLO EN EL NOMBRE */}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPlayer(player)}
+                            className="font-bold text-white hover:text-cyan-400 cursor-pointer underline-offset-2 hover:underline transition-colors text-left"
+                            title={`Abrir expediente completo de ${player.name}`}
+                          >
+                            {player.name}
+                          </button>
+
+                          {player.isTransferListed && (
+                            <span className="text-[9px] bg-amber-950/80 text-amber-300 border border-amber-500/50 px-1.5 py-0.2 rounded font-bold">
+                              🏷️ En Venta
+                            </span>
+                          )}
+
+                          {isExpiring && (
+                            <span className="text-[9px] bg-rose-950/80 text-rose-300 border border-rose-500/50 px-1.5 py-0.2 rounded font-bold animate-pulse">
+                              ⚠️ 1 año
+                            </span>
+                          )}
+
                           {userClub.captainId === player.id && (
                             <span className="text-[9px] bg-yellow-500 text-black px-1 rounded font-black">C</span>
                           )}
@@ -125,7 +180,7 @@ export const SquadView: React.FC = () => {
                       </td>
                       {/* COLUMNA POTENCIAL DEDICADA */}
                       <td className="p-3 text-center">
-                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-mono font-black shadow-sm" style={{}}>
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-mono font-black shadow-sm">
                           <span className={clsx('px-2 py-0.5 rounded-md border font-black text-xs flex items-center gap-1', tier.color)}>
                             <span>{tier.icon}</span>
                             <span>{player.potential}</span>
@@ -194,6 +249,14 @@ export const SquadView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* MODAL DETALLADO DE EXPEDIENTE DEL JUGADOR */}
+      {selectedPlayer && (
+        <PlayerDetailModal
+          player={selectedPlayer}
+          onClose={() => setSelectedPlayer(null)}
+        />
+      )}
     </div>
   );
 };

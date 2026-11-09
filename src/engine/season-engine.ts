@@ -358,16 +358,34 @@ export function advanceToNextSeason(
       newStats[key] = Math.min(99, Math.max(30, newStats[key] + growth));
     });
 
+    // Contrato y expiración para jugadores del usuario
+    const isUserPlayer = p.clubId === userClubId;
+    let finalClubId = p.clubId;
+    let finalContractYears = Math.max(0, p.contractYears - 1);
+    let finalTransferListed = p.isTransferListed;
+
+    // Si el jugador pertenecía al usuario y su contrato finalizó (era de 1 año o menos al acabar la temporada):
+    if (isUserPlayer && p.contractYears <= 1) {
+      // El jugador abandona el club libre y firma por un club rival
+      const rivalClubs = clubs.filter((c) => c.id !== userClubId);
+      const destinationClub = rivalClubs[Math.floor(Math.random() * rivalClubs.length)] || rivalClubs[0];
+      finalClubId = destinationClub.id;
+      finalContractYears = 3;
+      finalTransferListed = false;
+    }
+
     return {
       ...p,
       age,
+      clubId: finalClubId,
       overall: newOvr,
       potential: newPotential,
       stats: newStats,
       fitness: 100,
       morale: matchesPlayed >= 10 ? 85 : 65,
       form: 75,
-      contractYears: Math.max(0, p.contractYears - 1),
+      contractYears: finalContractYears,
+      isTransferListed: finalTransferListed,
       injuryWeeks: 0,
       isBanned: false,
       yellowCardsCount: 0,
@@ -386,10 +404,28 @@ export function advanceToNextSeason(
   const evolvedClubs: Club[] = clubs.map((c) => {
     const pos = table.findIndex((r) => r.clubId === c.id) + 1;
     const prize = prizePool[pos - 1] || 50000000;
+
+    let startingXI = [...c.startingXI];
+    let substitutes = [...c.substitutes];
+
+    // Si es el club del usuario, depurar el once y banquillo de jugadores que expiraron contrato
+    if (c.id === userClubId) {
+      startingXI = startingXI.filter((id) => {
+        const player = evolvedPlayers.find((p) => p.id === id);
+        return player && player.clubId === userClubId;
+      });
+      substitutes = substitutes.filter((id) => {
+        const player = evolvedPlayers.find((p) => p.id === id);
+        return player && player.clubId === userClubId;
+      });
+    }
+
     return {
       ...c,
       cashYen: c.cashYen + prize,
       budgetYen: Math.round(c.budgetYen * 0.9) + Math.round(prize * 0.7),
+      startingXI,
+      substitutes,
     };
   });
 

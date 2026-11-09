@@ -80,6 +80,7 @@ export interface GameStoreState {
   setTrainingPlan: (plan: GameStoreState['trainingPlan']) => void;
   promoteYouthPlayer: () => { success: boolean; message: string };
   makeBuyOffer: (playerId: string, feeYen: number, wageYen: number, years: number) => { success: boolean; message: string };
+  toggleTransferListed: (playerId: string) => void;
   acceptSellOffer: (offerId: string) => void;
   rejectSellOffer: (offerId: string) => void;
   renewPlayerContract: (playerId: string, newWageYen: number, addYears: number) => { success: boolean; message: string };
@@ -560,11 +561,42 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       isSimulated: isSimulation,
     };
 
+    // Generar ofertas automáticas de compra de la IA para jugadores puestos en venta
+    const currentOffers = [...get().transferOffers];
+    const listedPlayers = finalPlayers.filter(
+      (p) => p.clubId === userClubId && p.isTransferListed && !currentOffers.some((o) => o.playerId === p.id && o.status === 'pending')
+    );
+
+    listedPlayers.forEach((lp) => {
+      if (Math.random() < 0.75) {
+        const rivalClubs = updatedClubs.filter((c) => c.id !== userClubId);
+        if (rivalClubs.length > 0) {
+          const buyer = rivalClubs[Math.floor(Math.random() * rivalClubs.length)];
+          const mult = 0.88 + Math.random() * 0.32;
+          currentOffers.push({
+            id: `sell-offer-${Date.now()}-${lp.id}-${buyer.id}`,
+            playerId: lp.id,
+            playerName: lp.name,
+            sellerClubId: userClubId,
+            buyerClubId: buyer.id,
+            buyerClubName: buyer.name,
+            offeredFeeYen: Math.round(lp.marketValueYen * mult),
+            offeredWageYen: Math.round(lp.weeklyWageYen * 1.15),
+            contractYears: 3,
+            status: 'pending',
+            dateStr: `Jornada ${currentRound}`,
+            isFromUser: false,
+          });
+        }
+      }
+    });
+
     set({
       fixtures: finalFixtures,
       players: finalPlayers,
       clubs: updatedClubs,
       ledger: updatedLedger,
+      transferOffers: currentOffers,
       boardTrust: newBoardTrust,
       squadMorale: newSquadMorale,
       currentRound: isSeasonCompleted ? currentRound : currentRound + 1,
@@ -676,6 +708,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       return { success: false, message: 'Ya has promocionado a una promesa de la cantera esta temporada.' };
     }
 
+    const userPlayers = players.filter((p) => p.clubId === userClubId);
+    if (userPlayers.length >= 25) {
+      return {
+        success: false,
+        message: 'Límite de plantilla alcanzado (25/25 jugadores). Debes poner jugadores en la lista de transferibles y venderlos para hacer hueco a la cantera.',
+      };
+    }
+
     const userClub = clubs.find((c) => c.id === userClubId);
     const promotionCost = 60000000; // 60M Yen
     if (!userClub || userClub.cashYen < promotionCost) {
@@ -777,6 +817,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const userClub = clubs.find((c) => c.id === userClubId);
     if (!player || !userClub) return { success: false, message: 'Datos inválidos.' };
 
+    const userPlayers = players.filter((p) => p.clubId === userClubId);
+    if (userPlayers.length >= 25) {
+      return {
+        success: false,
+        message: 'Límite de plantilla alcanzado (25/25 jugadores). No puedes incorporar más futbolistas; pon a jugadores en lista de transferibles y acéptales ofertas para liberar plazas.',
+      };
+    }
+
     if (player.clubId === userClubId) {
       return { success: false, message: 'Este jugador ya pertenece a tu club.' };
     }
@@ -865,7 +913,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const player = players.find((p) => p.id === offer.playerId);
     if (!player) return;
 
-    const updatedPlayers = players.map((p) => (p.id === offer.playerId ? { ...p, clubId: offer.buyerClubId } : p));
+    const updatedPlayers = players.map((p) =>
+      p.id === offer.playerId ? { ...p, clubId: offer.buyerClubId, isTransferListed: false } : p
+    );
 
     const updatedClubs = clubs.map((c) => {
       if (c.id === userClubId) {
@@ -875,6 +925,12 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           budgetYen: c.budgetYen + Math.round(offer.offeredFeeYen * 0.8),
           startingXI: c.startingXI.filter((id) => id !== offer.playerId),
           substitutes: c.substitutes.filter((id) => id !== offer.playerId),
+        };
+      }
+      if (c.id === offer.buyerClubId) {
+        return {
+          ...c,
+          substitutes: [...c.substitutes, offer.playerId],
         };
       }
       return c;
@@ -907,6 +963,19 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     set((state) => ({
       transferOffers: state.transferOffers.filter((o) => o.id !== offerId),
     }));
+    get().saveToStorage();
+  },
+
+  toggleTransferListed: (playerId) => {
+    const { players, userClubId } = get();
+    const player = players.find((p) => p.id === playerId);
+    if (!player || player.clubId !== userClubId) return;
+
+    const nextStatus = !player.isTransferListed;
+    const updatedPlayers = players.map((p) =>
+      p.id === playerId ? { ...p, isTransferListed: nextStatus } : p
+    );
+    set({ players: updatedPlayers });
     get().saveToStorage();
   },
 

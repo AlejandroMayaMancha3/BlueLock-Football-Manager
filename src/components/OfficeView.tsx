@@ -1,11 +1,25 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameStore } from '@/store/game-store';
-import { Calendar, Play, Sparkles, ArrowRight, Shield, FastForward, FileText } from 'lucide-react';
+import {
+  Calendar,
+  Play,
+  Sparkles,
+  ArrowRight,
+  Shield,
+  FastForward,
+  FileText,
+  DollarSign,
+  Check,
+  X,
+  UserCheck,
+  Tag,
+} from 'lucide-react';
 import clsx from 'clsx';
-import { LeagueTableRow } from '@/types/football-manager';
-import { formatTextWithCurrency } from '@/lib/currency';
+import { LeagueTableRow, Player } from '@/types/football-manager';
+import { formatMoney, formatTextWithCurrency } from '@/lib/currency';
+import { PlayerDetailModal } from './PlayerDetailModal';
 
 interface OfficeViewProps {
   leagueTable: LeagueTableRow[];
@@ -17,6 +31,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
     currentRound,
     userClubId,
     clubs,
+    players,
     boardTrust,
     squadMorale,
     trainingPlan,
@@ -24,6 +39,9 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
     selectedCurrency,
     fixtures,
     lastMatchSummary,
+    transferOffers,
+    acceptSellOffer,
+    rejectSellOffer,
     openLastMatchSummary,
     startMatchDay,
     simulateFullMatchDay,
@@ -31,6 +49,8 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
     proceedToNextSeason,
     setActiveTab,
   } = useGameStore();
+
+  const [inspectingPlayer, setInspectingPlayer] = useState<Player | null>(null);
 
   const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
   const nextUserFixture = fixtures.find(
@@ -46,9 +66,122 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
       )
     : null;
 
+  // Ofertas de compra recibidas por jugadores del usuario que están pendientes
+  const receivedOffers = transferOffers.filter(
+    (o) => o.sellerClubId === userClubId && o.status === 'pending'
+  );
+
   return (
     <div className="space-y-6">
-      {/* 1. DILEMA NARRATIVO ACTIVO */}
+      {/* 1. NOTIFICACIONES DE OFERTAS DE COMPRA RECIBIDAS (TEMPORALES HASTA ACEPTAR O RECHAZAR) */}
+      {receivedOffers.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/40 border-2 border-amber-500/60 rounded-2xl p-6 shadow-2xl space-y-4 animate-fadeIn">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/30 pb-3">
+            <div className="flex items-center gap-2 text-amber-400 font-mono text-xs font-bold uppercase tracking-wider">
+              <DollarSign className="w-4 h-4" /> Ofertas de Compra Recibidas en Despacho ({receivedOffers.length})
+            </div>
+            <span className="text-[11px] font-bold text-amber-300 bg-amber-950/80 border border-amber-500/50 px-2.5 py-0.5 rounded-full inline-block">
+              Mercado Activo · Temporal
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Clubes rivales de la Neo Egoist League han presentado ofertas oficiales de compra por jugadores de tu plantilla.
+            Al aceptar una venta, el jugador se incorporará al club comprador, liberarás una plaza de las 25 reglamentarias y el 80% del importe se sumará a tu presupuesto de fichajes.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-1">
+            {receivedOffers.map((offer) => {
+              const player = players.find((p) => p.id === offer.playerId);
+              const buyer = clubs.find((c) => c.id === offer.buyerClubId);
+
+              return (
+                <div
+                  key={offer.id}
+                  className="p-4 bg-slate-950/90 border border-amber-500/40 hover:border-amber-400/80 rounded-xl flex flex-col justify-between gap-3 shadow-lg transition-all"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {buyer && (
+                        <div
+                          className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm shadow border border-white/20 shrink-0"
+                          style={{ backgroundColor: buyer.primaryColor, color: buyer.secondaryColor }}
+                        >
+                          {buyer.shortName}
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => player && setInspectingPlayer(player)}
+                            className="text-white font-black text-sm hover:text-cyan-400 underline-offset-2 hover:underline transition-colors text-left"
+                            title="Ver expediente del jugador"
+                          >
+                            {offer.playerName}
+                          </button>
+                          {player && (
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300 border border-slate-700">
+                              {player.position} · OVR {player.overall}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-400 mt-0.5">
+                          Interés formal de <span className="text-slate-200 font-semibold">{offer.buyerClubName}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <div className="text-[10px] text-slate-400 font-bold uppercase">Oferta</div>
+                      <div className="text-base font-black font-mono text-emerald-400">
+                        {formatMoney(offer.offeredFeeYen, selectedCurrency)}
+                      </div>
+                      {player && (
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          Val: {formatMoney(player.marketValueYen, selectedCurrency)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                    {player && (
+                      <button
+                        type="button"
+                        onClick={() => setInspectingPlayer(player)}
+                        className="text-xs text-cyan-400 hover:text-cyan-300 font-bold hover:underline flex items-center gap-1"
+                      >
+                        <UserCheck className="w-3.5 h-3.5" />
+                        Ver Expediente
+                      </button>
+                    )}
+                    <div className="flex items-center gap-2 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => acceptSellOffer(offer.id)}
+                        className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-lg shadow transition-all flex items-center gap-1"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        Aceptar Venta
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => rejectSellOffer(offer.id)}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-rose-950 hover:text-rose-300 text-slate-300 font-bold text-xs rounded-lg border border-slate-700 transition-all"
+                      >
+                        Rechazar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 2. DILEMA NARRATIVO ACTIVO */}
       {activeDecisionEvent && (
         <div className="bg-gradient-to-r from-purple-950/60 via-slate-900 to-slate-900 border-2 border-purple-500/50 rounded-2xl p-6 shadow-2xl space-y-4">
           <div className="flex items-center gap-2 text-purple-400 font-mono text-xs font-bold uppercase tracking-wider">
@@ -73,7 +206,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
         </div>
       )}
 
-      {/* 2. TARJETA DEL PRÓXIMO ENCUENTRO */}
+      {/* 3. TARJETA DEL PRÓXIMO ENCUENTRO */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
@@ -166,7 +299,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
         )}
       </div>
 
-      {/* 3. RESUMEN DE LA DIRECTIVA Y PLAN SEMANAL */}
+      {/* 4. RESUMEN DE LA DIRECTIVA Y PLAN SEMANAL */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Objetivo de la Directiva</h4>
@@ -220,6 +353,14 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
           </div>
         </div>
       </div>
+
+      {/* MODAL EXPEDIENTE SI SE PULSA DESDE OFERTAS EN DESPACHO */}
+      {inspectingPlayer && (
+        <PlayerDetailModal
+          player={inspectingPlayer}
+          onClose={() => setInspectingPlayer(null)}
+        />
+      )}
     </div>
   );
 };
