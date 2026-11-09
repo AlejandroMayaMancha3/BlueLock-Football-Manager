@@ -15,6 +15,8 @@ import {
   Currency,
   MatchSummaryData,
   PlayerPerformanceSummary,
+  Position,
+  IndividualTrainingFocus,
 } from '@/types/football-manager';
 import { generateInitialClubsAndPlayers } from '@/engine/game-data';
 import {
@@ -31,6 +33,7 @@ import {
 } from '@/engine/match-engine-2d';
 import { shouldAwakenWeapon, generateContextualWeapon } from '@/engine/weapon-registry';
 import { optimizeLineupPositions, selectBest11FromSquad } from '@/engine/position-engine';
+import { startPositionConversion, cancelPositionConversion } from '@/engine/training-engine';
 import { DECISION_EVENTS_POOL } from '@/engine/events-data';
 import { formatMoney } from '@/lib/currency';
 
@@ -85,6 +88,9 @@ export interface GameStoreState {
   autoSelectBestSquadLineup: () => void;
   setRole: (role: 'captain' | 'penalty' | 'freekick', playerId: string) => void;
   setTrainingPlan: (plan: GameStoreState['trainingPlan']) => void;
+  setPlayerTrainingFocus: (playerId: string, focus: IndividualTrainingFocus) => void;
+  startPositionConversion: (playerId: string, targetPosition: Position) => void;
+  cancelPositionConversion: (playerId: string) => void;
   promoteYouthPlayer: () => { success: boolean; message: string };
   makeBuyOffer: (playerId: string, feeYen: number, wageYen: number, years: number) => { success: boolean; message: string };
   toggleTransferListed: (playerId: string) => void;
@@ -361,6 +367,46 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const playerPerformances: PlayerPerformanceSummary[] = [];
 
     const finalPlayers = updatedPlayers.map((p) => {
+      // 0. Si el futbolista pertenece al club del usuario, procesar plan de entrenamiento individual y conversión
+      let updatedPos = p.position;
+      let updatedSec = p.secondaryPosition;
+      let updatedConversion = p.positionConversion ? { ...p.positionConversion } : null;
+      let updatedStats = { ...p.stats };
+
+      if (p.clubId === userClubId && updatedConversion) {
+        updatedConversion.weeksElapsed += 1;
+        if (updatedConversion.weeksElapsed >= updatedConversion.totalWeeks) {
+          const oldPos = updatedPos;
+          updatedPos = updatedConversion.targetPosition;
+          updatedSec = oldPos;
+          updatedConversion = null;
+
+          liveMatch.events.unshift({
+            minute: 90,
+            type: 'commentary',
+            teamId: p.clubId,
+            playerId: p.id,
+            playerName: p.name,
+            description: `🎓 ¡CONVERSIÓN DE POSICIÓN COMPLETADA! ${p.name} culmina su plan de entrenamiento y su nueva posición oficial es [${updatedPos}].`,
+            ballZone: { x: 50, y: 50 },
+          });
+        }
+      }
+
+      if (p.clubId === userClubId && p.trainingFocus) {
+        if (p.trainingFocus === 'finishing' && Math.random() < 0.35) {
+          updatedStats.shooting = Math.min(99, updatedStats.shooting + 1);
+        } else if (p.trainingFocus === 'playmaking' && Math.random() < 0.35) {
+          updatedStats.passing = Math.min(99, updatedStats.passing + 1);
+        } else if (p.trainingFocus === 'dribbling_pace' && Math.random() < 0.35) {
+          updatedStats.pace = Math.min(99, updatedStats.pace + 1);
+        } else if (p.trainingFocus === 'defending_physical' && Math.random() < 0.35) {
+          updatedStats.defense = Math.min(99, updatedStats.defense + 1);
+        } else if (p.trainingFocus === 'goalkeeping_reflexes' && Math.random() < 0.35) {
+          updatedStats.goalkeeping = Math.min(99, updatedStats.goalkeeping + 1);
+        }
+      }
+
       // Un jugador participó si fue titular o entró como suplente (tiene valoración en playerRatings)
       const userPlayed = p.clubId === userClubId && liveMatch.playerRatings[p.id] !== undefined;
       if (userPlayed) {
@@ -500,6 +546,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
         return {
           ...p,
+          position: updatedPos,
+          secondaryPosition: updatedSec,
+          positionConversion: updatedConversion,
+          stats: updatedStats,
           overall: currentOvr,
           potential: currentPot,
           weapons: currentWeapons,
@@ -544,6 +594,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
         return {
           ...p,
+          position: updatedPos,
+          secondaryPosition: updatedSec,
+          positionConversion: updatedConversion,
+          stats: updatedStats,
           consecutiveMatchesWithoutPlaying: unplayed,
           overall: newOvr,
           potential: newPot,
@@ -958,6 +1012,39 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   setTrainingPlan: (plan) => {
     set({ trainingPlan: plan });
+    get().saveToStorage();
+  },
+
+  setPlayerTrainingFocus: (playerId, focus) => {
+    const { players, userClubId } = get();
+    const updated = players.map((p) =>
+      p.id === playerId && p.clubId === userClubId ? { ...p, trainingFocus: focus } : p
+    );
+    set({ players: updated });
+    get().saveToStorage();
+  },
+
+  startPositionConversion: (playerId, targetPosition) => {
+    const { players, userClubId } = get();
+    const updated = players.map((p) => {
+      if (p.id === playerId && p.clubId === userClubId) {
+        return startPositionConversion(p, targetPosition);
+      }
+      return p;
+    });
+    set({ players: updated });
+    get().saveToStorage();
+  },
+
+  cancelPositionConversion: (playerId) => {
+    const { players, userClubId } = get();
+    const updated = players.map((p) => {
+      if (p.id === playerId && p.clubId === userClubId) {
+        return cancelPositionConversion(p);
+      }
+      return p;
+    });
+    set({ players: updated });
     get().saveToStorage();
   },
 

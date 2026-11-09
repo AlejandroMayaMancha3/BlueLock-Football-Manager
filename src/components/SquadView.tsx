@@ -253,6 +253,15 @@ export const SquadView: React.FC = () => {
                           </span>
                         )}
 
+                        {player.positionConversion && (
+                          <span
+                            className="text-[9px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/50 px-1.5 py-0.2 rounded font-bold flex items-center gap-0.5 shadow-sm"
+                            title={`Plan de reconversión de posición activo: ${player.position} → ${player.positionConversion.targetPosition} (Semana ${player.positionConversion.weeksElapsed}/${player.positionConversion.totalWeeks})`}
+                          >
+                            🔄 → {player.positionConversion.targetPosition} ({Math.round((player.positionConversion.weeksElapsed / player.positionConversion.totalWeeks) * 100)}%)
+                          </span>
+                        )}
+
                         {player.isTransferListed && (
                           <span className="text-[9px] bg-amber-950/80 text-amber-300 border border-amber-500/50 px-1.5 py-0.2 rounded font-bold">
                             🏷️ En Venta

@@ -1,6 +1,20 @@
 export type Position = 'POR' | 'DFC' | 'LI' | 'LD' | 'MCD' | 'MC' | 'MCO' | 'EI' | 'ED' | 'DC';
 export type Currency = 'EUR' | 'USD' | 'JPY' | 'GBP';
 
+export type IndividualTrainingFocus =
+  | 'balanced'
+  | 'finishing'
+  | 'playmaking'
+  | 'dribbling_pace'
+  | 'defending_physical'
+  | 'goalkeeping_reflexes';
+
+export interface PositionConversionPlan {
+  targetPosition: Position;
+  totalWeeks: number;
+  weeksElapsed: number;
+}
+
 export type TacticalMentalidad = 'muy_defensiva' | 'defensiva' | 'equilibrada' | 'ofensiva' | 'ultra_ofensiva';
 export type TacticalPresion = 'baja' | 'media' | 'alta';
 export type TacticalPase = 'directo' | 'posesion' | 'contraataque';
@@ -44,6 +58,8 @@ export interface Player {
   weeklyWageYen: number;
   contractYears: number;
   isTransferListed?: boolean;
+  trainingFocus?: IndividualTrainingFocus;
+  positionConversion?: PositionConversionPlan | null;
   injuryWeeks: number;
   isBanned: boolean;
   yellowCardsCount: number;
