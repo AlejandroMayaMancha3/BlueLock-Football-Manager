@@ -5,16 +5,26 @@ import { useGameStore } from '@/store/game-store';
 import { Search } from 'lucide-react';
 import clsx from 'clsx';
 import { Player } from '@/types/football-manager';
-import { formatMoney } from '@/lib/currency';
+import {
+  formatMoney,
+  convertFromYen,
+  convertToYen,
+  formatWithSpaces,
+  parseNumberFromSpaces,
+  CURRENCIES,
+} from '@/lib/currency';
 
 export const MarketView: React.FC = () => {
   const { currentRound, userClubId, clubs, players, selectedCurrency, makeBuyOffer } = useGameStore();
 
+  const userClub = clubs.find((c) => c.id === userClubId);
+  const currencyCfg = CURRENCIES[selectedCurrency] || CURRENCIES.EUR;
+
   const [marketSearch, setMarketSearch] = useState('');
   const [marketPosFilter, setMarketPosFilter] = useState('ALL');
   const [selectedMarketPlayer, setSelectedMarketPlayer] = useState<Player | null>(null);
-  const [offerFee, setOfferFee] = useState<number>(50000000);
-  const [offerWage, setOfferWage] = useState<number>(1500000);
+  const [offerFee, setOfferFee] = useState<number>(0);
+  const [offerWage, setOfferWage] = useState<number>(0);
   const [offerYears, setOfferYears] = useState<number>(3);
   const [marketFeedback, setMarketFeedback] = useState<{ success: boolean; msg: string } | null>(null);
 
@@ -145,8 +155,10 @@ export const MarketView: React.FC = () => {
                             type="button"
                             onClick={() => {
                               setSelectedMarketPlayer(p);
-                              setOfferFee(p.marketValueYen);
-                              setOfferWage(Math.round(p.weeklyWageYen * 1.15));
+                              const initialFee = convertFromYen(p.marketValueYen, selectedCurrency);
+                              const initialWage = convertFromYen(Math.round(p.weeklyWageYen * 1.15), selectedCurrency);
+                              setOfferFee(initialFee);
+                              setOfferWage(initialWage);
                               setMarketFeedback(null);
                             }}
                             className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs rounded-lg shadow transition-all"
@@ -203,29 +215,57 @@ export const MarketView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-slate-400 block mb-1 font-bold">
-                  Oferta de Traspaso al Club ({formatMoney(offerFee, selectedCurrency)}):
-                </label>
-                <input
-                  type="number"
-                  step="1000000"
-                  value={offerFee}
-                  onChange={(e) => setOfferFee(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-xs"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-slate-300 block font-bold text-xs">
+                    Oferta de Traspaso al Club (en {currencyCfg.name}):
+                  </label>
+                  {userClub && (
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      Presupuesto: <strong className="text-cyan-400">{formatMoney(userClub.budgetYen, selectedCurrency)}</strong>
+                    </span>
+                  )}
+                </div>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-cyan-400 font-bold font-mono text-sm pointer-events-none select-none">
+                    {currencyCfg.symbol}
+                  </span>
+                  <input
+                    type="text"
+                    value={formatWithSpaces(offerFee)}
+                    onChange={(e) => {
+                      const num = parseNumberFromSpaces(e.target.value);
+                      setOfferFee(num);
+                    }}
+                    placeholder="0"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-xl pl-8 pr-4 py-2.5 text-white font-mono text-sm tracking-widest transition-all"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="text-slate-400 block mb-1 font-bold">
-                  Salario Semanal Ofrecido ({formatMoney(offerWage, selectedCurrency)}/sem):
-                </label>
-                <input
-                  type="number"
-                  step="100000"
-                  value={offerWage}
-                  onChange={(e) => setOfferWage(Number(e.target.value))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono text-xs"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-slate-300 block font-bold text-xs">
+                    Salario Semanal Ofrecido (en {currencyCfg.name}/semana):
+                  </label>
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    Actual: <strong className="text-yellow-400">{formatMoney(selectedMarketPlayer.weeklyWageYen, selectedCurrency)}/sem</strong>
+                  </span>
+                </div>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-yellow-400 font-bold font-mono text-sm pointer-events-none select-none">
+                    {currencyCfg.symbol}
+                  </span>
+                  <input
+                    type="text"
+                    value={formatWithSpaces(offerWage)}
+                    onChange={(e) => {
+                      const num = parseNumberFromSpaces(e.target.value);
+                      setOfferWage(num);
+                    }}
+                    placeholder="0"
+                    className="w-full bg-slate-950 border border-slate-800 focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 rounded-xl pl-8 pr-4 py-2.5 text-white font-mono text-sm tracking-widest transition-all"
+                  />
+                </div>
               </div>
 
               <div>
@@ -254,7 +294,9 @@ export const MarketView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  const res = makeBuyOffer(selectedMarketPlayer.id, offerFee, offerWage, offerYears);
+                  const feeYen = convertToYen(offerFee, selectedCurrency);
+                  const wageYen = convertToYen(offerWage, selectedCurrency);
+                  const res = makeBuyOffer(selectedMarketPlayer.id, feeYen, wageYen, offerYears);
                   setMarketFeedback({ success: res.success, msg: res.message });
                   if (res.success) setSelectedMarketPlayer(null);
                 }}

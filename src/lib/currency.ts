@@ -110,3 +110,25 @@ export function formatTextWithCurrency(text: string, currency: Currency = 'EUR')
   });
 }
 
+/**
+ * Formatea un número separando cada 3 cifras con un espacio para máxima claridad visual
+ * (ej: 1000000 -> "1 000 000", 28750 -> "28 750")
+ */
+export function formatWithSpaces(val: number | string | undefined | null): string {
+  if (val === undefined || val === null || val === '') return '';
+  const cleanStr = String(val).replace(/\D/g, '');
+  if (!cleanStr) return '';
+  const normalized = cleanStr.replace(/^0+(?=\d)/, '');
+  return normalized.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+/**
+ * Extrae el valor numérico entero a partir de un texto con espacios
+ */
+export function parseNumberFromSpaces(str: string | undefined | null): number {
+  if (!str) return 0;
+  const clean = String(str).replace(/\D/g, '');
+  return clean ? parseInt(clean, 10) : 0;
+}
+
+
