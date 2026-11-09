@@ -5,6 +5,7 @@ import { useGameStore } from '@/store/game-store';
 import { Calendar, Play, Sparkles, ArrowRight, Shield } from 'lucide-react';
 import clsx from 'clsx';
 import { LeagueTableRow } from '@/types/football-manager';
+import { formatTextWithCurrency } from '@/lib/currency';
 
 interface OfficeViewProps {
   leagueTable: LeagueTableRow[];
@@ -20,6 +21,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
     squadMorale,
     trainingPlan,
     activeDecisionEvent,
+    selectedCurrency,
     fixtures,
     startMatchDay,
     answerDecisionEvent,
@@ -49,8 +51,8 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
           <div className="flex items-center gap-2 text-purple-400 font-mono text-xs font-bold uppercase tracking-wider">
             <Sparkles className="w-4 h-4" /> Dilema de Vestuario / Consecuencias
           </div>
-          <h3 className="text-xl font-black text-white">{activeDecisionEvent.title}</h3>
-          <p className="text-sm text-slate-300 leading-relaxed">{activeDecisionEvent.narrative}</p>
+          <h3 className="text-xl font-black text-white">{formatTextWithCurrency(activeDecisionEvent.title, selectedCurrency)}</h3>
+          <p className="text-sm text-slate-300 leading-relaxed">{formatTextWithCurrency(activeDecisionEvent.narrative, selectedCurrency)}</p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
             {activeDecisionEvent.options.map((opt, idx) => (
@@ -60,8 +62,8 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
                 onClick={() => answerDecisionEvent(idx)}
                 className="p-4 rounded-xl bg-slate-950/80 border border-purple-800/40 hover:border-purple-400 text-left transition-all hover:scale-[1.02] space-y-1"
               >
-                <div className="font-bold text-white text-sm">{opt.label}</div>
-                <div className="text-xs text-slate-400">{opt.description}</div>
+                <div className="font-bold text-white text-sm">{formatTextWithCurrency(opt.label, selectedCurrency)}</div>
+                <div className="text-xs text-slate-400">{formatTextWithCurrency(opt.description, selectedCurrency)}</div>
               </button>
             ))}
           </div>

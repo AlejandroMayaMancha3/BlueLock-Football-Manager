@@ -28,6 +28,7 @@ import {
   executeLiveSub,
 } from '@/engine/match-engine-2d';
 import { DECISION_EVENTS_POOL } from '@/engine/events-data';
+import { formatMoney } from '@/lib/currency';
 
 const STORAGE_KEY = 'bluelock_football_manager_v2';
 
@@ -299,12 +300,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     // 4. Update stats for user players from the live match
     const userIsHome = liveMatch.homeClub.id === userClubId;
-    const userLineup = userIsHome ? liveMatch.homeLineup : liveMatch.awayLineup;
     const userWon = userIsHome ? liveMatch.homeScore > liveMatch.awayScore : liveMatch.awayScore > liveMatch.homeScore;
     const userDrew = liveMatch.homeScore === liveMatch.awayScore;
 
     const finalPlayers = updatedPlayers.map((p) => {
-      if (userLineup.includes(p.id)) {
+      // Un jugador participó si fue titular o entró como suplente (tiene valoración en playerRatings)
+      const userPlayed = p.clubId === userClubId && liveMatch.playerRatings[p.id] !== undefined;
+      if (userPlayed) {
         const rating = liveMatch.playerRatings[p.id] || 6.5;
         // Goals scored by this player
         const playerGoals = liveMatch.events.filter(
@@ -449,18 +451,36 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   updateTactics: (mentalidad, presion, estiloPase) => {
-    const { clubs, userClubId } = get();
+    const { clubs, userClubId, liveMatch } = get();
     const updated = clubs.map((c) =>
       c.id === userClubId ? { ...c, mentalidad, presion, estiloPase } : c
     );
-    set({ clubs: updated });
+    let updatedLiveMatch = liveMatch;
+    if (liveMatch) {
+      const isHome = liveMatch.homeClub.id === userClubId;
+      updatedLiveMatch = {
+        ...liveMatch,
+        homeClub: isHome ? { ...liveMatch.homeClub, mentalidad, presion, estiloPase } : liveMatch.homeClub,
+        awayClub: !isHome ? { ...liveMatch.awayClub, mentalidad, presion, estiloPase } : liveMatch.awayClub,
+      };
+    }
+    set({ clubs: updated, liveMatch: updatedLiveMatch });
     get().saveToStorage();
   },
 
   updateFormation: (formation) => {
-    const { clubs, userClubId } = get();
+    const { clubs, userClubId, liveMatch } = get();
     const updated = clubs.map((c) => (c.id === userClubId ? { ...c, formation } : c));
-    set({ clubs: updated });
+    let updatedLiveMatch = liveMatch;
+    if (liveMatch) {
+      const isHome = liveMatch.homeClub.id === userClubId;
+      updatedLiveMatch = {
+        ...liveMatch,
+        homeClub: isHome ? { ...liveMatch.homeClub, formation } : liveMatch.homeClub,
+        awayClub: !isHome ? { ...liveMatch.awayClub, formation } : liveMatch.awayClub,
+      };
+    }
+    set({ clubs: updated, liveMatch: updatedLiveMatch });
     get().saveToStorage();
   },
 
@@ -520,7 +540,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const userClub = clubs.find((c) => c.id === userClubId);
     const promotionCost = 60000000; // 60M Yen
     if (!userClub || userClub.cashYen < promotionCost) {
-      return { success: false, message: 'Se necesitan al menos 60.000.000 ¥ en caja para la formación del canterano.' };
+      return { success: false, message: `Se necesitan al menos ${formatMoney(60000000, get().selectedCurrency)} en caja para la formación del canterano.` };
     }
 
     const firstNames = ['Seiichi', 'Takuma', 'Kazuya', 'Ryosuke', 'Taiki', 'Shinji', 'Ren'];
@@ -633,14 +653,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (feeYen < minAcceptableFee) {
       return {
         success: false,
-        message: `El club propietario ha rechazado la oferta. Exigen al menos ${(minAcceptableFee).toLocaleString()} ¥.`,
+        message: `El club propietario ha rechazado la oferta. Exigen al menos ${formatMoney(minAcceptableFee, get().selectedCurrency)}.`,
       };
     }
 
     if (wageYen < minAcceptableWage) {
       return {
         success: false,
-        message: `El jugador considera insuficiente el salario propuesto. Solicita al menos ${(minAcceptableWage).toLocaleString()} ¥ semanales.`,
+        message: `El jugador considera insuficiente el salario propuesto. Solicita al menos ${formatMoney(minAcceptableWage, get().selectedCurrency)} semanales.`,
       };
     }
 
@@ -761,7 +781,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (newWageYen < minAcceptableWage) {
       return {
         success: false,
-        message: `El jugador exige un incremento del 15% (mínimo ${(minAcceptableWage).toLocaleString()} ¥/semana).`,
+        message: `El jugador exige un incremento del 15% (mínimo ${formatMoney(minAcceptableWage, get().selectedCurrency)}/semana).`,
       };
     }
 

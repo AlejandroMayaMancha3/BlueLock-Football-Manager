@@ -17,7 +17,7 @@ import {
   Award,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { Player } from '@/types/football-manager';
+import { Player, Formation, TacticalMentalidad } from '@/types/football-manager';
 import { getBaseFormationCoords } from '@/engine/match-engine-2d';
 
 export const LiveMatchView: React.FC = () => {
@@ -29,6 +29,8 @@ export const LiveMatchView: React.FC = () => {
     fastForwardMatch,
     executeMatchSub,
     finishMatchDay,
+    updateFormation,
+    updateTactics,
   } = useGameStore();
 
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -203,12 +205,11 @@ export const LiveMatchView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleOpenSubModal}
-                  disabled={userSubsLeft <= 0}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg shadow-md transition-all disabled:opacity-50"
-                  title="Hacer cambios (pausa el tiempo automáticamente)"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg shadow-md transition-all"
+                  title="Ajustes tácticos y sustituciones (pausa el partido automáticamente)"
                 >
                   <Users className="w-3.5 h-3.5" />
-                  Cambios ({userSubsLeft} disp.)
+                  Táctica y Cambios ({userSubsLeft} subs)
                 </button>
               </>
             ) : (
@@ -494,10 +495,12 @@ export const LiveMatchView: React.FC = () => {
               const isGoal = ev.type === 'goal';
               const isFlow = ev.type === 'flow';
               const isSave = ev.type === 'save';
-              const isCard = ev.type === 'yellow_card' || ev.type === 'red_card';
+              const isYellowCard = ev.type === 'yellow_card';
+              const isRedCard = ev.type === 'red_card';
               const isCorner = ev.type === 'corner';
               const isFoul = ev.type === 'foul';
               const isPenalty = ev.type === 'penalty';
+              const isSub = ev.type === 'sub';
 
               return (
                 <div
@@ -510,7 +513,9 @@ export const LiveMatchView: React.FC = () => {
                       ? 'bg-rose-950/50 border-rose-500/70 text-rose-200 ring-1 ring-rose-500/30'
                       : isFlow
                       ? 'bg-cyan-950/40 border-cyan-500/60 text-cyan-200'
-                      : isCard
+                      : isRedCard
+                      ? 'bg-red-950/50 border-red-500/70 text-red-200 ring-1 ring-red-500/30'
+                      : isYellowCard
                       ? 'bg-amber-950/40 border-amber-500/60 text-amber-200'
                       : isSave
                       ? 'bg-emerald-950/40 border-emerald-500/60 text-emerald-200'
@@ -518,6 +523,8 @@ export const LiveMatchView: React.FC = () => {
                       ? 'bg-blue-950/40 border-blue-500/60 text-blue-200'
                       : isFoul
                       ? 'bg-orange-950/40 border-orange-500/60 text-orange-200'
+                      : isSub
+                      ? 'bg-purple-950/40 border-purple-500/60 text-purple-200'
                       : 'bg-slate-950/60 border-slate-800/80 text-slate-300'
                   )}
                 >
@@ -527,9 +534,11 @@ export const LiveMatchView: React.FC = () => {
                     {isPenalty && <span className="text-rose-400 font-bold uppercase tracking-wider">🎯 PENALTI</span>}
                     {isFlow && <span className="text-cyan-400 font-bold uppercase tracking-wider">FLOW STATE</span>}
                     {isSave && <span className="text-emerald-400 font-bold uppercase tracking-wider">PARADA</span>}
-                    {isCard && <span className="text-amber-400 font-bold uppercase tracking-wider">TARJETA</span>}
+                    {isRedCard && <span className="text-red-400 font-bold uppercase tracking-wider">🟥 ROJA</span>}
+                    {isYellowCard && <span className="text-amber-400 font-bold uppercase tracking-wider">🟨 AMARILLA</span>}
                     {isCorner && <span className="text-blue-400 font-bold uppercase tracking-wider">CÓRNER</span>}
                     {isFoul && <span className="text-orange-400 font-bold uppercase tracking-wider">FALTA / TIRO LIBRE</span>}
+                    {isSub && <span className="text-purple-400 font-bold uppercase tracking-wider">🔄 CAMBIO</span>}
                   </div>
                   <div>{ev.description}</div>
                 </div>
@@ -539,83 +548,171 @@ export const LiveMatchView: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL DE SUSTITUCIÓN EN VIVO CON POTENCIAL */}
+      {/* MODAL DE PIZARRA TÁCTICA Y SUSTITUCIONES */}
       {subModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <h3 className="text-lg font-black text-white flex items-center gap-2">
                 <Users className="w-5 h-5 text-cyan-400" />
-                Realizar Sustitución Táctica ({userSubsLeft} disponibles)
+                Pizarra Táctica y Sustituciones ({userSubsLeft} cambios disp.)
               </h3>
               <button
                 type="button"
                 onClick={() => setSubModalOpen(false)}
-                className="text-slate-400 hover:text-white"
+                className="text-slate-400 hover:text-white text-lg font-bold p-1"
               >
                 ✕
               </button>
             </div>
 
-            {/* Paso 1: Seleccionar jugador que sale */}
+            {/* SELECCIÓN DE FORMACIÓN TÁCTICA */}
             <div>
-              <label className="text-xs text-slate-400 block mb-2 font-semibold">
-                1. Selecciona el jugador que sale del campo:
+              <label className="text-xs text-slate-300 block mb-2 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                1. Formación en el Campo (Actual: <span className="text-cyan-400">{userTeam.formation}</span>)
               </label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
-                {userLineup.map((id) => {
-                  const p = playersMap[id];
-                  if (!p) return null;
-                  const isSel = selectedOutPlayerId === id;
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setSelectedOutPlayerId(id)}
-                      className={clsx(
-                        'p-2 rounded-lg border text-left text-xs transition-all',
-                        isSel ? 'border-yellow-400 bg-yellow-950/40' : 'border-slate-800 bg-slate-950 hover:border-slate-700'
-                      )}
-                    >
-                      <div className="font-bold text-white truncate">{p.name}</div>
-                      <div className="text-[10px] text-slate-400">
-                        {p.position} · MED: <b className="text-white">{p.overall}</b> · POT: <b className="text-cyan-400">{p.potential}</b>
-                      </div>
-                      <div className="text-[9px] text-slate-500">Físico: {p.fitness}%</div>
-                    </button>
-                  );
-                })}
+              <div className="grid grid-cols-5 gap-2">
+                {(['4-3-3', '4-2-3-1', '4-4-2', '3-5-2', '5-3-2'] as Formation[]).map((fmt) => (
+                  <button
+                    key={fmt}
+                    type="button"
+                    onClick={() => updateFormation(fmt)}
+                    className={clsx(
+                      'py-2 px-2 text-xs font-black rounded-xl border transition-all text-center',
+                      userTeam.formation === fmt
+                        ? 'bg-cyan-500 text-black border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.5)]'
+                        : 'bg-slate-950/80 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+                    )}
+                  >
+                    {fmt}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Paso 2: Seleccionar suplente que entra */}
-            {selectedOutPlayerId && (
-              <div>
-                <label className="text-xs text-slate-400 block mb-2 font-semibold">
-                  2. Selecciona el suplente que entra:
-                </label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
-                  {userBench.map((id) => {
-                    const p = playersMap[id];
-                    if (!p) return null;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => handleConfirmSub(id)}
-                        className="p-2 rounded-lg border border-slate-800 bg-slate-950 hover:border-cyan-400 hover:bg-cyan-950/30 text-left text-xs transition-all"
-                      >
-                        <div className="font-bold text-cyan-300 truncate">{p.name}</div>
-                        <div className="text-[10px] text-slate-400">
-                          {p.position} · MED: <b className="text-white">{p.overall}</b> · POT: <b className="text-cyan-400">{p.potential}</b>
-                        </div>
-                        <div className="text-[9px] text-slate-500">Físico: {p.fitness}%</div>
-                      </button>
-                    );
-                  })}
-                </div>
+            {/* SELECCIÓN DE MENTALIDAD */}
+            <div>
+              <label className="text-xs text-slate-300 block mb-2 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-yellow-400" />
+                2. Mentalidad Táctica
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                {[
+                  { id: 'muy_defensiva', label: 'Muy Defensiva' },
+                  { id: 'defensiva', label: 'Defensiva' },
+                  { id: 'equilibrada', label: 'Equilibrada' },
+                  { id: 'ofensiva', label: 'Ofensiva' },
+                  { id: 'ultra_ofensiva', label: 'Ultra Ofensiva' },
+                ].map((ment) => (
+                  <button
+                    key={ment.id}
+                    type="button"
+                    onClick={() => updateTactics(ment.id as TacticalMentalidad, userTeam.presion, userTeam.estiloPase)}
+                    className={clsx(
+                      'py-2 px-2 text-xs font-bold rounded-xl border transition-all text-center',
+                      userTeam.mentalidad === ment.id
+                        ? 'bg-yellow-400 text-black border-yellow-300 shadow-[0_0_12px_rgba(250,204,21,0.5)] font-black'
+                        : 'bg-slate-950/80 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+                    )}
+                  >
+                    {ment.label}
+                  </button>
+                ))}
               </div>
-            )}
+            </div>
+
+            {/* SELECCIÓN DE SUSTITUCIONES */}
+            <div className="pt-2 border-t border-slate-800/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-slate-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-purple-400" />
+                  3. Sustituciones Tácticas
+                </label>
+                <span className="text-xs font-mono font-semibold text-purple-300">
+                  {userSubsLeft > 0 ? `${userSubsLeft} cambios disponibles` : 'Sin cambios restantes'}
+                </span>
+              </div>
+
+              {userSubsLeft <= 0 ? (
+                <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-xl text-center text-xs text-slate-400">
+                  Has agotado las 5 sustituciones reglamentarias permitidas para este partido.
+                </div>
+              ) : (
+                <>
+                  {/* Paso 1: Seleccionar jugador que sale */}
+                  <div>
+                    <span className="text-[11px] text-slate-400 block mb-1.5 font-semibold">
+                      A. Selecciona el jugador que sale del campo:
+                    </span>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-36 overflow-y-auto pr-1">
+                      {userLineup.map((id) => {
+                        const p = playersMap[id];
+                        if (!p) return null;
+                        const isSel = selectedOutPlayerId === id;
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setSelectedOutPlayerId(id)}
+                            className={clsx(
+                              'p-2 rounded-xl border text-left text-xs transition-all',
+                              isSel ? 'border-yellow-400 bg-yellow-950/50 shadow-md ring-1 ring-yellow-400' : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+                            )}
+                          >
+                            <div className="font-bold text-white truncate">{p.name}</div>
+                            <div className="text-[10px] text-slate-400">
+                              {p.position} · MED: <b className="text-white">{p.overall}</b> · POT: <b className="text-cyan-400">{p.potential}</b>
+                            </div>
+                            <div className="text-[9px] text-slate-500">Físico: {p.fitness}%</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Paso 2: Seleccionar suplente que entra */}
+                  {selectedOutPlayerId && (
+                    <div className="animate-in fade-in duration-200">
+                      <span className="text-[11px] text-cyan-400 block mb-1.5 font-semibold">
+                        B. Selecciona el suplente que entra al campo:
+                      </span>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-36 overflow-y-auto pr-1">
+                        {userBench.map((id) => {
+                          const p = playersMap[id];
+                          if (!p) return null;
+                          return (
+                            <button
+                              key={id}
+                              type="button"
+                              onClick={() => handleConfirmSub(id)}
+                              className="p-2 rounded-xl border border-slate-800 bg-slate-950 hover:border-cyan-400 hover:bg-cyan-950/30 text-left text-xs transition-all"
+                            >
+                              <div className="font-bold text-cyan-300 truncate">{p.name}</div>
+                              <div className="text-[10px] text-slate-400">
+                                {p.position} · MED: <b className="text-white">{p.overall}</b> · POT: <b className="text-cyan-400">{p.potential}</b>
+                              </div>
+                              <div className="text-[9px] text-slate-500">Físico: {p.fitness}%</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* BOTÓN CERRAR / LISTO */}
+            <div className="pt-2 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSubModalOpen(false)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl transition-all"
+              >
+                Listo / Cerrar Pizarra
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -214,13 +214,13 @@ export function clampToRoleZone(
       case 'CAI':
         return {
           x: Math.min(84, Math.max(42, x)),
-          y: Math.min(92, Math.max(64, y)),
+          y: Math.min(36, Math.max(8, y)),
         };
       case 'LD':
       case 'CAD':
         return {
           x: Math.min(84, Math.max(42, x)),
-          y: Math.min(36, Math.max(8, y)),
+          y: Math.min(92, Math.max(64, y)),
         };
       case 'MCD':
         return {
@@ -235,12 +235,12 @@ export function clampToRoleZone(
       case 'MI':
         return {
           x: Math.min(64, Math.max(30, x)),
-          y: Math.min(92, Math.max(60, y)),
+          y: Math.min(40, Math.max(8, y)),
         };
       case 'MD':
         return {
           x: Math.min(64, Math.max(30, x)),
-          y: Math.min(40, Math.max(8, y)),
+          y: Math.min(92, Math.max(60, y)),
         };
       case 'MCO':
         return {
@@ -250,12 +250,12 @@ export function clampToRoleZone(
       case 'EI':
         return {
           x: Math.min(45, Math.max(10, x)),
-          y: Math.min(92, Math.max(58, y)),
+          y: Math.min(42, Math.max(8, y)),
         };
       case 'ED':
         return {
           x: Math.min(45, Math.max(10, x)),
-          y: Math.min(42, Math.max(8, y)),
+          y: Math.min(92, Math.max(58, y)),
         };
       case 'DC':
       default:
@@ -1728,6 +1728,10 @@ export function executeLiveSub(
     delete newPositions[playerOutId];
   }
 
+  const isCarrier = match.ballCarrierId === playerOutId;
+  const newCarrierId = isCarrier ? playerInId : match.ballCarrierId;
+  const newBallPos = isCarrier && newPositions[playerInId] ? { ...newPositions[playerInId] } : match.ballPosition;
+
   const newEvents = [
     {
       minute: match.minute,
@@ -1736,13 +1740,15 @@ export function executeLiveSub(
       playerId: playerInId,
       playerName: pIn?.name || 'Jugador',
       description: `🔄 Cambio en ${team.name}: entra ${pIn?.name || 'suplente'} sustituyendo a ${pOut?.name || 'titular'}.`,
-      ballZone: match.ballPosition,
+      ballZone: newBallPos,
     },
     ...match.events,
   ];
 
   return {
     ...match,
+    ballCarrierId: newCarrierId,
+    ballPosition: newBallPos,
     homeLineup: isHome ? currentLineup : match.homeLineup,
     awayLineup: !isHome ? currentLineup : match.awayLineup,
     homeBench: isHome ? currentBench : match.homeBench,

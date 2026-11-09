@@ -93,3 +93,20 @@ export function convertFromYen(amountYen: number, currency: Currency = 'EUR'): n
   const cfg = CURRENCIES[currency] || CURRENCIES.EUR;
   return Math.round(amountYen * cfg.rateFromYen);
 }
+
+/**
+ * Convierte cualquier mención de cantidades en Yenes en un texto (ej: "40.000.000 ¥", "120.000.000 ¥", "15.000.000 ¥")
+ * a la divisa seleccionada respetando el formato configurado.
+ */
+export function formatTextWithCurrency(text: string, currency: Currency = 'EUR'): string {
+  if (!text) return text;
+  // Detecta patrones como:
+  // "40.000.000 ¥", "40,000,000 ¥", "40000000 ¥", "¥40.000.000", "¥ 40.000.000"
+  return text.replace(/(?:¥\s*([\d\.,]+)|([\d\.,]+)\s*¥)/gi, (match, prefixAmount, suffixAmount) => {
+    const rawStr = prefixAmount || suffixAmount;
+    const cleanNum = parseInt(rawStr.replace(/[\.,\s]/g, ''), 10);
+    if (isNaN(cleanNum)) return match;
+    return formatMoney(cleanNum, currency);
+  });
+}
+
