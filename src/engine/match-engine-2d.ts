@@ -1,5 +1,6 @@
 import { Club, Player, MatchEvent, Formation } from '@/types/football-manager';
 import { checkBalancedChemicalReaction } from './weapon-registry';
+import { calculatePositionalAdaptation, getFormationRoles } from './position-engine';
 
 export interface SetPieceState {
   type: 'kickoff' | 'corner' | 'dangerous_free_kick' | 'free_kick_cross' | 'midfield_foul' | 'penalty';
@@ -462,12 +463,23 @@ export function tickLiveMatch(
   const homePlayers = next.homeLineup.map((id) => allPlayersMap[id]).filter(Boolean);
   const awayPlayers = next.awayLineup.map((id) => allPlayersMap[id]).filter(Boolean);
 
-  const homeGk = homePlayers.find((p) => p.position === 'POR') || homePlayers[0];
-  const awayGk = awayPlayers.find((p) => p.position === 'POR') || awayPlayers[0];
+  const homeFormationRoles = getFormationRoles(match.homeClub.formation);
+  const awayFormationRoles = getFormationRoles(match.awayClub.formation);
 
-  // Cálculo de potencias tácticas
-  const getTeamPwr = (players: Player[], ment: Club['mentalidad']) => {
-    const avg = players.reduce((s, p) => s + p.overall, 0) / Math.max(1, players.length);
+  // El guardameta en el campo es el jugador alineado en el slot 0 de la formación
+  const homeGk = allPlayersMap[next.homeLineup[0]] || homePlayers.find((p) => p.position === 'POR') || homePlayers[0];
+  const awayGk = allPlayersMap[next.awayLineup[0]] || awayPlayers.find((p) => p.position === 'POR') || awayPlayers[0];
+
+  // Cálculo de potencias tácticas con impacto real de adaptación posicional
+  const getTeamPwr = (players: Player[], lineup: string[], roles: string[], ment: Club['mentalidad']) => {
+    const totalEffective = lineup.reduce((acc, id, idx) => {
+      const p = allPlayersMap[id];
+      if (!p) return acc;
+      const role = roles[idx] || p.position;
+      const adaptation = calculatePositionalAdaptation(p, role);
+      return acc + adaptation.effectiveOvr;
+    }, 0);
+    const avg = totalEffective / Math.max(1, lineup.length);
     let mod = 1.0;
     if (ment === 'ultra_ofensiva') mod = 1.15;
     else if (ment === 'ofensiva') mod = 1.07;
@@ -475,8 +487,8 @@ export function tickLiveMatch(
     return avg * mod;
   };
 
-  const homePwr = getTeamPwr(homePlayers, match.homeClub.mentalidad) + 2.5;
-  const awayPwr = getTeamPwr(awayPlayers, match.awayClub.mentalidad);
+  const homePwr = getTeamPwr(homePlayers, next.homeLineup, homeFormationRoles, match.homeClub.mentalidad) + 2.5;
+  const awayPwr = getTeamPwr(awayPlayers, next.awayLineup, awayFormationRoles, match.awayClub.mentalidad);
 
   // 1. MÁQUINA DE ESTADOS PARA ACCIONES A BALÓN PARADO (SET PIECES)
   // Revisa si hay una acción pendiente: saque de centro tras gol, córner reglamentario o falta
@@ -761,7 +773,8 @@ export function tickLiveMatch(
       statsObj.shots += 1;
       const weapon = specialist?.weapons?.[0];
       const shotQuality = (specialist?.stats.shooting || 78) + (weapon ? weapon.level * 0.18 : 0);
-      const gkDefense = defGk?.stats.goalkeeping || 72;
+      const defGkAdaptation = defGk ? calculatePositionalAdaptation(defGk, 'POR') : null;
+      const gkDefense = Math.round((defGk?.stats.goalkeeping || 72) * (defGkAdaptation?.performanceRatio || 1.0));
 
       // Probabilidad calibrada estrictamente por distancia (entre 16m y 27m)
       // A 18m: distFactor ~0.95. A 23m: distFactor ~0.55. A 27m: distFactor ~0.20
@@ -1576,7 +1589,11 @@ export function tickLiveMatch(
     // Efecto de arma Blue Lock
     const weapon = shooter?.weapons?.[0];
     let shotPower = (shooter?.stats.shooting || 75) + (weapon ? weapon.level * 0.15 : 0) + chemicalBoost;
-    const gkPower = (defGk?.stats.goalkeeping || 70) + (defGk?.weapons?.[0] ? defGk.weapons[0].level * 0.15 : 0);
+    const defGkAdaptation = defGk ? calculatePositionalAdaptation(defGk, 'POR') : null;
+    const gkPower = Math.round(
+      ((defGk?.stats.goalkeeping || 70) + (defGk?.weapons?.[0] ? defGk.weapons[0].level * 0.15 : 0)) *
+        (defGkAdaptation?.performanceRatio || 1.0)
+    );
 
     // Activación de Flow State
     if (shooter?.egoRating && shooter.egoRating > 88 && Math.random() < 0.3) {
@@ -1627,6 +1644,9 @@ export function tickLiveMatch(
         }
         if (passer) {
           goalDesc += ` (Asistencia de ${passer.name})`;
+        }
+        if (defGk && defGk.position !== 'POR') {
+          goalDesc += ` ¡El improvisado meta ${defGk.name} no pudo responder ante la falta de reflejos de guardameta!`;
         }
 
         next.ballPosition = { x: isHomeAttack ? 97 : 3, y: 50 };

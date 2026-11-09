@@ -3,13 +3,15 @@
 import React from 'react';
 import { Club, Player, Formation } from '@/types/football-manager';
 import clsx from 'clsx';
-import { Shield, Star, Award, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
+import { calculatePositionalAdaptation } from '@/engine/position-engine';
 
 interface Pitch2DProps {
   club: Club;
   allPlayersMap: Record<string, Player>;
   onPlayerClick?: (player: Player) => void;
   selectedPlayerId?: string | null;
+  onPitchClick?: () => void;
 }
 
 // Coordinates for formations on a 100x100 pitch
@@ -87,12 +89,19 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
   allPlayersMap,
   onPlayerClick,
   selectedPlayerId,
+  onPitchClick,
 }) => {
   const coords = FORMATION_COORDINATES[club.formation] || FORMATION_COORDINATES['4-3-3'];
   const startingPlayers = club.startingXI.map((id) => allPlayersMap[id]).filter(Boolean);
 
   return (
-    <div className="relative w-full aspect-[1.55] rounded-xl overflow-hidden border-2 border-emerald-500/40 shadow-2xl select-none bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900">
+    <div
+      onClick={() => {
+        // Al hacer clic en el césped de la pizarra, deseleccionar
+        if (onPitchClick) onPitchClick();
+      }}
+      className="relative w-full aspect-[1.55] rounded-xl overflow-hidden border-2 border-emerald-500/40 shadow-2xl select-none bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900 cursor-pointer"
+    >
       {/* Césped rayado */}
       <div
         className="absolute inset-0 opacity-20 pointer-events-none"
@@ -124,6 +133,8 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
       {/* Renderizado de los 11 jugadores en sus posiciones */}
       {startingPlayers.map((player, idx) => {
         const posCoord = coords[idx] || { x: 50, y: 50, role: player.position };
+        const adaptation = calculatePositionalAdaptation(player, posCoord.role);
+        const hasPenalty = adaptation.penaltyOvr > 0;
         const isSelected = selectedPlayerId === player.id;
         const isCaptain = club.captainId === player.id;
         const isPenalty = club.penaltyTakerId === player.id;
@@ -136,7 +147,10 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
           <button
             key={player.id}
             type="button"
-            onClick={() => onPlayerClick && onPlayerClick(player)}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onPlayerClick) onPlayerClick(player);
+            }}
             style={{
               left: `${posCoord.x}%`,
               top: `${posCoord.y}%`,
@@ -145,6 +159,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
               'absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group cursor-pointer transition-transform duration-200 hover:scale-110 z-10',
               isSelected && 'scale-125 z-30'
             )}
+            title={`${player.name} (Natural: ${player.position}) · Asignado: ${posCoord.role}\n${adaptation.description}`}
           >
             {/* Chapa del Jugador */}
             <div
@@ -156,14 +171,42 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
                   ? 'border-amber-500 ring-2 ring-amber-500/80 bg-amber-950'
                   : isSelected
                   ? 'border-yellow-400 ring-4 ring-yellow-400/50 scale-105'
+                  : adaptation.affinityTier === 'disaster'
+                  ? 'border-rose-500 ring-2 ring-rose-500 animate-pulse'
+                  : adaptation.affinityTier === 'poor'
+                  ? 'border-orange-500 ring-1 ring-orange-500'
+                  : adaptation.affinityTier === 'fair'
+                  ? 'border-amber-400'
                   : 'border-white/80'
               )}
               style={{
-                backgroundColor: isBanned ? '#4c0519' : isInjured ? '#451a03' : (club.primaryColor || '#0047bb'),
+                backgroundColor: isBanned
+                  ? '#4c0519'
+                  : isInjured
+                  ? '#451a03'
+                  : (club.primaryColor || '#0047bb'),
                 color: club.secondaryColor || '#ffffff',
               }}
             >
-              {player.overall}
+              {/* Media efectiva (con bajada proporcional si no es su posición) */}
+              <span className={clsx(hasPenalty && 'font-black text-amber-300')}>
+                {adaptation.effectiveOvr}
+              </span>
+
+              {/* Insignia con la penalización de media */}
+              {hasPenalty && (
+                <span
+                  className={clsx(
+                    'absolute -bottom-1 -right-1 text-[8px] font-black rounded px-0.5 border leading-tight shadow-md',
+                    adaptation.affinityTier === 'disaster'
+                      ? 'bg-rose-950 text-rose-300 border-rose-500 animate-bounce'
+                      : 'bg-amber-950 text-amber-300 border-amber-500'
+                  )}
+                  title={`Penalización por jugar fuera de posición: -${adaptation.penaltyOvr} OVR`}
+                >
+                  -{adaptation.penaltyOvr}
+                </span>
+              )}
 
               {/* Sanción o Lesión */}
               {isBanned && (
@@ -207,13 +250,23 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
             </div>
 
             {/* Etiqueta con Nombre, Posición y Potencial */}
-            <div className="mt-1 bg-slate-950/85 backdrop-blur-sm border border-slate-700/60 rounded px-1.5 py-0.5 text-[10px] md:text-xs text-center whitespace-nowrap shadow-md max-w-[95px] truncate">
+            <div className="mt-1 bg-slate-950/90 backdrop-blur-sm border border-slate-700/60 rounded px-1.5 py-0.5 text-[10px] md:text-xs text-center whitespace-nowrap shadow-md max-w-[105px] truncate">
               <div className="flex items-center justify-center gap-1">
-                <span className="text-cyan-400 font-bold">{posCoord.role}</span>
+                <span className={clsx('font-bold', hasPenalty ? adaptation.affinityColor : 'text-cyan-400')}>
+                  {posCoord.role}
+                </span>
                 <span className="text-white font-medium truncate">{player.name.split(' ').pop()}</span>
               </div>
-              <div className="text-[9px] text-slate-400 font-mono">
-                MED {player.overall} · <span className="text-cyan-300 font-bold">POT {player.potential}</span>
+              <div className="text-[9px] font-mono">
+                {hasPenalty ? (
+                  <span className={clsx('font-bold', adaptation.affinityColor)}>
+                    MED {adaptation.effectiveOvr} <span className="text-[8px] opacity-75">({player.overall})</span>
+                  </span>
+                ) : (
+                  <span className="text-slate-400">
+                    MED {player.overall} · <b className="text-cyan-300 font-bold">POT {player.potential}</b>
+                  </span>
+                )}
               </div>
             </div>
           </button>
