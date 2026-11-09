@@ -23,6 +23,7 @@ import {
 } from '@/types/football-manager';
 import { generateInitialClubsAndPlayers, calculateOvr } from '@/engine/game-data';
 import { generatePyramidClubsAndPlayers, getClubTemplateById } from '@/engine/data/leagues-catalog';
+import { calculatePlayerMarketValue, normalizePlayerValuations } from '@/engine/player-valuation';
 import {
   generateSeasonFixtures,
   simulateAiMatchesForRound,
@@ -239,9 +240,12 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
             .filter((id) => !(c.startingXI || []).includes(id))
             .slice(0, 7),
         }));
+        // Normalizar valoraciones de mercado para corregir precios desactualizados o no calibrados
+        const calibratedPlayers = normalizePlayerValuations(parsed.players);
         set({
           ...parsed,
           clubs: sanitizedClubs,
+          players: calibratedPlayers,
           selectedCurrency: parsed.selectedCurrency || 'EUR',
         });
         return true;
@@ -1161,6 +1165,22 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     };
 
     const calculatedOvr = calculateOvr(pos, stats);
+    const youthPotential = Math.min(99, Math.max(calculatedOvr + 12, 90));
+    const youthValuation = calculatePlayerMarketValue({
+      overall: calculatedOvr,
+      potential: youthPotential,
+      age: 16,
+      weapons: [
+        {
+          name: 'Despertar de Cantera',
+          type: 'striker',
+          level: 86,
+          description: 'Hambre pura descubierta en las pruebas de selección de Blue Lock',
+        },
+      ],
+      egoRating: 88,
+      position: pos,
+    });
 
     const newYouth: Player = {
       id: `youth-promoted-${Date.now()}`,
@@ -1170,7 +1190,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       nationality: 'Japón',
       position: pos,
       overall: calculatedOvr,
-      potential: Math.min(99, Math.max(calculatedOvr + 12, 90)),
+      potential: youthPotential,
       trainingFocus: 'balanced',
       positionConversion: null,
       stats,
@@ -1187,8 +1207,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       fitness: 100,
       morale: 95,
       form: 80,
-      marketValueYen: 50000000,
-      weeklyWageYen: 1200000,
+      marketValueYen: youthValuation.marketValueYen,
+      weeklyWageYen: youthValuation.weeklyWageYen,
       contractYears: 4,
       injuryWeeks: 0,
       isBanned: false,

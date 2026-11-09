@@ -1,5 +1,6 @@
 import { Club, Player, Position, Formation, CountryLeague, Weapon } from '@/types/football-manager';
 import { calculateOvr } from '@/engine/game-data';
+import { calculatePlayerMarketValue } from '@/engine/player-valuation';
 import { SPAIN_CLUBS } from './leagues/spain';
 import { ENGLAND_CLUBS } from './leagues/england';
 import { GERMANY_CLUBS } from './leagues/germany';
@@ -143,15 +144,26 @@ export function generatePyramidClubsAndPlayers(
           });
         }
 
+        const starAge = sp.isBlueLock ? rnd(17, 21) : rnd(22, 33);
+        const starPot = Math.max(baseOvr, sp.potential);
+        const valuation = calculatePlayerMarketValue({
+          overall: baseOvr,
+          potential: starPot,
+          age: starAge,
+          weapons,
+          egoRating: sp.isBlueLock ? 92 : 82,
+          position: sp.position,
+        });
+
         const starPlayer: Player = {
           id: `p-${clubId}-star-${idx}`,
           clubId,
           name: sp.name,
-          age: sp.isBlueLock ? rnd(17, 21) : rnd(22, 33),
+          age: starAge,
           nationality: tmpl.country,
           position: sp.position,
           overall: baseOvr,
-          potential: Math.max(baseOvr, sp.potential),
+          potential: starPot,
           stats,
           weapons,
           egoRating: sp.isBlueLock ? rnd(85, 98) : rnd(75, 92),
@@ -159,8 +171,8 @@ export function generatePyramidClubsAndPlayers(
           fitness: 100,
           morale: rnd(85, 95),
           form: rnd(75, 90),
-          marketValueYen: Math.round(baseOvr * baseOvr * baseOvr * 30 * EUR_TO_YEN),
-          weeklyWageYen: Math.round(baseOvr * 35000 * (EUR_TO_YEN / 160)),
+          marketValueYen: valuation.marketValueYen,
+          weeklyWageYen: valuation.weeklyWageYen,
           contractYears: rnd(2, 5),
           isUnlicensedParody: !sp.isBlueLock,
           realNameReference: sp.realRef,
@@ -227,8 +239,15 @@ export function generatePyramidClubsAndPlayers(
       };
 
       const finalOvr = calculateOvr(pos, stats);
-      const valYen = Math.round(finalOvr * finalOvr * finalOvr * 18 * (EUR_TO_YEN / 160) + rnd(500000, 3000000));
-      const wageYen = Math.max(30000, Math.round(valYen * 0.015));
+      const generatedPot = Math.min(96, finalOvr + (age < 22 ? rnd(4, 10) : rnd(0, 3)));
+      const genValuation = calculatePlayerMarketValue({
+        overall: finalOvr,
+        potential: generatedPot,
+        age,
+        weapons: [],
+        egoRating: 70,
+        position: pos,
+      });
 
       const generatedPlayer: Player = {
         id: `p-${clubId}-gen-${mIdx}-${rnd(100, 999)}`,
@@ -238,7 +257,7 @@ export function generatePyramidClubsAndPlayers(
         nationality: tmpl.country,
         position: pos,
         overall: finalOvr,
-        potential: Math.min(96, finalOvr + (age < 22 ? rnd(4, 10) : rnd(0, 3))),
+        potential: generatedPot,
         stats,
         weapons: [],
         egoRating: rnd(60, 80),
@@ -246,8 +265,8 @@ export function generatePyramidClubsAndPlayers(
         fitness: 100,
         morale: rnd(75, 90),
         form: rnd(65, 85),
-        marketValueYen: valYen,
-        weeklyWageYen: wageYen,
+        marketValueYen: genValuation.marketValueYen,
+        weeklyWageYen: genValuation.weeklyWageYen,
         contractYears: rnd(2, 4),
         injuryWeeks: 0,
         isBanned: false,

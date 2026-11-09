@@ -1,5 +1,6 @@
 import { Club, Player, Position, Weapon, Formation, PlayerStats } from '@/types/football-manager';
 import { shouldAwakenWeapon, generateContextualWeapon } from './weapon-registry';
+import { calculatePlayerMarketValue } from './player-valuation';
 
 // Random helper
 function rnd(min: number, max: number): number {
@@ -687,6 +688,16 @@ export function generateInitialClubsAndPlayers(): { clubs: Club[]; players: Play
   // Register Blue Lock stars first
   blueLockStars.forEach((star, idx) => {
     const ovr = calculateOvr(star.pos, star.stats);
+    const pot = Math.min(99, ovr + (star.age < 19 ? rnd(4, 8) : rnd(1, 3)));
+    const starVal = calculatePlayerMarketValue({
+      overall: ovr,
+      potential: pot,
+      age: star.age,
+      weapons: star.weapons,
+      egoRating: star.ego,
+      position: star.pos,
+    });
+
     players.push({
       id: `star-${idx}-${star.name.toLowerCase().replace(/[^a-z]/g, '')}`,
       clubId: star.clubId,
@@ -696,7 +707,7 @@ export function generateInitialClubsAndPlayers(): { clubs: Club[]; players: Play
       position: star.pos,
       secondaryPosition: star.sec,
       overall: ovr,
-      potential: Math.min(99, ovr + (star.age < 19 ? rnd(4, 8) : rnd(1, 3))),
+      potential: pot,
       stats: star.stats,
       weapons: star.weapons,
       egoRating: star.ego,
@@ -704,8 +715,8 @@ export function generateInitialClubsAndPlayers(): { clubs: Club[]; players: Play
       fitness: 100,
       morale: 85,
       form: 80,
-      marketValueYen: star.valYen,
-      weeklyWageYen: star.wageYen,
+      marketValueYen: starVal.marketValueYen,
+      weeklyWageYen: starVal.weeklyWageYen,
       contractYears: 3,
       injuryWeeks: 0,
       isBanned: false,
@@ -813,8 +824,15 @@ export function generateInitialClubsAndPlayers(): { clubs: Club[]; players: Play
       };
 
       const ovr = calculateOvr(pos, stats);
-      const valYen = Math.round((ovr * ovr * ovr * 22) + rnd(1000000, 5000000));
-      const wageYen = Math.round(valYen * 0.025);
+      const playerPot = Math.min(98, ovr + (age < 21 ? rnd(6, 12) : rnd(1, 4)));
+      const genVal = calculatePlayerMarketValue({
+        overall: ovr,
+        potential: playerPot,
+        age,
+        weapons: [],
+        egoRating: 70,
+        position: pos,
+      });
 
       const newPlayer: Player = {
         id: `p-${club.id}-${pIdx}-${Date.now()}-${rnd(100, 999)}`,
@@ -824,7 +842,7 @@ export function generateInitialClubsAndPlayers(): { clubs: Club[]; players: Play
         nationality: club.country,
         position: pos,
         overall: ovr,
-        potential: Math.min(98, ovr + (age < 21 ? rnd(6, 12) : rnd(1, 4))),
+        potential: playerPot,
         stats,
         weapons: [],
         egoRating: rnd(60, 80),
@@ -832,8 +850,8 @@ export function generateInitialClubsAndPlayers(): { clubs: Club[]; players: Play
         fitness: 100,
         morale: rnd(70, 90),
         form: rnd(65, 85),
-        marketValueYen: valYen,
-        weeklyWageYen: wageYen,
+        marketValueYen: genVal.marketValueYen,
+        weeklyWageYen: genVal.weeklyWageYen,
         contractYears: rnd(2, 4),
         injuryWeeks: 0,
         isBanned: false,
