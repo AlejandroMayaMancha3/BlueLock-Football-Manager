@@ -14,9 +14,79 @@ import {
   ArrowRight,
   Activity,
   Flame,
+  Award,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { Player } from '@/types/football-manager';
+import { Player, Formation } from '@/types/football-manager';
+
+// Coordenadas base en una escala 0-100 para la mitad de campo
+const BASE_HALF_FORMATION: Record<Formation, Array<{ x: number; y: number; pos: string }>> = {
+  '4-3-3': [
+    { x: 8, y: 50, pos: 'POR' },
+    { x: 26, y: 16, pos: 'LI' },
+    { x: 23, y: 38, pos: 'DFC' },
+    { x: 23, y: 62, pos: 'DFC' },
+    { x: 26, y: 84, pos: 'LD' },
+    { x: 48, y: 50, pos: 'MCD' },
+    { x: 56, y: 30, pos: 'MC' },
+    { x: 56, y: 70, pos: 'MC' },
+    { x: 80, y: 18, pos: 'EI' },
+    { x: 86, y: 50, pos: 'DC' },
+    { x: 80, y: 82, pos: 'ED' },
+  ],
+  '4-2-3-1': [
+    { x: 8, y: 50, pos: 'POR' },
+    { x: 26, y: 16, pos: 'LI' },
+    { x: 23, y: 38, pos: 'DFC' },
+    { x: 23, y: 62, pos: 'DFC' },
+    { x: 26, y: 84, pos: 'LD' },
+    { x: 44, y: 36, pos: 'MCD' },
+    { x: 44, y: 64, pos: 'MCD' },
+    { x: 68, y: 20, pos: 'EI' },
+    { x: 68, y: 50, pos: 'MCO' },
+    { x: 68, y: 80, pos: 'ED' },
+    { x: 86, y: 50, pos: 'DC' },
+  ],
+  '4-4-2': [
+    { x: 8, y: 50, pos: 'POR' },
+    { x: 26, y: 16, pos: 'LI' },
+    { x: 23, y: 38, pos: 'DFC' },
+    { x: 23, y: 62, pos: 'DFC' },
+    { x: 26, y: 84, pos: 'LD' },
+    { x: 52, y: 16, pos: 'MI' },
+    { x: 50, y: 38, pos: 'MC' },
+    { x: 50, y: 62, pos: 'MC' },
+    { x: 52, y: 84, pos: 'MD' },
+    { x: 84, y: 38, pos: 'DC' },
+    { x: 84, y: 62, pos: 'DC' },
+  ],
+  '3-5-2': [
+    { x: 8, y: 50, pos: 'POR' },
+    { x: 24, y: 24, pos: 'DFC' },
+    { x: 22, y: 50, pos: 'DFC' },
+    { x: 24, y: 76, pos: 'DFC' },
+    { x: 50, y: 14, pos: 'CAI' },
+    { x: 48, y: 36, pos: 'MC' },
+    { x: 48, y: 64, pos: 'MC' },
+    { x: 50, y: 86, pos: 'CAD' },
+    { x: 68, y: 50, pos: 'MCO' },
+    { x: 86, y: 38, pos: 'DC' },
+    { x: 86, y: 62, pos: 'DC' },
+  ],
+  '5-3-2': [
+    { x: 8, y: 50, pos: 'POR' },
+    { x: 26, y: 14, pos: 'LI' },
+    { x: 22, y: 32, pos: 'DFC' },
+    { x: 20, y: 50, pos: 'DFC' },
+    { x: 22, y: 68, pos: 'DFC' },
+    { x: 26, y: 86, pos: 'LD' },
+    { x: 50, y: 30, pos: 'MC' },
+    { x: 48, y: 50, pos: 'MCD' },
+    { x: 50, y: 70, pos: 'MC' },
+    { x: 85, y: 38, pos: 'DC' },
+    { x: 85, y: 62, pos: 'DC' },
+  ],
+};
 
 export const LiveMatchView: React.FC = () => {
   const {
@@ -24,6 +94,7 @@ export const LiveMatchView: React.FC = () => {
     players,
     userClubId,
     tickMatchMinute,
+    fastForwardMatch,
     executeMatchSub,
     finishMatchDay,
   } = useGameStore();
@@ -32,15 +103,23 @@ export const LiveMatchView: React.FC = () => {
   const [speed, setSpeed] = useState<number>(1); // 1, 2, 5
   const [subModalOpen, setSubModalOpen] = useState<boolean>(false);
   const [selectedOutPlayerId, setSelectedOutPlayerId] = useState<string | null>(null);
+  const [hasSeenHalfTime, setHasSeenHalfTime] = useState<boolean>(false);
 
   const playersMap = players.reduce((acc, p) => {
     acc[p.id] = p;
     return acc;
   }, {} as Record<string, Player>);
 
-  // Live timer tick
+  // Live timer tick con pausa obligatoria al descanso (45')
   useEffect(() => {
     if (!liveMatch || liveMatch.isFinished || !isPlaying) return;
+
+    // Pausa automática y aviso de descanso al minuto 45
+    if (liveMatch.minute === 45 && !hasSeenHalfTime) {
+      setIsPlaying(false);
+      setHasSeenHalfTime(true);
+      return;
+    }
 
     const intervalTime = speed === 1 ? 550 : speed === 2 ? 220 : 60;
     const interval = setInterval(() => {
@@ -48,24 +127,26 @@ export const LiveMatchView: React.FC = () => {
     }, intervalTime);
 
     return () => clearInterval(interval);
-  }, [liveMatch, isPlaying, speed, tickMatchMinute]);
+  }, [liveMatch, isPlaying, speed, tickMatchMinute, hasSeenHalfTime]);
 
   if (!liveMatch) return null;
 
   const isUserHome = liveMatch.homeClub.id === userClubId;
   const userTeam = isUserHome ? liveMatch.homeClub : liveMatch.awayClub;
-  const rivalTeam = isUserHome ? liveMatch.awayClub : liveMatch.homeClub;
-  const userScore = isUserHome ? liveMatch.homeScore : liveMatch.awayScore;
-  const rivalScore = isUserHome ? liveMatch.awayScore : liveMatch.homeScore;
-
   const userLineup = isUserHome ? liveMatch.homeLineup : liveMatch.awayLineup;
   const userBench = isUserHome ? liveMatch.homeBench : liveMatch.awayBench;
   const userSubsLeft = isUserHome ? liveMatch.homeSubsRemaining : liveMatch.awaySubsRemaining;
 
+  // Saltar al final sincronizado y seguro
   const handleFastSimulateAll = () => {
-    while (!liveMatch.isFinished) {
-      tickMatchMinute();
-    }
+    setIsPlaying(false);
+    fastForwardMatch();
+  };
+
+  // Abrir cambios pausando el tiempo automáticamente
+  const handleOpenSubModal = () => {
+    setIsPlaying(false);
+    setSubModalOpen(true);
   };
 
   const handleConfirmSub = (inPlayerId: string) => {
@@ -74,6 +155,13 @@ export const LiveMatchView: React.FC = () => {
     setSelectedOutPlayerId(null);
     setSubModalOpen(false);
   };
+
+  // Calcular posiciones dinámicas de los 22 jugadores en el campo
+  const homeCoords = BASE_HALF_FORMATION[liveMatch.homeClub.formation] || BASE_HALF_FORMATION['4-3-3'];
+  const awayCoords = BASE_HALF_FORMATION[liveMatch.awayClub.formation] || BASE_HALF_FORMATION['4-3-3'];
+
+  const ballX = liveMatch.ballPosition.x;
+  const ballY = liveMatch.ballPosition.y;
 
   return (
     <div className="space-y-6">
@@ -99,7 +187,11 @@ export const LiveMatchView: React.FC = () => {
             <div className="flex items-center gap-2 mb-1">
               <Clock className="w-4 h-4 text-cyan-400 animate-pulse" />
               <span className="text-xs font-mono font-bold tracking-widest text-cyan-400">
-                {liveMatch.isFinished ? 'FINAL 90+3\'' : `${liveMatch.minute}'`}
+                {liveMatch.isFinished
+                  ? "FINAL 90+3'"
+                  : liveMatch.minute === 45 && !isPlaying
+                  ? 'DESCANSO (45\')'
+                  : `${liveMatch.minute}'`}
               </span>
             </div>
 
@@ -141,7 +233,7 @@ export const LiveMatchView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsPlaying(!isPlaying)}
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg text-sm transition-all"
+                  className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg text-sm transition-all shadow-md"
                 >
                   {isPlaying ? <Pause className="w-4 h-4 fill-black" /> : <Play className="w-4 h-4 fill-black" />}
                   {isPlaying ? 'Pausar' : 'Reanudar'}
@@ -166,17 +258,19 @@ export const LiveMatchView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleFastSimulateAll}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg border border-slate-700"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg border border-slate-700 transition-all"
+                  title="Simular instantáneamente hasta el pitido final (90'+)"
                 >
-                  <FastForward className="w-3.5 h-3.5" />
+                  <FastForward className="w-3.5 h-3.5 text-yellow-400" />
                   Saltar al Final
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setSubModalOpen(true)}
+                  onClick={handleOpenSubModal}
                   disabled={userSubsLeft <= 0}
                   className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg shadow-md transition-all disabled:opacity-50"
+                  title="Hacer cambios (pausa el tiempo automáticamente)"
                 >
                   <Users className="w-3.5 h-3.5" />
                   Cambios ({userSubsLeft} disp.)
@@ -205,30 +299,121 @@ export const LiveMatchView: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. PITCH 2D ANIMADO EN TIEMPO REAL */}
+      {/* 2. PITCH 2D ANIMADO EN TIEMPO REAL CON 22 JUGADORES */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="relative w-full aspect-[1.55] rounded-2xl overflow-hidden border-2 border-emerald-500/30 shadow-2xl bg-gradient-to-r from-emerald-950 via-emerald-900 to-emerald-950 select-none">
-            {/* Césped y líneas */}
+            {/* Césped con franjas tácticas */}
             <div
               className="absolute inset-0 opacity-20 pointer-events-none"
               style={{
                 backgroundImage: 'repeating-linear-gradient(90deg, #000 0, #000 10%, transparent 10%, transparent 20%)',
               }}
             />
+            {/* Líneas reglamentarias del campo */}
             <div className="absolute inset-4 border-2 border-white/40 rounded-xl pointer-events-none">
+              {/* Línea de medio campo */}
               <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/40 -translate-x-1/2" />
+              {/* Círculo central */}
               <div className="absolute left-1/2 top-1/2 w-28 h-28 -translate-x-1/2 -translate-y-1/2 border-2 border-white/40 rounded-full" />
+              {/* Área local (izquierda) */}
               <div className="absolute left-0 top-1/4 bottom-1/4 w-1/5 border-r-2 border-white/40" />
+              {/* Área visitante (derecha) */}
               <div className="absolute right-0 top-1/4 bottom-1/4 w-1/5 border-l-2 border-white/40" />
             </div>
 
-            {/* Balón Animado con halo */}
+            {/* JUGADORES DEL EQUIPO LOCAL (11 TITULARES EN MOVIMIENTO) */}
+            {liveMatch.homeLineup.map((pId, idx) => {
+              const player = playersMap[pId];
+              const base = homeCoords[idx] || { x: 20 + idx * 5, y: 50 };
+              // Desplazamiento dinámico hacia el balón
+              const shiftX = (ballX - 50) * 0.22;
+              const shiftY = (ballY - base.y) * 0.16;
+              const posX = Math.min(92, Math.max(5, 5 + (base.x / 100) * 42 + shiftX));
+              const posY = Math.min(90, Math.max(8, base.y + shiftY));
+
+              const isFlow = player?.flowState;
+              const shortSurname = player?.name.split(' ').pop() || `H${idx + 1}`;
+
+              return (
+                <div
+                  key={`home-${pId}-${idx}`}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out z-10 flex flex-col items-center pointer-events-none"
+                  style={{
+                    left: `${posX}%`,
+                    top: `${posY}%`,
+                  }}
+                >
+                  <div
+                    className={clsx(
+                      'w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-black text-[10px] md:text-xs shadow-md border-2 transition-all',
+                      isFlow
+                        ? 'border-cyan-400 ring-2 ring-cyan-400 animate-pulse shadow-[0_0_12px_#00ffff]'
+                        : 'border-white/60'
+                    )}
+                    style={{
+                      backgroundColor: liveMatch.homeClub.primaryColor,
+                      color: liveMatch.homeClub.secondaryColor,
+                    }}
+                  >
+                    {idx === 0 ? '1' : `${idx + 1}`}
+                  </div>
+                  <span className="text-[9px] md:text-[10px] font-bold text-white bg-slate-950/80 px-1 rounded shadow-sm whitespace-nowrap mt-0.5 max-w-[60px] truncate">
+                    {shortSurname}
+                  </span>
+                </div>
+              );
+            })}
+
+            {/* JUGADORES DEL EQUIPO VISITANTE (11 TITULARES EN MOVIMIENTO) */}
+            {liveMatch.awayLineup.map((pId, idx) => {
+              const player = playersMap[pId];
+              const base = awayCoords[idx] || { x: 20 + idx * 5, y: 50 };
+              // Desplazamiento dinámico hacia el balón
+              const shiftX = (ballX - 50) * 0.22;
+              const shiftY = (ballY - base.y) * 0.16;
+              const posX = Math.min(95, Math.max(8, 95 - (base.x / 100) * 42 + shiftX));
+              const posY = Math.min(90, Math.max(8, base.y + shiftY));
+
+              const isFlow = player?.flowState;
+              const shortSurname = player?.name.split(' ').pop() || `A${idx + 1}`;
+
+              return (
+                <div
+                  key={`away-${pId}-${idx}`}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out z-10 flex flex-col items-center pointer-events-none"
+                  style={{
+                    left: `${posX}%`,
+                    top: `${posY}%`,
+                  }}
+                >
+                  <div
+                    className={clsx(
+                      'w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-black text-[10px] md:text-xs shadow-md border-2 transition-all',
+                      isFlow
+                        ? 'border-yellow-400 ring-2 ring-yellow-400 animate-pulse shadow-[0_0_12px_#facc15]'
+                        : 'border-black/50'
+                    )}
+                    style={{
+                      backgroundColor: liveMatch.awayClub.primaryColor,
+                      color: liveMatch.awayClub.secondaryColor,
+                    }}
+                  >
+                    {idx === 0 ? '1' : `${idx + 1}`}
+                  </div>
+                  <span className="text-[9px] md:text-[10px] font-bold text-slate-200 bg-slate-950/80 px-1 rounded shadow-sm whitespace-nowrap mt-0.5 max-w-[60px] truncate">
+                    {shortSurname}
+                  </span>
+                </div>
+              );
+            })}
+
+            {/* Balón Animado con halo luminoso */}
             <div
               className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-out z-20 pointer-events-none"
               style={{
-                left: `${liveMatch.ballPosition.x}%`,
-                top: `${liveMatch.ballPosition.y}%`,
+                left: `${ballX}%`,
+                top: `${ballY}%`,
               }}
             >
               <div className="w-5 h-5 bg-white rounded-full shadow-[0_0_15px_rgba(255,255,255,0.9)] border-2 border-black flex items-center justify-center animate-bounce">
@@ -248,6 +433,39 @@ export const LiveMatchView: React.FC = () => {
                 </strong>
               </span>
             </div>
+
+            {/* MODAL / PANTALLA DE DESCANSO (45') */}
+            {liveMatch.minute === 45 && !isPlaying && hasSeenHalfTime && !liveMatch.isFinished && (
+              <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center space-y-4 animate-in fade-in duration-300">
+                <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 border border-yellow-500/40 rounded-full text-xs font-mono font-bold tracking-widest uppercase animate-pulse">
+                  ⏸️ DESCANSO · 45&apos;
+                </span>
+                <h3 className="text-3xl md:text-4xl font-black text-white">
+                  {liveMatch.homeClub.name} <span className="text-yellow-400">{liveMatch.homeScore}</span> -{' '}
+                  <span className="text-yellow-400">{liveMatch.awayScore}</span> {liveMatch.awayClub.name}
+                </h3>
+                <p className="text-xs text-slate-300 max-w-md">
+                  Pausa táctica en el vestuario. Es el momento perfecto para realizar sustituciones clave, refrescar el
+                  once o cambiar el ritmo para la segunda mitad.
+                </p>
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setSubModalOpen(true)}
+                    className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
+                  >
+                    <Users className="w-4 h-4" /> Ajustes y Cambios ({userSubsLeft} disp.)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPlaying(true)}
+                    className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black font-black text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
+                  >
+                    <Play className="w-4 h-4 fill-black" /> Reanudar 2ª Parte (46&apos;)
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ESTADÍSTICAS COMPARATIVAS EN TIEMPO REAL */}
@@ -340,7 +558,7 @@ export const LiveMatchView: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL DE SUSTITUCIÓN EN VIVO */}
+      {/* MODAL DE SUSTITUCIÓN EN VIVO CON POTENCIAL */}
       {subModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl">
@@ -360,7 +578,9 @@ export const LiveMatchView: React.FC = () => {
 
             {/* Paso 1: Seleccionar jugador que sale */}
             <div>
-              <label className="text-xs text-slate-400 block mb-2 font-semibold">1. Selecciona el jugador que sale del campo:</label>
+              <label className="text-xs text-slate-400 block mb-2 font-semibold">
+                1. Selecciona el jugador que sale del campo:
+              </label>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
                 {userLineup.map((id) => {
                   const p = playersMap[id];
@@ -378,8 +598,9 @@ export const LiveMatchView: React.FC = () => {
                     >
                       <div className="font-bold text-white truncate">{p.name}</div>
                       <div className="text-[10px] text-slate-400">
-                        {p.position} · Media {p.overall} · Fit {p.fitness}%
+                        {p.position} · MED: <b className="text-white">{p.overall}</b> · POT: <b className="text-cyan-400">{p.potential}</b>
                       </div>
+                      <div className="text-[9px] text-slate-500">Físico: {p.fitness}%</div>
                     </button>
                   );
                 })}
@@ -389,7 +610,9 @@ export const LiveMatchView: React.FC = () => {
             {/* Paso 2: Seleccionar suplente que entra */}
             {selectedOutPlayerId && (
               <div>
-                <label className="text-xs text-slate-400 block mb-2 font-semibold">2. Selecciona el suplente que entra:</label>
+                <label className="text-xs text-slate-400 block mb-2 font-semibold">
+                  2. Selecciona el suplente que entra:
+                </label>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto">
                   {userBench.map((id) => {
                     const p = playersMap[id];
@@ -403,8 +626,9 @@ export const LiveMatchView: React.FC = () => {
                       >
                         <div className="font-bold text-cyan-300 truncate">{p.name}</div>
                         <div className="text-[10px] text-slate-400">
-                          {p.position} · Media {p.overall} · Fit {p.fitness}%
+                          {p.position} · MED: <b className="text-white">{p.overall}</b> · POT: <b className="text-cyan-400">{p.potential}</b>
                         </div>
+                        <div className="text-[9px] text-slate-500">Físico: {p.fitness}%</div>
                       </button>
                     );
                   })}

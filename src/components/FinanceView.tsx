@@ -3,18 +3,13 @@
 import React from 'react';
 import { useGameStore } from '@/store/game-store';
 import clsx from 'clsx';
+import { formatMoney } from '@/lib/currency';
 
 export const FinanceView: React.FC = () => {
-  const { userClubId, clubs, players, ledger } = useGameStore();
+  const { userClubId, clubs, players, ledger, selectedCurrency } = useGameStore();
 
   const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
   const userPlayers = players.filter((p) => p.clubId === userClubId);
-
-  const fmtYen = (yen: number) => {
-    if (yen >= 100000000) return `${(yen / 100000000).toFixed(1)} M¥`;
-    if (yen >= 10000) return `${(yen / 10000).toFixed(0)} k¥`;
-    return `${yen.toLocaleString('es-ES')} ¥`;
-  };
 
   return (
     <div className="space-y-6">
@@ -26,27 +21,38 @@ export const FinanceView: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Saldo en Caja</span>
-          <span className="font-mono font-black text-2xl text-emerald-400 mt-1 block">{fmtYen(userClub.cashYen)}</span>
+          <span className="font-mono font-black text-2xl text-emerald-400 mt-1 block">
+            {formatMoney(userClub.cashYen, selectedCurrency)}
+          </span>
           <span className="text-[10px] text-slate-500">Liquidez total disponible</span>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Presupuesto Fichajes</span>
-          <span className="font-mono font-black text-2xl text-cyan-400 mt-1 block">{fmtYen(userClub.budgetYen)}</span>
+          <span className="font-mono font-black text-2xl text-cyan-400 mt-1 block">
+            {formatMoney(userClub.budgetYen, selectedCurrency)}
+          </span>
           <span className="text-[10px] text-slate-500">Límite para traspasos</span>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Gasto Semanal en Salarios</span>
           <span className="font-mono font-black text-2xl text-rose-400 mt-1 block">
-            {fmtYen(userPlayers.reduce((acc, p) => acc + p.weeklyWageYen, 0))}
+            {formatMoney(
+              userPlayers.reduce((acc, p) => acc + p.weeklyWageYen, 0),
+              selectedCurrency
+            )}
           </span>
-          <span className="text-[10px] text-slate-500">Límite: {fmtYen(userClub.weeklyWageCapYen)}/sem</span>
+          <span className="text-[10px] text-slate-500">
+            Límite: {formatMoney(userClub.weeklyWageCapYen, selectedCurrency)}/sem
+          </span>
         </div>
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Estadio y Taquilla</span>
           <span className="font-mono font-black text-2xl text-white mt-1 block">
             {userClub.stadiumCapacity.toLocaleString()} cap.
           </span>
-          <span className="text-[10px] text-slate-500">{userClub.ticketPriceYen.toLocaleString()} ¥/entrada</span>
+          <span className="text-[10px] text-slate-500">
+            {formatMoney(userClub.ticketPriceYen, selectedCurrency)} / entrada
+          </span>
         </div>
       </div>
 
@@ -79,7 +85,9 @@ export const FinanceView: React.FC = () => {
                       entry.amountYen >= 0 ? 'text-emerald-400' : 'text-rose-400'
                     )}
                   >
-                    {entry.amountYen >= 0 ? `+${fmtYen(entry.amountYen)}` : `-${fmtYen(Math.abs(entry.amountYen))}`}
+                    {entry.amountYen >= 0
+                      ? `+${formatMoney(entry.amountYen, selectedCurrency)}`
+                      : `-${formatMoney(Math.abs(entry.amountYen), selectedCurrency)}`}
                   </td>
                 </tr>
               ))}

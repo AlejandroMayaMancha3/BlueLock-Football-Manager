@@ -118,7 +118,7 @@ export const TacticsView: React.FC = () => {
                   <div>
                     <div className="font-bold text-white">{p.name}</div>
                     <div className="text-[10px] text-slate-400">
-                      {p.position} · Media {p.overall} · Fit {p.fitness}%
+                      {p.position} · MED: <b className="text-white">{p.overall}</b> · POT: <b className="text-cyan-400">{p.potential}</b> · Fit {p.fitness}%
                     </div>
                   </div>
 

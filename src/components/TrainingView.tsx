@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 import { useGameStore } from '@/store/game-store';
 import { UserPlus } from 'lucide-react';
 import clsx from 'clsx';
+import { formatMoney } from '@/lib/currency';
 
 export const TrainingView: React.FC = () => {
-  const { trainingPlan, setTrainingPlan, promoteYouthPlayer } = useGameStore();
+  const { trainingPlan, selectedCurrency, setTrainingPlan, promoteYouthPlayer } = useGameStore();
   const [canteraFeedback, setCanteraFeedback] = useState<{ success: boolean; msg: string } | null>(null);
 
   return (
@@ -79,7 +80,7 @@ export const TrainingView: React.FC = () => {
             <h4 className="text-2xl font-black text-white mt-1">Promocionar Joven Promesa</h4>
             <p className="text-xs text-slate-300 max-w-xl mt-1">
               Incorpora a un talento de 16 años con gran potencial al primer equipo. Coste de formación y ficha médica:
-              60.000.000 ¥ (1 promoción permitida por temporada).
+              {' '}{formatMoney(60000000, selectedCurrency)} (1 promoción permitida por temporada).
             </p>
           </div>
 
@@ -91,7 +92,7 @@ export const TrainingView: React.FC = () => {
             }}
             className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-black text-xs rounded-xl shadow-lg transition-all"
           >
-            Promocionar Canterano (60 M¥)
+            Promocionar Canterano ({formatMoney(60000000, selectedCurrency)})
           </button>
         </div>
 

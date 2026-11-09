@@ -240,20 +240,61 @@ export function advanceToNextSeason(
     prizeMoneyYen: userPrize,
   };
 
-  // Evolve players: Age + 1, growth or decline, contracts - 1, reset season stats
+  // Evolve players: Age + 1, growth or decline based on match experience & potential, contracts - 1, reset season stats
   const evolvedPlayers: Player[] = players.map((p) => {
     const age = p.age + 1;
+    const matchesPlayed = p.seasonMatches || 0;
     let growth = 0;
+    let newPotential = p.potential || p.overall;
 
-    if (age <= 21) {
-      growth = Math.floor(Math.random() * 4) + 1; // Youngsters grow +1 to +4
-    } else if (age <= 25) {
-      growth = Math.floor(Math.random() * 3); // Prime ages grow 0 to +2
-    } else if (age >= 32) {
-      growth = -Math.floor(Math.random() * 3) - 1; // Decline -1 to -3
+    // 1. JUGADORES JÓVENES EN DESARROLLO (Edad <= 22)
+    if (age <= 22) {
+      if (matchesPlayed >= 14) {
+        // Gran rodaje (>=14 partidos): Progresión acelerada hacia su potencial
+        const roomToGrow = Math.max(0, newPotential - p.overall);
+        growth = Math.min(roomToGrow, Math.floor(Math.random() * 3) + 2); // +2 a +4 de media
+        if (p.seasonAverageRating >= 7.5 || p.seasonGoals >= 10) {
+          // Despierta un nuevo límite
+          newPotential = Math.min(99, newPotential + 1);
+        }
+      } else if (matchesPlayed >= 7) {
+        // Rodaje medio (7-13 partidos): Progresión moderada
+        const roomToGrow = Math.max(0, newPotential - p.overall);
+        growth = Math.min(roomToGrow, Math.floor(Math.random() * 2) + 1); // +1 a +2 de media
+      } else {
+        // Pocos o ningún partido (<=6 partidos): Estancamiento y pérdida de potencial
+        growth = 0;
+        if (matchesPlayed <= 3) {
+          // Falta grave de minutos: el potencial se degrada
+          const potentialDrop = Math.floor(Math.random() * 2) + 1; // -1 o -2
+          newPotential = Math.max(p.overall, newPotential - potentialDrop);
+          growth = Math.random() < 0.4 ? -1 : 0; // Pérdida de forma competitiva
+        }
+      }
+    }
+    // 2. JUGADORES EN SU PRIME (Edad 23 a 28)
+    else if (age <= 28) {
+      if (matchesPlayed >= 14) {
+        const roomToGrow = Math.max(0, newPotential - p.overall);
+        growth = Math.min(roomToGrow, Math.floor(Math.random() * 2)); // 0 a +1 si tiene margen
+      } else if (matchesPlayed <= 4) {
+        growth = -1; // Falta de ritmo
+        newPotential = Math.max(p.overall - 1, newPotential - 1);
+      } else {
+        growth = 0; // Estable
+      }
+    }
+    // 3. VETERANOS (Edad 29+)
+    else {
+      if (matchesPlayed >= 15) {
+        growth = -1; // Declive atenuado por titularidad constante
+      } else {
+        growth = -Math.floor(Math.random() * 3) - 1; // Declive acelerado (-1 a -3)
+      }
+      newPotential = Math.min(newPotential, Math.max(p.overall + growth, 50));
     }
 
-    const newOvr = Math.min(99, Math.max(50, p.overall + growth));
+    const newOvr = Math.min(newPotential, Math.max(50, p.overall + growth));
     const newStats = { ...p.stats };
     Object.keys(newStats).forEach((k) => {
       const key = k as keyof Player['stats'];
@@ -264,14 +305,16 @@ export function advanceToNextSeason(
       ...p,
       age,
       overall: newOvr,
+      potential: newPotential,
       stats: newStats,
       fitness: 100,
-      morale: 80,
+      morale: matchesPlayed >= 10 ? 85 : 65,
       form: 75,
       contractYears: Math.max(0, p.contractYears - 1),
       injuryWeeks: 0,
       isBanned: false,
       yellowCardsCount: 0,
+      consecutiveMatchesWithoutPlaying: 0,
       seasonMatches: 0,
       seasonGoals: 0,
       seasonAssists: 0,

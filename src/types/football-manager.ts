@@ -1,4 +1,5 @@
 export type Position = 'POR' | 'DFC' | 'LI' | 'LD' | 'MCD' | 'MC' | 'MCO' | 'EI' | 'ED' | 'DC';
+export type Currency = 'EUR' | 'USD' | 'JPY' | 'GBP';
 
 export type TacticalMentalidad = 'muy_defensiva' | 'defensiva' | 'equilibrada' | 'ofensiva' | 'ultra_ofensiva';
 export type TacticalPresion = 'baja' | 'media' | 'alta';
@@ -45,6 +46,7 @@ export interface Player {
   injuryWeeks: number;
   isBanned: boolean;
   yellowCardsCount: number;
+  consecutiveMatchesWithoutPlaying: number; // Partidos consecutivos sin jugar (para estancamiento/caída de potencial)
   // Season cumulative stats
   seasonMatches: number;
   seasonGoals: number;

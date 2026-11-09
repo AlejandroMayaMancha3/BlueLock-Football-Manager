@@ -5,9 +5,10 @@ import { useGameStore } from '@/store/game-store';
 import { Search } from 'lucide-react';
 import clsx from 'clsx';
 import { Player } from '@/types/football-manager';
+import { formatMoney } from '@/lib/currency';
 
 export const MarketView: React.FC = () => {
-  const { currentRound, userClubId, clubs, players, makeBuyOffer } = useGameStore();
+  const { currentRound, userClubId, clubs, players, selectedCurrency, makeBuyOffer } = useGameStore();
 
   const [marketSearch, setMarketSearch] = useState('');
   const [marketPosFilter, setMarketPosFilter] = useState('ALL');
@@ -17,13 +18,15 @@ export const MarketView: React.FC = () => {
   const [offerYears, setOfferYears] = useState<number>(3);
   const [marketFeedback, setMarketFeedback] = useState<{ success: boolean; msg: string } | null>(null);
 
-  const fmtYen = (yen: number) => {
-    if (yen >= 100000000) return `${(yen / 100000000).toFixed(1)} M¥`;
-    if (yen >= 10000) return `${(yen / 10000).toFixed(0)} k¥`;
-    return `${yen.toLocaleString('es-ES')} ¥`;
-  };
-
   const isWindowOpen = currentRound <= 4 || (currentRound >= 11 && currentRound <= 14);
+
+  const getPotentialTier = (pot: number) => {
+    if (pot >= 95) return { label: 'Mundial', color: 'text-amber-300 bg-amber-950/40 border-amber-500/50', icon: '🌟' };
+    if (pot >= 90) return { label: 'Élite', color: 'text-purple-300 bg-purple-950/40 border-purple-500/50', icon: '💎' };
+    if (pot >= 85) return { label: 'Promesa', color: 'text-cyan-300 bg-cyan-950/40 border-cyan-500/50', icon: '⚡' };
+    if (pot >= 80) return { label: 'Desarrollo', color: 'text-blue-300 bg-blue-950/40 border-blue-500/50', icon: '📈' };
+    return { label: 'Consolidado', color: 'text-slate-400 bg-slate-900 border-slate-700', icon: '🛡️' };
+  };
 
   return (
     <div className="space-y-6">
@@ -91,6 +94,7 @@ export const MarketView: React.FC = () => {
                 <th className="p-3">Club Actual</th>
                 <th className="p-3">Edad</th>
                 <th className="p-3">Media</th>
+                <th className="p-3 text-center">Potencial</th>
                 <th className="p-3">Valor de Mercado</th>
                 <th className="p-3">Salario</th>
                 <th className="p-3 text-right">Acción</th>
@@ -103,10 +107,12 @@ export const MarketView: React.FC = () => {
                   if (marketSearch && !p.name.toLowerCase().includes(marketSearch.toLowerCase())) return false;
                   return true;
                 })
-                .slice(0, 30)
+                .slice(0, 35)
                 .map((p) => {
                   const club = clubs.find((c) => c.id === p.clubId);
                   const isMyPlayer = p.clubId === userClubId;
+                  const tier = getPotentialTier(p.potential);
+
                   return (
                     <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
                       <td className="p-3">
@@ -114,12 +120,25 @@ export const MarketView: React.FC = () => {
                           {p.position}
                         </span>
                       </td>
-                      <td className="p-3 font-bold text-white text-sm">{p.name}</td>
+                      <td className="p-3">
+                        <div className="font-bold text-white text-sm">{p.name}</div>
+                        <div className="text-[10px] text-slate-400">{p.nationality}</div>
+                      </td>
                       <td className="p-3 text-slate-400">{club?.name || 'Agente Libre'}</td>
                       <td className="p-3 text-slate-300">{p.age} años</td>
-                      <td className="p-3 font-bold text-cyan-400 text-sm">{p.overall}</td>
-                      <td className="p-3 font-mono text-emerald-400 font-bold">{fmtYen(p.marketValueYen)}</td>
-                      <td className="p-3 font-mono text-slate-400">{fmtYen(p.weeklyWageYen)}/sem</td>
+                      <td className="p-3 font-bold text-white text-sm">{p.overall}</td>
+                      <td className="p-3 text-center">
+                        <span className={clsx('px-2 py-0.5 rounded border text-xs font-black inline-flex items-center gap-1', tier.color)}>
+                          <span>{tier.icon}</span>
+                          <span>{p.potential}</span>
+                        </span>
+                      </td>
+                      <td className="p-3 font-mono text-emerald-400 font-bold">
+                        {formatMoney(p.marketValueYen, selectedCurrency)}
+                      </td>
+                      <td className="p-3 font-mono text-slate-400">
+                        {formatMoney(p.weeklyWageYen, selectedCurrency)}/sem
+                      </td>
                       <td className="p-3 text-right">
                         {!isMyPlayer ? (
                           <button
@@ -162,23 +181,31 @@ export const MarketView: React.FC = () => {
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between">
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
                 <div>
                   <span className="text-slate-400 block">Posición / Media:</span>
                   <span className="text-white font-bold">
                     {selectedMarketPlayer.position} · OVR {selectedMarketPlayer.overall}
                   </span>
                 </div>
+                <div className="text-center">
+                  <span className="text-slate-400 block">Potencial Máx:</span>
+                  <span className="text-cyan-400 font-black">
+                    {selectedMarketPlayer.potential}
+                  </span>
+                </div>
                 <div className="text-right">
                   <span className="text-slate-400 block">Valor estimado:</span>
                   <span className="text-emerald-400 font-mono font-bold">
-                    {fmtYen(selectedMarketPlayer.marketValueYen)}
+                    {formatMoney(selectedMarketPlayer.marketValueYen, selectedCurrency)}
                   </span>
                 </div>
               </div>
 
               <div>
-                <label className="text-slate-400 block mb-1 font-bold">Oferta de Traspaso al Club (¥):</label>
+                <label className="text-slate-400 block mb-1 font-bold">
+                  Oferta de Traspaso al Club ({formatMoney(offerFee, selectedCurrency)}):
+                </label>
                 <input
                   type="number"
                   step="1000000"
@@ -189,7 +216,9 @@ export const MarketView: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-slate-400 block mb-1 font-bold">Salario Semanal Ofrecido (¥):</label>
+                <label className="text-slate-400 block mb-1 font-bold">
+                  Salario Semanal Ofrecido ({formatMoney(offerWage, selectedCurrency)}/sem):
+                </label>
                 <input
                   type="number"
                   step="100000"

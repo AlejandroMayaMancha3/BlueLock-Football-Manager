@@ -3,27 +3,70 @@
 import React from 'react';
 import { useGameStore } from '@/store/game-store';
 import clsx from 'clsx';
-import { Zap } from 'lucide-react';
+import { Zap, TrendingUp, AlertTriangle, Star } from 'lucide-react';
+import { formatMoney } from '@/lib/currency';
 
 export const SquadView: React.FC = () => {
-  const { userClubId, clubs, players } = useGameStore();
+  const { userClubId, clubs, players, selectedCurrency } = useGameStore();
 
   const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
   const userPlayers = players.filter((p) => p.clubId === userClubId);
 
-  const fmtYen = (yen: number) => {
-    if (yen >= 100000000) return `${(yen / 100000000).toFixed(1)} M¥`;
-    if (yen >= 10000) return `${(yen / 10000).toFixed(0)} k¥`;
-    return `${yen.toLocaleString('es-ES')} ¥`;
+  const getPotentialTier = (pot: number) => {
+    if (pot >= 95) {
+      return {
+        label: 'Mundial',
+        color: 'text-amber-300 border-amber-500/50 bg-amber-950/40',
+        icon: '🌟',
+      };
+    }
+    if (pot >= 90) {
+      return {
+        label: 'Élite',
+        color: 'text-purple-300 border-purple-500/50 bg-purple-950/40',
+        icon: '💎',
+      };
+    }
+    if (pot >= 85) {
+      return {
+        label: 'Promesa',
+        color: 'text-cyan-300 border-cyan-500/50 bg-cyan-950/40',
+        icon: '⚡',
+      };
+    }
+    if (pot >= 80) {
+      return {
+        label: 'Desarrollo',
+        color: 'text-blue-300 border-blue-500/50 bg-blue-950/40',
+        icon: '📈',
+      };
+    }
+    return {
+      label: 'Consolidado',
+      color: 'text-slate-400 border-slate-700 bg-slate-900',
+      icon: '🛡️',
+    };
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xl font-black text-white">
-          Plantilla del Primer Equipo ({userPlayers.length} jugadores)
-        </h3>
-        <span className="text-xs text-slate-400">Ordenados por Calidad General</span>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+        <div>
+          <h3 className="text-xl font-black text-white">
+            Plantilla del Primer Equipo ({userPlayers.length} jugadores)
+          </h3>
+          <p className="text-xs text-slate-400">
+            Los jugadores que juegan partidos aumentan su media hacia su potencial. Los que pasan semanas en el banquillo se estancan y pierden potencial.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <span className="px-2.5 py-1 bg-amber-950/50 border border-amber-500/40 text-amber-300 rounded-lg font-bold flex items-center gap-1">
+            🌟 95+ Mundial
+          </span>
+          <span className="px-2.5 py-1 bg-purple-950/50 border border-purple-500/40 text-purple-300 rounded-lg font-bold flex items-center gap-1">
+            💎 90+ Élite
+          </span>
+        </div>
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
@@ -34,13 +77,13 @@ export const SquadView: React.FC = () => {
                 <th className="p-3">Pos</th>
                 <th className="p-3">Jugador</th>
                 <th className="p-3">Edad</th>
-                <th className="p-3">Media</th>
+                <th className="p-3">Media Actual</th>
+                <th className="p-3 text-center">Potencial Máx</th>
+                <th className="p-3">Estado y Minutos</th>
                 <th className="p-3">Armas / Habilidades</th>
                 <th className="p-3">Físico</th>
-                <th className="p-3">Moral</th>
-                <th className="p-3">Estadísticas (PJ/G/A)</th>
                 <th className="p-3">Salario</th>
-                <th className="p-3">Valor Mercado</th>
+                <th className="p-3">Valor de Mercado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -48,6 +91,10 @@ export const SquadView: React.FC = () => {
                 .sort((a, b) => b.overall - a.overall)
                 .map((player) => {
                   const isStarter = userClub.startingXI.includes(player.id);
+                  const tier = getPotentialTier(player.potential);
+                  const isStagnating = (player.consecutiveMatchesWithoutPlaying || 0) >= 3;
+                  const isWasted = (player.consecutiveMatchesWithoutPlaying || 0) >= 6;
+
                   return (
                     <tr
                       key={player.id}
@@ -64,13 +111,51 @@ export const SquadView: React.FC = () => {
                           {userClub.captainId === player.id && (
                             <span className="text-[9px] bg-yellow-500 text-black px-1 rounded font-black">C</span>
                           )}
+                          {isStarter && (
+                            <span className="text-[9px] bg-cyan-900/60 text-cyan-300 border border-cyan-700/50 px-1 rounded font-bold">
+                              11
+                            </span>
+                          )}
                         </div>
                         <div className="text-[10px] text-slate-400">{player.nationality}</div>
                       </td>
                       <td className="p-3 text-slate-300">{player.age} años</td>
                       <td className="p-3">
-                        <span className="font-black text-sm text-cyan-400">{player.overall}</span>
-                        <span className="text-[10px] text-slate-500 ml-1">/{player.potential}</span>
+                        <span className="font-black text-base text-white">{player.overall}</span>
+                      </td>
+                      {/* COLUMNA POTENCIAL DEDICADA */}
+                      <td className="p-3 text-center">
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-mono font-black shadow-sm" style={{}}>
+                          <span className={clsx('px-2 py-0.5 rounded-md border font-black text-xs flex items-center gap-1', tier.color)}>
+                            <span>{tier.icon}</span>
+                            <span>{player.potential}</span>
+                            <span className="text-[9px] font-normal opacity-80 uppercase ml-0.5">{tier.label}</span>
+                          </span>
+                        </div>
+                      </td>
+                      {/* ESTADO DE MINUTOS Y PROGRESIÓN */}
+                      <td className="p-3">
+                        {isWasted ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-rose-400 font-bold bg-rose-950/40 border border-rose-800/60 px-2 py-0.5 rounded">
+                            <AlertTriangle className="w-3 h-3" />
+                            Degradación ({player.consecutiveMatchesWithoutPlaying} sin jugar)
+                          </span>
+                        ) : isStagnating ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-amber-400 font-bold bg-amber-950/40 border border-amber-800/60 px-2 py-0.5 rounded">
+                            <AlertTriangle className="w-3 h-3" />
+                            Estancado ({player.consecutiveMatchesWithoutPlaying} sin jugar)
+                          </span>
+                        ) : player.seasonMatches > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-bold bg-emerald-950/40 border border-emerald-800/60 px-2 py-0.5 rounded">
+                            <TrendingUp className="w-3 h-3" />
+                            En desarrollo ({player.seasonMatches} PJ)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-500">Pendiente de debut</span>
+                        )}
+                        <div className="text-[9px] text-slate-500 mt-0.5">
+                          PJ: {player.seasonMatches} · Goles: {player.seasonGoals} · Asist: {player.seasonAssists}
+                        </div>
                       </td>
                       <td className="p-3">
                         {player.weapons && player.weapons.length > 0 ? (
@@ -96,22 +181,12 @@ export const SquadView: React.FC = () => {
                           <span className="text-[10px] text-slate-300">{player.fitness}%</span>
                         </div>
                       </td>
-                      <td className="p-3">
-                        <span
-                          className={clsx(
-                            'text-[10px] font-bold',
-                            player.morale >= 80 ? 'text-emerald-400' : 'text-yellow-400'
-                          )}
-                        >
-                          {player.morale}%
-                        </span>
+                      <td className="p-3 font-mono text-slate-400">
+                        {formatMoney(player.weeklyWageYen, selectedCurrency)}/sem
                       </td>
-                      <td className="p-3 font-mono text-slate-300">
-                        {player.seasonMatches} /{' '}
-                        <span className="text-emerald-400 font-bold">{player.seasonGoals}</span> / {player.seasonAssists}
+                      <td className="p-3 font-mono text-cyan-400 font-bold">
+                        {formatMoney(player.marketValueYen, selectedCurrency)}
                       </td>
-                      <td className="p-3 font-mono text-slate-400">{fmtYen(player.weeklyWageYen)}/sem</td>
-                      <td className="p-3 font-mono text-cyan-400 font-bold">{fmtYen(player.marketValueYen)}</td>
                     </tr>
                   );
                 })}

@@ -180,10 +180,15 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
               )}
             </div>
 
-            {/* Etiqueta con Nombre y Posición */}
-            <div className="mt-1 bg-slate-950/80 backdrop-blur-sm border border-slate-700/60 rounded px-1.5 py-0.5 text-[10px] md:text-xs text-center whitespace-nowrap shadow-md max-w-[85px] truncate">
-              <span className="text-cyan-400 font-bold mr-1">{posCoord.role}</span>
-              <span className="text-white font-medium">{player.name.split(' ').pop()}</span>
+            {/* Etiqueta con Nombre, Posición y Potencial */}
+            <div className="mt-1 bg-slate-950/85 backdrop-blur-sm border border-slate-700/60 rounded px-1.5 py-0.5 text-[10px] md:text-xs text-center whitespace-nowrap shadow-md max-w-[95px] truncate">
+              <div className="flex items-center justify-center gap-1">
+                <span className="text-cyan-400 font-bold">{posCoord.role}</span>
+                <span className="text-white font-medium truncate">{player.name.split(' ').pop()}</span>
+              </div>
+              <div className="text-[9px] text-slate-400 font-mono">
+                MED {player.overall} · <span className="text-cyan-300 font-bold">POT {player.potential}</span>
+              </div>
             </div>
           </button>
         );

@@ -12,6 +12,7 @@ import {
   TacticalPresion,
   TacticalPase,
   Formation,
+  Currency,
 } from '@/types/football-manager';
 import { generateInitialClubsAndPlayers } from '@/engine/game-data';
 import {
@@ -32,6 +33,7 @@ const STORAGE_KEY = 'bluelock_football_manager_v2';
 
 export interface GameStoreState {
   hasStarted: boolean;
+  selectedCurrency: Currency;
   managerName: string;
   userClubId: string;
   currentSeason: number;
@@ -53,12 +55,14 @@ export interface GameStoreState {
   isSeasonCompleted: boolean;
 
   // Actions
-  startNewGame: (managerName: string, clubId: string) => void;
+  startNewGame: (managerName: string, clubId: string, currency?: Currency) => void;
+  setCurrency: (currency: Currency) => void;
   loadFromStorage: () => boolean;
   saveToStorage: () => void;
   setActiveTab: (tab: GameStoreState['activeTab']) => void;
   startMatchDay: () => void;
   tickMatchMinute: () => void;
+  fastForwardMatch: () => void;
   executeMatchSub: (outId: string, inId: string) => void;
   finishMatchDay: () => void;
   updateTactics: (mentalidad: TacticalMentalidad, presion: TacticalPresion, estiloPase: TacticalPase) => void;
@@ -80,6 +84,7 @@ export interface GameStoreState {
 
 export const useGameStore = create<GameStoreState>((set, get) => ({
   hasStarted: false,
+  selectedCurrency: 'EUR',
   managerName: 'Ego Jinpachi',
   userClubId: 'club-bm',
   currentSeason: 1,
@@ -100,7 +105,12 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   isSacked: false,
   isSeasonCompleted: false,
 
-  startNewGame: (managerName: string, clubId: string) => {
+  setCurrency: (currency: Currency) => {
+    set({ selectedCurrency: currency });
+    get().saveToStorage();
+  },
+
+  startNewGame: (managerName: string, clubId: string, currency: Currency = 'EUR') => {
     const { clubs, players } = generateInitialClubsAndPlayers();
     const fixtures = generateSeasonFixtures(1, clubs);
 
@@ -120,6 +130,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     const newState: Partial<GameStoreState> = {
       hasStarted: true,
+      selectedCurrency: currency,
       managerName: managerName.trim() || 'Ego Jinpachi',
       userClubId: userClub.id,
       currentSeason: 1,
@@ -155,7 +166,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       if (!data) return false;
       const parsed = JSON.parse(data);
       if (parsed && parsed.clubs && parsed.players && parsed.fixtures) {
-        set(parsed);
+        set({
+          ...parsed,
+          selectedCurrency: parsed.selectedCurrency || 'EUR',
+        });
         return true;
       }
     } catch (e) {
@@ -201,6 +215,24 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     const updated = tickLiveMatch(liveMatch, playersMap);
     set({ liveMatch: updated });
+  },
+
+  fastForwardMatch: () => {
+    const { liveMatch, players } = get();
+    if (!liveMatch || liveMatch.isFinished) return;
+
+    const playersMap = players.reduce((acc, p) => {
+      acc[p.id] = p;
+      return acc;
+    }, {} as Record<string, Player>);
+
+    let current = liveMatch;
+    let safetyCounter = 0;
+    while (!current.isFinished && safetyCounter < 120) {
+      current = tickLiveMatch(current, playersMap);
+      safetyCounter++;
+    }
+    set({ liveMatch: current });
   },
 
   executeMatchSub: (outId: string, inId: string) => {
@@ -288,15 +320,59 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         if (trainingPlan === 'descanso') staminaRecovery = 35;
         else if (trainingPlan === 'fisico') staminaRecovery = 15;
 
+        // Crecimiento dinámico por rendimiento y minutos
+        let currentOvr = p.overall;
+        let currentPot = p.potential;
+        const newSeasonMatches = p.seasonMatches + 1;
+
+        // Si es joven con margen respecto a su potencial y ha jugado con buena nota, sube de media
+        if (p.age <= 22 && currentOvr < currentPot && rating >= 7.0 && newSeasonMatches % 4 === 0) {
+          currentOvr = Math.min(currentPot, currentOvr + 1);
+        }
+
         return {
           ...p,
-          seasonMatches: p.seasonMatches + 1,
+          overall: currentOvr,
+          potential: currentPot,
+          consecutiveMatchesWithoutPlaying: 0,
+          seasonMatches: newSeasonMatches,
           seasonGoals: p.seasonGoals + playerGoals,
           seasonAssists: p.seasonAssists + playerAssists,
           fitness: Math.min(100, Math.max(50, p.fitness - 15 + staminaRecovery)),
           morale: Math.min(100, Math.max(30, p.morale + moraleBonus)),
           form: Math.min(100, Math.max(40, Math.round(p.form * 0.7 + rating * 3.5))),
           marketValueYen: Math.round(p.marketValueYen * (1 + (playerGoals * 0.08) + (userWon ? 0.02 : 0))),
+        };
+      }
+
+      // Jugadores de mi club que NO han jugado este partido
+      if (p.clubId === userClubId) {
+        const unplayed = (p.consecutiveMatchesWithoutPlaying || 0) + 1;
+        let newOvr = p.overall;
+        let newPot = p.potential;
+        let newForm = Math.max(30, p.form - 3);
+        let newMorale = Math.max(25, p.morale - 2);
+
+        // Si lleva 4+ jornadas sin jugar: pérdida de ritmo y moral
+        if (unplayed >= 4) {
+          newForm = Math.max(25, newForm - 3);
+          newMorale = Math.max(20, newMorale - 4);
+        }
+
+        // Si lleva 6+ jornadas sin jugar: estancamiento severo, baja de media y caída de potencial
+        if (unplayed >= 6 && unplayed % 3 === 0) {
+          newOvr = Math.max(50, p.overall - 1);
+          newPot = Math.max(newOvr, p.potential - 1);
+        }
+
+        return {
+          ...p,
+          consecutiveMatchesWithoutPlaying: unplayed,
+          overall: newOvr,
+          potential: newPot,
+          form: newForm,
+          morale: newMorale,
+          fitness: Math.min(100, p.fitness + 15), // Descansado físicamente
         };
       }
       return p;
@@ -492,6 +568,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       injuryWeeks: 0,
       isBanned: false,
       yellowCardsCount: 0,
+      consecutiveMatchesWithoutPlaying: 0,
       seasonMatches: 0,
       seasonGoals: 0,
       seasonAssists: 0,
