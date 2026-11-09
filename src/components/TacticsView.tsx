@@ -20,8 +20,6 @@ export const TacticsView: React.FC = () => {
     swapBenchPlayer,
     addToBench,
     removeFromBench,
-    autoOptimizeLineup,
-    autoSelectBestSquadLineup,
     setRole,
   } = useGameStore();
 
@@ -29,6 +27,7 @@ export const TacticsView: React.FC = () => {
   const [selectedReserveForBench, setSelectedReserveForBench] = useState<Player | null>(null);
   const [selectedBenchForReserve, setSelectedBenchForReserve] = useState<Player | null>(null);
   const [panelTab, setPanelTab] = useState<'bench' | 'reserves'>('bench');
+  const [showChemicalModal, setShowChemicalModal] = useState<boolean>(false);
 
   const tacticsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -94,7 +93,11 @@ export const TacticsView: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        clearAllSelections();
+        if (showChemicalModal) {
+          setShowChemicalModal(false);
+        } else {
+          clearAllSelections();
+        }
       }
     };
 
@@ -193,60 +196,6 @@ export const TacticsView: React.FC = () => {
         </div>
       )}
 
-      {/* SECCIÓN DE REACCIONES QUÍMICAS BLUE LOCK EN EL 11 TITULAR */}
-      <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/40 rounded-2xl space-y-2.5 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Zap className="w-4 h-4 text-cyan-400" />
-            <span className="text-xs font-bold text-white tracking-wide uppercase">
-              Reacciones Químicas Blue Lock en el 11 Titular
-            </span>
-          </div>
-          <span
-            className={clsx(
-              'text-[10px] font-black px-2 py-0.5 rounded-full border',
-              activeChemicals.length > 0
-                ? 'bg-cyan-950 text-cyan-300 border-cyan-500/60 shadow-sm'
-                : 'bg-slate-800 text-slate-400 border-slate-700'
-            )}
-          >
-            {activeChemicals.length} {activeChemicals.length === 1 ? 'Reacción Activa' : 'Reacciones Activas'}
-          </span>
-        </div>
-
-        {activeChemicals.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
-            {activeChemicals.map(({ reaction, p1, p2 }, idx) => (
-              <div
-                key={idx}
-                className="p-2.5 bg-slate-950/90 border border-cyan-500/40 rounded-xl space-y-1 shadow text-xs hover:border-cyan-400 transition-all"
-              >
-                <div className="flex items-center justify-between font-bold">
-                  <span className="text-cyan-300 flex items-center gap-1">
-                    ⚡ {reaction.name}
-                  </span>
-                  <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40">
-                    +{reaction.boost}% Potencia
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-300 flex items-center gap-1.5">
-                  <span className="font-semibold text-white">{p1.name}</span>
-                  <span className="text-cyan-400 font-black">↔</span>
-                  <span className="font-semibold text-white">{p2.name}</span>
-                </div>
-                <p className="text-[10px] text-slate-400 line-clamp-2">
-                  {reaction.narrative.replace(/^⚡ ¡REACCIÓN QUÍMICA \[[^\]]+\]! /, '')}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-[11px] text-slate-400">
-            Sin reacciones químicas activas en el 11. Junta en el campo futbolistas con armas compatibles (p. ej.: <b>Visión + Velocidad punta</b> para <i>Sincronía a Velocidad Luz</i>, <b>Físico + Cañón</b> para <i>Pivoteo Destructivo</i> o <b>Centro + Remate aéreo</b> para <i>Asalto Aéreo Coordinado</i>).
-          </p>
-        )}
-      </div>
-
       {/* Controles de Formación y Mentalidad */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
@@ -254,26 +203,25 @@ export const TacticsView: React.FC = () => {
             <Shield className="w-4 h-4 text-cyan-400" />
             <span>Pizarra Táctica y Estilo de Juego</span>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={autoOptimizeLineup}
-              title="Reordena a los 11 futbolistas titulares para que cada uno juegue en su rol idóneo sin penalizaciones"
-              className="px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500 hover:text-black text-cyan-300 border border-cyan-500/50 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow"
+
+          {/* BOTÓN PARA ABRIR LA VENTANA EMERGENTE DE REACCIONES QUÍMICAS */}
+          <button
+            type="button"
+            onClick={() => setShowChemicalModal(true)}
+            className="px-3 py-1.5 bg-gradient-to-r from-cyan-950 via-slate-900 to-cyan-950 hover:from-cyan-900 hover:to-slate-800 text-cyan-300 border border-cyan-500/50 hover:border-cyan-400 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow"
+            title="Ver reacciones químicas activas entre las armas de los 11 titulares"
+          >
+            <Zap className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+            <span>Reacciones Químicas</span>
+            <span
+              className={clsx(
+                'px-1.5 py-0.5 rounded-full text-[10px] font-black',
+                activeChemicals.length > 0 ? 'bg-cyan-400 text-black' : 'bg-slate-800 text-slate-400'
+              )}
             >
-              <Zap className="w-3.5 h-3.5" />
-              <span>⚡ Optimizar Posiciones (0 Penalizaciones)</span>
-            </button>
-            <button
-              type="button"
-              onClick={autoSelectBestSquadLineup}
-              title="Selecciona automáticamente el mejor 11 de toda la plantilla y convoca a los 7 mejores suplentes"
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow"
-            >
-              <Award className="w-3.5 h-3.5" />
-              <span>🌟 Mejor 11 de la Plantilla</span>
-            </button>
-          </div>
+              {activeChemicals.length}
+            </span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -748,6 +696,113 @@ export const TacticsView: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* MODAL / VENTANA EMERGENTE DE REACCIONES QUÍMICAS */}
+      {showChemicalModal && (
+        <div
+          onClick={() => setShowChemicalModal(false)}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-cyan-500/60 rounded-2xl max-w-2xl w-full p-5 shadow-2xl space-y-4 max-h-[85vh] flex flex-col"
+          >
+            {/* Cabecera del modal */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0">
+                  <Zap className="w-4 h-4 text-cyan-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-sm">
+                    Reacciones Químicas Blue Lock en el 11 Titular
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Sinergias egoístas activas entre las armas de los futbolistas sobre el césped
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowChemicalModal(false)}
+                className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all"
+                title="Cerrar (ESC)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contenido scrolleable */}
+            <div className="overflow-y-auto space-y-3 pr-1 flex-1">
+              {activeChemicals.length > 0 ? (
+                activeChemicals.map(({ reaction, p1, p2 }, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 bg-slate-950/90 border border-cyan-500/40 rounded-xl space-y-2 shadow text-xs hover:border-cyan-400 transition-all"
+                  >
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="text-cyan-300 text-sm flex items-center gap-1.5 font-black">
+                        ⚡ {reaction.name}
+                      </span>
+                      <span className="text-[11px] font-black text-emerald-300 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-500/50 shadow-sm">
+                        +{reaction.boost}% Potencia
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-slate-200">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 font-bold text-white">
+                        {p1.name} <span className="text-slate-400 font-normal">({p1.position})</span>
+                      </span>
+                      <span className="text-cyan-400 font-black">↔</span>
+                      <span className="px-2 py-0.5 rounded bg-slate-800 font-bold text-white">
+                        {p2.name} <span className="text-slate-400 font-normal">({p2.position})</span>
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-300 leading-relaxed bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+                      {reaction.narrative.replace(/^⚡ ¡REACCIÓN QUÍMICA \[[^\]]+\]! /, '')}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="p-6 text-center space-y-3 bg-slate-950/60 rounded-xl border border-dashed border-slate-800">
+                  <p className="text-sm font-semibold text-slate-300">
+                    No hay reacciones químicas activas con los 11 titulares actuales.
+                  </p>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    Prueba a juntar en el campo a futbolistas con armas complementarias:
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-left pt-1 text-slate-300">
+                    <div className="p-2.5 rounded bg-slate-900 border border-slate-800">
+                      • <b>Visión + Velocidad punta:</b> Sincronía a Velocidad Luz
+                    </div>
+                    <div className="p-2.5 rounded bg-slate-900 border border-slate-800">
+                      • <b>Físico + Cañón/Volea:</b> Pivoteo Destructivo
+                    </div>
+                    <div className="p-2.5 rounded bg-slate-900 border border-slate-800">
+                      • <b>Centro + Cabezazo/Remate:</b> Asalto Aéreo Coordinado
+                    </div>
+                    <div className="p-2.5 rounded bg-slate-900 border border-slate-800">
+                      • <b>Robo de contención + Carrera:</b> Transición Relámpago
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Pie del modal */}
+            <div className="pt-3 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowChemicalModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition-all"
+              >
+                Cerrar Ventana
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
