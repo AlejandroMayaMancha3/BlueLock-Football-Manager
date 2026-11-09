@@ -1521,7 +1521,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   proceedToNextSeason: () => {
     const { currentSeason, userClubId, clubs, players, fixtures, seasonHistory, ledger } = get();
-    const table = computeLeagueTable(clubs, fixtures);
+    const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
+    const userDivId = userClub?.divisionId || userClub?.league;
+    const divClubs = clubs.filter((c) => (c.divisionId || c.league) === userDivId);
+    const clubsForTable = divClubs.length > 0 ? divClubs : clubs;
+    const table = computeLeagueTable(clubsForTable, fixtures);
 
     const { newSeason, newClubs, newPlayers, newFixtures, seasonHistoryEntry } = advanceToNextSeason(
       currentSeason,

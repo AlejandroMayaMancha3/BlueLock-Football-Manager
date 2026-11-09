@@ -193,7 +193,18 @@ export function simulateAiMatchesForRound(
 export function computeLeagueTable(clubs: Club[], fixtures: MatchFixture[]): LeagueTableRow[] {
   const tableMap: Record<string, LeagueTableRow> = {};
 
-  clubs.forEach((c) => {
+  // Filtrar estrictamente para que solo participen los clubes involucrados en los fixtures de esta división
+  const fixtureClubIds = new Set<string>();
+  fixtures.forEach((f) => {
+    fixtureClubIds.add(f.homeClubId);
+    fixtureClubIds.add(f.awayClubId);
+  });
+
+  const participatingClubs = fixtureClubIds.size > 0
+    ? clubs.filter((c) => fixtureClubIds.has(c.id))
+    : clubs;
+
+  participatingClubs.forEach((c) => {
     tableMap[c.id] = {
       clubId: c.id,
       clubName: c.name,
@@ -274,12 +285,14 @@ export function advanceToNextSeason(
   const userPos = table.findIndex((r) => r.clubId === userClubId) + 1;
   const champion = table[0];
 
-  // Prize money according to final position
+  // Prize money according to final position (escalonado para 24 posiciones)
   const prizePool = [
-    500000000, 380000000, 300000000, 240000000, 200000000, 160000000,
-    130000000, 110000000, 90000000, 75000000, 60000000, 50000000
+    500000000, 420000000, 360000000, 310000000, 270000000, 240000000,
+    210000000, 190000000, 170000000, 150000000, 135000000, 120000000,
+    110000000, 100000000, 90000000, 80000000, 70000000, 60000000,
+    55000000, 50000000, 45000000, 40000000, 35000000, 30000000,
   ];
-  const userPrize = prizePool[userPos - 1] || 50000000;
+  const userPrize = prizePool[userPos - 1] || 30000000;
 
   // Find top scorer
   const topScorer = [...players].sort((a, b) => b.seasonGoals - a.seasonGoals)[0];
@@ -472,7 +485,11 @@ export function advanceToNextSeason(
   });
 
   const nextSeason = currentSeason + 1;
-  const newFixtures = generateSeasonFixtures(nextSeason, evolvedClubs);
+  const userClub = evolvedClubs.find((c) => c.id === userClubId) || evolvedClubs[0];
+  const userDivId = userClub?.divisionId || userClub?.league;
+  const divClubs = evolvedClubs.filter((c) => (c.divisionId || c.league) === userDivId);
+  const clubsForFixtures = divClubs.length >= 2 ? divClubs : evolvedClubs;
+  const newFixtures = generateSeasonFixtures(nextSeason, clubsForFixtures);
 
   return {
     newSeason: nextSeason,

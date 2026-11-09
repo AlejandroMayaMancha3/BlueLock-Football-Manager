@@ -20,6 +20,7 @@ import clsx from 'clsx';
 import { LeagueTableRow, Player } from '@/types/football-manager';
 import { formatMoney, formatTextWithCurrency } from '@/lib/currency';
 import { PlayerDetailModal } from './PlayerDetailModal';
+import { getDivisionById } from '@/engine/data/divisions-catalog';
 
 interface OfficeViewProps {
   leagueTable: LeagueTableRow[];
@@ -38,6 +39,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
     activeDecisionEvent,
     selectedCurrency,
     fixtures,
+    selectedDivisionId,
     lastMatchSummary,
     transferOffers,
     acceptSellOffer,
@@ -53,6 +55,11 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
   const [inspectingPlayer, setInspectingPlayer] = useState<Player | null>(null);
 
   const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
+  const activeDivisionId = userClub?.divisionId || userClub?.league || selectedDivisionId || 'es_laliga';
+  const divisionInfo = getDivisionById(activeDivisionId);
+  const divisionName = divisionInfo?.name || 'Liga';
+  const totalRounds = fixtures.length > 0 ? Math.max(...fixtures.map((f) => f.round)) : 46;
+
   const nextUserFixture = fixtures.find(
     (f) => f.round === currentRound && (f.homeClubId === userClubId || f.awayClubId === userClubId)
   );
@@ -86,7 +93,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
           </div>
 
           <p className="text-xs text-slate-300 leading-relaxed">
-            Clubes rivales de la Neo Egoist League han presentado ofertas oficiales de compra por jugadores de tu plantilla.
+            Clubes rivales han presentado ofertas oficiales de compra por jugadores de tu plantilla.
             Al aceptar una venta, el jugador se incorporará al club comprador, liberarás una plaza de las 25 reglamentarias y el 80% del importe se sumará a tu presupuesto de fichajes.
           </p>
 
@@ -210,9 +217,9 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
       <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-cyan-400" /> Próximo Partido · Jornada {currentRound} de 22
+            <Calendar className="w-4 h-4 text-cyan-400" /> Próximo Partido · Jornada {currentRound} de {totalRounds}
           </h3>
-          <span className="text-xs text-slate-500">Neo Egoist League</span>
+          <span className="text-xs text-cyan-400 font-bold font-mono">{divisionName}</span>
         </div>
 
         {rivalClub ? (
@@ -337,7 +344,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
-          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Resumen de Clasificación</h4>
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Resumen de Clasificación · {divisionName}</h4>
           <div className="space-y-1.5">
             {leagueTable.slice(0, 4).map((row, idx) => (
               <div key={row.clubId} className="flex items-center justify-between text-xs py-1 border-b border-slate-800/60">

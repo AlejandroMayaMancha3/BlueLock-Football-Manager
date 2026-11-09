@@ -21,7 +21,7 @@ import clsx from 'clsx';
 import { computeLeagueTable } from '@/engine/season-engine';
 import { Currency, CountryLeague, TierLevel } from '@/types/football-manager';
 import { formatMoney } from '@/lib/currency';
-import { COUNTRIES_CATALOG, getDivisionsByCountry } from '@/engine/data/divisions-catalog';
+import { COUNTRIES_CATALOG, getDivisionsByCountry, getDivisionById } from '@/engine/data/divisions-catalog';
 import { CLUBS_MASTER_CATALOG, EUR_TO_YEN } from '@/engine/data/leagues-catalog';
 
 // Componentes modulares
@@ -44,6 +44,7 @@ export default function FootballManagerApp() {
     currentRound,
     clubs,
     fixtures,
+    selectedDivisionId,
     activeTab,
     liveMatch,
     boardTrust,
@@ -90,7 +91,10 @@ export default function FootballManagerApp() {
   }, [availableClubs, selectedClubId]);
 
   const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
-  const leagueTable = clubs.length > 0 && fixtures.length > 0 ? computeLeagueTable(clubs, fixtures) : [];
+  const activeDivisionId = userClub?.divisionId || userClub?.league || selectedDivisionId || 'es_laliga';
+  const divisionClubs = clubs.filter((c) => (c.divisionId || c.league) === activeDivisionId);
+  const clubsForTable = divisionClubs.length > 0 ? divisionClubs : clubs;
+  const leagueTable = clubsForTable.length > 0 && fixtures.length > 0 ? computeLeagueTable(clubsForTable, fixtures) : [];
 
   // 1. PANTALLA INICIAL
   if (!hasStarted) {
@@ -441,6 +445,9 @@ export default function FootballManagerApp() {
   }
 
   // 3. MAIN DASHBOARD
+  const userDivisionInfo = getDivisionById(activeDivisionId);
+  const totalRounds = fixtures.length > 0 ? Math.max(...fixtures.map((f) => f.round)) : 46;
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-black">
       <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
@@ -456,8 +463,12 @@ export default function FootballManagerApp() {
               {userClub.name}
               <span className="text-[10px] text-slate-400 font-mono">({managerName})</span>
             </div>
-            <div className="text-xs text-cyan-400 font-semibold">
-              Temporada {currentSeason} · Jornada {currentRound}/22
+            <div className="text-xs text-cyan-400 font-semibold flex items-center gap-1.5">
+              <span>{userDivisionInfo?.name || 'Liga'}</span>
+              <span className="text-slate-600">·</span>
+              <span>Temporada {currentSeason}</span>
+              <span className="text-slate-600">·</span>
+              <span>Jornada {currentRound}/{totalRounds}</span>
             </div>
           </div>
         </div>
