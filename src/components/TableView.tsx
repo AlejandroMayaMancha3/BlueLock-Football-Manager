@@ -342,7 +342,9 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
                   <span>
-                    {promDirect + 1}.º al {promDirect + promPlayoff}.º Playoff de Ascenso
+                    {promPlayoff === 1
+                      ? `${promDirect + 1}.º Playoff de Ascenso`
+                      : `${promDirect + 1}.º al ${promDirect + promPlayoff}.º Playoff de Ascenso`}
                   </span>
                 </div>
               )}

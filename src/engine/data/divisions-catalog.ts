@@ -77,7 +77,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: '2.ª División',
     totalTeams: 24,
     promotionDirect: 2, // 1.º y 2.º
-    promotionPlayoff: 1, // 3.º al 6.º playoff
+    promotionPlayoff: 4, // 3.º al 6.º playoff por la 3.ª plaza
     relegationDirect: 3, // 22.º al 24.º
     relegationPlayoff: 0,
     hasGroups: false,
@@ -94,7 +94,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: '1.ª RFEF',
     totalTeams: 24,
     promotionDirect: 2, // 1.º y 2.º
-    promotionPlayoff: 1, // 3.º al 6.º playoff
+    promotionPlayoff: 4, // 3.º al 6.º playoff
     relegationDirect: 4, // 21.º al 24.º
     relegationPlayoff: 0,
     hasGroups: false,
@@ -111,7 +111,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: '2.ª RFEF',
     totalTeams: 24,
     promotionDirect: 3, // 1.º, 2.º y 3.º
-    promotionPlayoff: 1, // 4.º al 7.º playoff
+    promotionPlayoff: 4, // 4.º al 7.º playoff
     relegationDirect: 0, // En 4.ª división no hay descensos
     relegationPlayoff: 0,
     hasGroups: false,
@@ -149,7 +149,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: 'Championship',
     totalTeams: 24,
     promotionDirect: 2, // 1.º y 2.º
-    promotionPlayoff: 1, // 3.º al 6.º con final en Wembley
+    promotionPlayoff: 4, // 3.º al 6.º con final en Wembley
     relegationDirect: 3, // 22.º al 24.º
     relegationPlayoff: 0,
     hasGroups: false,
@@ -166,7 +166,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: 'League One',
     totalTeams: 24,
     promotionDirect: 2, // 1.º y 2.º
-    promotionPlayoff: 1, // 3.º al 6.º
+    promotionPlayoff: 4, // 3.º al 6.º
     relegationDirect: 4, // 21.º al 24.º
     relegationPlayoff: 0,
     hasGroups: false,
@@ -183,7 +183,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: 'League Two',
     totalTeams: 24,
     promotionDirect: 3, // 1.º, 2.º y 3.º
-    promotionPlayoff: 1, // 4.º al 7.º
+    promotionPlayoff: 4, // 4.º al 7.º
     relegationDirect: 0, // En 4.ª división no hay descensos
     relegationPlayoff: 0,
     hasGroups: false,
@@ -221,7 +221,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: '2. Bundesliga',
     totalTeams: 24,
     promotionDirect: 2, // 1.º y 2.º
-    promotionPlayoff: 1, // 3.º a Relegation vs 22.º de Bundesliga
+    promotionPlayoff: 4, // 3.º al 6.º playoff
     relegationDirect: 2, // 23.º y 24.º
     relegationPlayoff: 1, // 22.º a Relegation vs 3.º de 3. Liga
     hasGroups: false,
@@ -238,7 +238,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: '3. Liga',
     totalTeams: 24,
     promotionDirect: 2, // 1.º y 2.º
-    promotionPlayoff: 1, // 3.º a Relegation vs 22.º de 2. Bundesliga
+    promotionPlayoff: 4, // 3.º al 6.º playoff
     relegationDirect: 4, // 21.º al 24.º
     relegationPlayoff: 0,
     hasGroups: false,
@@ -255,7 +255,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: 'Regionalliga',
     totalTeams: 24,
     promotionDirect: 3, // 1.º, 2.º y 3.º
-    promotionPlayoff: 1, // 4.º al 7.º playoff
+    promotionPlayoff: 4, // 4.º al 7.º playoff
     relegationDirect: 0, // En 4.ª división no hay descensos
     relegationPlayoff: 0,
     hasGroups: false,
@@ -293,7 +293,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: 'Serie B',
     totalTeams: 24,
     promotionDirect: 2, // 1.º y 2.º
-    promotionPlayoff: 1, // 3.º al 6.º playoff
+    promotionPlayoff: 4, // 3.º al 6.º playoff
     relegationDirect: 3, // 22.º, 23.º y 24.º
     relegationPlayoff: 1, // Playout 20.º vs 21.º
     hasGroups: false,
@@ -310,7 +310,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: 'Serie C',
     totalTeams: 24,
     promotionDirect: 2, // 1.º y 2.º
-    promotionPlayoff: 1, // 3.º al 6.º playoff
+    promotionPlayoff: 4, // 3.º al 6.º playoff
     relegationDirect: 4, // 21.º al 24.º
     relegationPlayoff: 0,
     hasGroups: false,
@@ -327,7 +327,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: 'Serie D',
     totalTeams: 24,
     promotionDirect: 3, // 1.º, 2.º y 3.º
-    promotionPlayoff: 1, // 4.º al 7.º playoff
+    promotionPlayoff: 4, // 4.º al 7.º playoff
     relegationDirect: 0, // En 4.ª división no hay descensos
     relegationPlayoff: 0,
     hasGroups: false,
@@ -365,7 +365,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: 'Ligue 2',
     totalTeams: 24,
     promotionDirect: 2, // 1.º y 2.º
-    promotionPlayoff: 1, // Ganador de 3.º al 5.º va al Barrage vs 22.º de Ligue 1
+    promotionPlayoff: 4, // 3.º al 6.º playoff
     relegationDirect: 2, // 23.º y 24.º
     relegationPlayoff: 1, // 22.º al Barrage vs 3.º de National
     hasGroups: false,
@@ -382,7 +382,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: 'National 1',
     totalTeams: 24,
     promotionDirect: 2, // 1.º y 2.º
-    promotionPlayoff: 1, // 3.º al Barrage vs 22.º de Ligue 2
+    promotionPlayoff: 4, // 3.º al 6.º playoff
     relegationDirect: 4, // 21.º al 24.º
     relegationPlayoff: 0,
     hasGroups: false,
@@ -399,7 +399,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     shortName: 'National 2',
     totalTeams: 24,
     promotionDirect: 3, // 1.º, 2.º y 3.º
-    promotionPlayoff: 1, // 4.º al 7.º playoff
+    promotionPlayoff: 4, // 4.º al 7.º playoff
     relegationDirect: 0, // En 4.ª división no hay descensos
     relegationPlayoff: 0,
     hasGroups: false,

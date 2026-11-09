@@ -252,7 +252,10 @@ export default function FootballManagerApp() {
                   <span>🟢 {currentDivision.promotionDirect} ascensos directos</span>
                 )}
                 {currentDivision.promotionPlayoff > 0 && (
-                  <span>🔵 {currentDivision.promotionPlayoff} plaza vía Playoff</span>
+                  <span>
+                    🔵 Playoff de Ascenso ({currentDivision.promotionDirect + 1}.º al{' '}
+                    {currentDivision.promotionDirect + currentDivision.promotionPlayoff}.º)
+                  </span>
                 )}
                 {currentDivision.relegationDirect > 0 && (
                   <span>🔴 {currentDivision.relegationDirect} descensos directos</span>

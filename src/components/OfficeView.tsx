@@ -172,7 +172,14 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                 {lastSeasonTransitionReport.promotions.map((p) => (
                   <div key={p.clubId} className="flex items-center justify-between text-xs py-1 border-b border-slate-800/60">
-                    <span className="font-bold text-white">{p.clubName}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-white">{p.clubName}</span>
+                      {p.type === 'promotion_playoff' && (
+                        <span className="text-[9px] bg-blue-950 text-blue-300 border border-blue-500/40 px-1 py-0.2 rounded font-bold">
+                          Playoff
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[11px] text-emerald-400 font-mono">
                       {p.fromDivisionName} → {p.toDivisionName}
                     </span>

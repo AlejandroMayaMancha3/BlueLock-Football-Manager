@@ -565,7 +565,9 @@ export function advanceToNextSeason(
   });
 
   // Ascienden de Tier 2 a Tier 1 (1.º y 2.º directo + ganador playoff 3.º al 6.º)
-  const t2DirectPromRows = tierTables[2].slice(0, 2);
+  const t2DirectCount = div2.promotionDirect || 2;
+  const t2PlayoffCount = div2.promotionPlayoff || 4;
+  const t2DirectPromRows = tierTables[2].slice(0, t2DirectCount);
   t2DirectPromRows.forEach((row, idx) => {
     promotions.push({
       clubId: row.clubId,
@@ -579,7 +581,7 @@ export function advanceToNextSeason(
     });
   });
 
-  const t2PlayoffRows = tierTables[2].slice(2, 6);
+  const t2PlayoffRows = tierTables[2].slice(t2DirectCount, t2DirectCount + t2PlayoffCount);
   const userInT2Playoff = t2PlayoffRows.find((r) => r.clubId === userClubId);
   const t2PlayoffWinnerRow = userInT2Playoff || t2PlayoffRows[Math.floor(Math.random() * t2PlayoffRows.length)] || t2PlayoffRows[0];
   promotions.push({
@@ -610,7 +612,9 @@ export function advanceToNextSeason(
   });
 
   // Ascienden de Tier 3 a Tier 2 (1.º y 2.º directo + ganador playoff 3.º al 6.º)
-  const t3DirectPromRows = tierTables[3].slice(0, 2);
+  const t3DirectCount = div3.promotionDirect || 2;
+  const t3PlayoffCount = div3.promotionPlayoff || 4;
+  const t3DirectPromRows = tierTables[3].slice(0, t3DirectCount);
   t3DirectPromRows.forEach((row, idx) => {
     promotions.push({
       clubId: row.clubId,
@@ -624,7 +628,7 @@ export function advanceToNextSeason(
     });
   });
 
-  const t3PlayoffRows = tierTables[3].slice(2, 6);
+  const t3PlayoffRows = tierTables[3].slice(t3DirectCount, t3DirectCount + t3PlayoffCount);
   const userInT3Playoff = t3PlayoffRows.find((r) => r.clubId === userClubId);
   const t3PlayoffWinnerRow = userInT3Playoff || t3PlayoffRows[Math.floor(Math.random() * t3PlayoffRows.length)] || t3PlayoffRows[0];
   promotions.push({
@@ -655,7 +659,9 @@ export function advanceToNextSeason(
   });
 
   // Ascienden de Tier 4 a Tier 3 (1.º, 2.º y 3.º directo + ganador playoff 4.º al 7.º)
-  const t4DirectPromRows = tierTables[4].slice(0, 3);
+  const t4DirectCount = div4.promotionDirect || 3;
+  const t4PlayoffCount = div4.promotionPlayoff || 4;
+  const t4DirectPromRows = tierTables[4].slice(0, t4DirectCount);
   t4DirectPromRows.forEach((row, idx) => {
     promotions.push({
       clubId: row.clubId,
@@ -669,7 +675,7 @@ export function advanceToNextSeason(
     });
   });
 
-  const t4PlayoffRows = tierTables[4].slice(3, 7);
+  const t4PlayoffRows = tierTables[4].slice(t4DirectCount, t4DirectCount + t4PlayoffCount);
   const userInT4Playoff = t4PlayoffRows.find((r) => r.clubId === userClubId);
   const t4PlayoffWinnerRow = userInT4Playoff || t4PlayoffRows[Math.floor(Math.random() * t4PlayoffRows.length)] || t4PlayoffRows[0];
   promotions.push({
