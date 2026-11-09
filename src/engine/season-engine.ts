@@ -45,9 +45,9 @@ export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixt
     });
   });
 
-  // Second leg (Jornadas 12 to 22) - Inverted home/away
+  // Second leg - Inverted home/away
   firstLegRounds.forEach((pairs, rIdx) => {
-    const roundNum = rIdx + 12;
+    const roundNum = rIdx + n;
     pairs.forEach(([h, a], mIdx) => {
       rounds.push({
         id: `fix-s${season}-r${roundNum}-m${mIdx}`,

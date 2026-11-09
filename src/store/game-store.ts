@@ -17,8 +17,11 @@ import {
   PlayerPerformanceSummary,
   Position,
   IndividualTrainingFocus,
+  CountryLeague,
+  TierLevel,
 } from '@/types/football-manager';
 import { generateInitialClubsAndPlayers, calculateOvr } from '@/engine/game-data';
+import { generatePyramidClubsAndPlayers, getClubTemplateById } from '@/engine/data/leagues-catalog';
 import {
   generateSeasonFixtures,
   simulateAiMatchesForRound,
@@ -42,10 +45,13 @@ const STORAGE_KEY = 'bluelock_football_manager_v2';
 export interface GameStoreState {
   hasStarted: boolean;
   selectedCurrency: Currency;
+  selectedCountry?: CountryLeague;
+  selectedDivisionId?: string;
+  selectedTier?: TierLevel;
   managerName: string;
   userClubId: string;
   currentSeason: number;
-  currentRound: number; // 1 to 22
+  currentRound: number; // 1 to totalRounds
   clubs: Club[];
   players: Player[];
   fixtures: MatchFixture[];
@@ -65,7 +71,7 @@ export interface GameStoreState {
   lastMatchSummary: MatchSummaryData | null;
 
   // Actions
-  startNewGame: (managerName: string, clubId: string, currency?: Currency) => void;
+  startNewGame: (managerName: string, clubId: string, currency?: Currency, country?: CountryLeague, divisionId?: string) => void;
   setCurrency: (currency: Currency) => void;
   loadFromStorage: () => boolean;
   saveToStorage: () => void;
@@ -134,11 +140,35 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     get().saveToStorage();
   },
 
-  startNewGame: (managerName: string, clubId: string, currency: Currency = 'EUR') => {
-    const { clubs, players } = generateInitialClubsAndPlayers();
-    const fixtures = generateSeasonFixtures(1, clubs);
+  startNewGame: (
+    managerName: string,
+    clubId: string,
+    currency: Currency = 'EUR',
+    country?: CountryLeague,
+    divisionId?: string
+  ) => {
+    let resolvedCountry: CountryLeague = country || 'Spain';
+    let resolvedDivision: string = divisionId || 'es_laliga';
 
-    const userClub = clubs.find((c) => c.id === clubId) || clubs[0];
+    const tmpl = getClubTemplateById(clubId);
+    if (tmpl) {
+      resolvedCountry = tmpl.country;
+      resolvedDivision = tmpl.divisionId;
+    }
+
+    // Generar clubes y futbolistas de la pirámide de ligas
+    let generated = generatePyramidClubsAndPlayers(resolvedCountry, resolvedDivision);
+    if (!generated.clubs || generated.clubs.length === 0) {
+      generated = generateInitialClubsAndPlayers();
+    }
+
+    const { clubs, players } = generated;
+    // Si los clubes pertenecen a la división, armar el calendario de esa categoría
+    const divClubs = clubs.filter((c) => (c.divisionId || c.league) === resolvedDivision);
+    const clubsForFixtures = divClubs.length >= 2 ? divClubs : clubs;
+    const fixtures = generateSeasonFixtures(1, clubsForFixtures);
+
+    const userClub = clubs.find((c) => c.id === clubId) || clubsForFixtures[0] || clubs[0];
 
     const initialLedger: ClubLedgerEntry[] = [
       {
@@ -155,6 +185,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const newState: Partial<GameStoreState> = {
       hasStarted: true,
       selectedCurrency: currency,
+      selectedCountry: resolvedCountry,
+      selectedDivisionId: resolvedDivision,
+      selectedTier: userClub.tier || 1,
       managerName: managerName.trim() || 'Ego Jinpachi',
       userClubId: userClub.id,
       currentSeason: 1,
@@ -686,8 +719,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const newBoardTrust = Math.min(100, Math.max(5, boardTrust + trustDelta));
     const newSquadMorale = Math.min(100, Math.max(20, squadMorale + (userWon ? 6 : userDrew ? 0 : -5)));
 
-    // Check if season is complete (Round 22 finished)
-    const isSeasonCompleted = currentRound >= 22;
+    // Check if season is complete (All regular league rounds finished)
+    const maxSeasonRound = fixtures.length > 0 ? Math.max(...fixtures.map((f) => f.round)) : 22;
+    const isSeasonCompleted = currentRound >= maxSeasonRound;
 
     // Pick random decision event occasionally (every 3-4 rounds)
     let nextDecisionEvent: DecisionEvent | null = null;

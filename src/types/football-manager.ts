@@ -15,6 +15,34 @@ export type Position =
   | 'DC';
 export type Currency = 'EUR' | 'USD' | 'JPY' | 'GBP';
 
+export type CountryLeague = 'Spain' | 'England' | 'Germany' | 'Italy' | 'France';
+export type TierLevel = 1 | 2 | 3 | 4;
+
+export interface DivisionGroupInfo {
+  id: string;
+  name: string;
+  shortName: string;
+}
+
+export interface DivisionInfo {
+  id: string;
+  country: CountryLeague;
+  countryNameEs: string;
+  flag: string;
+  tier: TierLevel;
+  name: string;
+  shortName: string;
+  totalTeams: number;
+  promotionDirect: number;
+  promotionPlayoff: number;
+  relegationDirect: number;
+  relegationPlayoff: number;
+  hasGroups: boolean;
+  groups?: DivisionGroupInfo[];
+  reputationRange: [number, number];
+  budgetRangeEur: [number, number];
+}
+
 export type IndividualTrainingFocus =
   | 'balanced'
   | 'finishing'
@@ -78,6 +106,8 @@ export interface Player {
   isBanned: boolean;
   yellowCardsCount: number;
   consecutiveMatchesWithoutPlaying: number; // Partidos consecutivos sin jugar (para estancamiento/caída de potencial)
+  isUnlicensedParody?: boolean;
+  realNameReference?: string;
   // Season cumulative stats
   seasonMatches: number;
   seasonMinutes?: number;
@@ -95,6 +125,9 @@ export interface Club {
   shortName: string;
   country: string;
   league: string;
+  divisionId?: string;
+  tier?: TierLevel;
+  groupId?: string;
   reputation: number;     // 1-100
   level: number;          // Fuerza general del club
   budgetYen: number;      // Presupuesto de fichajes
@@ -133,10 +166,18 @@ export interface MatchFixture {
   id: string;
   season: number;
   round: number;
+  divisionId?: string;
+  isPlayoff?: boolean;
+  playoffStage?: 'semi' | 'final' | 'relegation_tie' | 'barrage' | 'spareggio' | 'playout';
+  leg?: number;
   homeClubId: string;
   awayClubId: string;
   homeScore?: number;
   awayScore?: number;
+  penaltyHomeScore?: number;
+  penaltyAwayScore?: number;
+  aggregateHomeScore?: number;
+  aggregateAwayScore?: number;
   isPlayed: boolean;
   events?: MatchEvent[];
   homeStats?: {
