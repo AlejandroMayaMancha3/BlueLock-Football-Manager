@@ -495,6 +495,8 @@ export const LiveMatchView: React.FC = () => {
               const isFlow = ev.type === 'flow';
               const isSave = ev.type === 'save';
               const isCard = ev.type === 'yellow_card' || ev.type === 'red_card';
+              const isCorner = ev.type === 'corner';
+              const isFoul = ev.type === 'foul';
 
               return (
                 <div
@@ -509,6 +511,10 @@ export const LiveMatchView: React.FC = () => {
                       ? 'bg-amber-950/40 border-amber-500/60 text-amber-200'
                       : isSave
                       ? 'bg-emerald-950/40 border-emerald-500/60 text-emerald-200'
+                      : isCorner
+                      ? 'bg-blue-950/40 border-blue-500/60 text-blue-200'
+                      : isFoul
+                      ? 'bg-orange-950/40 border-orange-500/60 text-orange-200'
                       : 'bg-slate-950/60 border-slate-800/80 text-slate-300'
                   )}
                 >
@@ -517,6 +523,9 @@ export const LiveMatchView: React.FC = () => {
                     {isGoal && <span className="text-yellow-400 font-bold uppercase tracking-wider">¡GOL!</span>}
                     {isFlow && <span className="text-cyan-400 font-bold uppercase tracking-wider">FLOW STATE</span>}
                     {isSave && <span className="text-emerald-400 font-bold uppercase tracking-wider">PARADA</span>}
+                    {isCard && <span className="text-amber-400 font-bold uppercase tracking-wider">TARJETA</span>}
+                    {isCorner && <span className="text-blue-400 font-bold uppercase tracking-wider">CÓRNER</span>}
+                    {isFoul && <span className="text-orange-400 font-bold uppercase tracking-wider">FALTA / TIRO LIBRE</span>}
                   </div>
                   <div>{ev.description}</div>
                 </div>

@@ -87,7 +87,7 @@ export interface Club {
 
 export interface MatchEvent {
   minute: number;
-  type: 'goal' | 'shot' | 'save' | 'yellow_card' | 'red_card' | 'injury' | 'sub' | 'flow' | 'commentary';
+  type: 'goal' | 'shot' | 'save' | 'yellow_card' | 'red_card' | 'injury' | 'sub' | 'flow' | 'commentary' | 'corner' | 'foul';
   teamId: string;
   playerId?: string;
   playerName?: string;

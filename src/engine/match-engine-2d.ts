@@ -16,6 +16,7 @@ export interface LiveMatchState {
   ballCarrierId: string | null; // ID del jugador que conduce el balón
   playerPositions: Record<string, { x: number; y: number }>; // Coordenadas individuales de cada jugador (0-100%)
   attackingTeamId: string;
+  pendingKickoffTeamId?: string | null; // ID del equipo que debe sacar de centro tras encajar gol
   events: MatchEvent[];
   homeStats: {
     possession: number;
@@ -112,7 +113,7 @@ export const FORMATION_COORDS_HOME: Record<Formation, Array<{ x: number; y: numb
   ],
 };
 
-// Restricción posicional estricta: un delantero NUNCA defiende en su área ni un defensa ataca de 9
+// Restricción posicional amplia y realista: libertad de desmarques diagonales manteniendo coherencia de rol
 export function clampToRoleZone(
   pos: string,
   isHome: boolean,
@@ -124,66 +125,66 @@ export function clampToRoleZone(
     switch (pos) {
       case 'POR':
         return {
-          x: Math.min(8, Math.max(5, x)),
-          y: Math.min(56, Math.max(44, y)),
+          x: Math.min(8.5, Math.max(4.5, x)),
+          y: Math.min(58, Math.max(42, y)),
         };
       case 'DFC':
         return {
-          x: Math.min(28, Math.max(14, x)),
-          y: Math.min(74, Math.max(26, y)),
+          x: Math.min(30, Math.max(13, x)),
+          y: Math.min(80, Math.max(20, y)),
         };
       case 'LI':
       case 'CAI':
         return {
-          x: Math.min(52, Math.max(18, x)),
-          y: Math.min(26, Math.max(10, y)),
+          x: Math.min(58, Math.max(16, x)),
+          y: Math.min(36, Math.max(8, y)),
         };
       case 'LD':
       case 'CAD':
         return {
-          x: Math.min(52, Math.max(18, x)),
-          y: Math.min(90, Math.max(74, y)),
+          x: Math.min(58, Math.max(16, x)),
+          y: Math.min(92, Math.max(64, y)),
         };
       case 'MCD':
         return {
-          x: Math.min(46, Math.max(28, x)),
-          y: Math.min(65, Math.max(35, y)),
+          x: Math.min(48, Math.max(26, x)),
+          y: Math.min(74, Math.max(26, y)),
         };
       case 'MC':
         return {
-          x: Math.min(62, Math.max(36, x)),
-          y: Math.min(80, Math.max(20, y)),
+          x: Math.min(66, Math.max(34, x)),
+          y: Math.min(84, Math.max(16, y)),
         };
       case 'MI':
         return {
-          x: Math.min(66, Math.max(38, x)),
-          y: Math.min(30, Math.max(12, y)),
+          x: Math.min(70, Math.max(36, x)),
+          y: Math.min(40, Math.max(8, y)),
         };
       case 'MD':
         return {
-          x: Math.min(66, Math.max(38, x)),
-          y: Math.min(88, Math.max(70, y)),
+          x: Math.min(70, Math.max(36, x)),
+          y: Math.min(92, Math.max(60, y)),
         };
       case 'MCO':
         return {
-          x: Math.min(72, Math.max(48, x)),
-          y: Math.min(70, Math.max(30, y)),
+          x: Math.min(76, Math.max(46, x)),
+          y: Math.min(78, Math.max(22, y)),
         };
       case 'EI':
         return {
-          x: Math.min(88, Math.max(58, x)),
-          y: Math.min(30, Math.max(12, y)),
+          x: Math.min(90, Math.max(55, x)),
+          y: Math.min(42, Math.max(8, y)),
         };
       case 'ED':
         return {
-          x: Math.min(88, Math.max(58, x)),
-          y: Math.min(88, Math.max(70, y)),
+          x: Math.min(90, Math.max(55, x)),
+          y: Math.min(92, Math.max(58, y)),
         };
       case 'DC':
       default:
         return {
-          x: Math.min(90, Math.max(64, x)),
-          y: Math.min(68, Math.max(32, y)),
+          x: Math.min(92, Math.max(62, x)),
+          y: Math.min(75, Math.max(25, y)),
         };
     }
   } else {
@@ -191,66 +192,66 @@ export function clampToRoleZone(
     switch (pos) {
       case 'POR':
         return {
-          x: Math.min(95, Math.max(92, x)),
-          y: Math.min(56, Math.max(44, y)),
+          x: Math.min(95.5, Math.max(91.5, x)),
+          y: Math.min(58, Math.max(42, y)),
         };
       case 'DFC':
         return {
-          x: Math.min(86, Math.max(72, x)),
-          y: Math.min(74, Math.max(26, y)),
+          x: Math.min(87, Math.max(70, x)),
+          y: Math.min(80, Math.max(20, y)),
         };
       case 'LI':
       case 'CAI':
         return {
-          x: Math.min(82, Math.max(48, x)),
-          y: Math.min(90, Math.max(74, y)),
+          x: Math.min(84, Math.max(42, x)),
+          y: Math.min(92, Math.max(64, y)),
         };
       case 'LD':
       case 'CAD':
         return {
-          x: Math.min(82, Math.max(48, x)),
-          y: Math.min(26, Math.max(10, y)),
+          x: Math.min(84, Math.max(42, x)),
+          y: Math.min(36, Math.max(8, y)),
         };
       case 'MCD':
         return {
-          x: Math.min(72, Math.max(54, x)),
-          y: Math.min(65, Math.max(35, y)),
+          x: Math.min(74, Math.max(52, x)),
+          y: Math.min(74, Math.max(26, y)),
         };
       case 'MC':
         return {
-          x: Math.min(64, Math.max(38, x)),
-          y: Math.min(80, Math.max(20, y)),
+          x: Math.min(66, Math.max(34, x)),
+          y: Math.min(84, Math.max(16, y)),
         };
       case 'MI':
         return {
-          x: Math.min(62, Math.max(34, x)),
-          y: Math.min(88, Math.max(70, y)),
+          x: Math.min(64, Math.max(30, x)),
+          y: Math.min(92, Math.max(60, y)),
         };
       case 'MD':
         return {
-          x: Math.min(62, Math.max(34, x)),
-          y: Math.min(30, Math.max(12, y)),
+          x: Math.min(64, Math.max(30, x)),
+          y: Math.min(40, Math.max(8, y)),
         };
       case 'MCO':
         return {
-          x: Math.min(52, Math.max(28, x)),
-          y: Math.min(70, Math.max(30, y)),
+          x: Math.min(54, Math.max(24, x)),
+          y: Math.min(78, Math.max(22, y)),
         };
       case 'EI':
         return {
-          x: Math.min(42, Math.max(12, x)),
-          y: Math.min(88, Math.max(70, y)),
+          x: Math.min(45, Math.max(10, x)),
+          y: Math.min(92, Math.max(58, y)),
         };
       case 'ED':
         return {
-          x: Math.min(42, Math.max(12, x)),
-          y: Math.min(30, Math.max(12, y)),
+          x: Math.min(45, Math.max(10, x)),
+          y: Math.min(42, Math.max(8, y)),
         };
       case 'DC':
       default:
         return {
-          x: Math.min(36, Math.max(10, x)),
-          y: Math.min(68, Math.max(32, y)),
+          x: Math.min(38, Math.max(8, x)),
+          y: Math.min(75, Math.max(25, y)),
         };
     }
   }
@@ -352,7 +353,7 @@ export function initLiveMatch(
   };
 }
 
-// Simulates 1 minute of match action with individual player positioning and ball carrier tracking
+// Simula 1 minuto de partido con movimiento 2D fluido, saque de centro tras gol y mecánicas de faltas y córners
 export function tickLiveMatch(
   match: LiveMatchState,
   allPlayersMap: Record<string, Player>
@@ -362,13 +363,61 @@ export function tickLiveMatch(
   const currentMinute = match.minute + 1;
   const next = { ...match, minute: currentMinute };
 
-  // Calculate team strengths with tactical modifiers
+  // Jugadores disponibles sobre el césped
   const homePlayers = match.homeLineup.map((id) => allPlayersMap[id]).filter(Boolean);
   const awayPlayers = match.awayLineup.map((id) => allPlayersMap[id]).filter(Boolean);
 
   const homeGk = homePlayers.find((p) => p.position === 'POR') || homePlayers[0];
   const awayGk = awayPlayers.find((p) => p.position === 'POR') || awayPlayers[0];
 
+  // 1. SAQUE DE CENTRO TRAS UN GOL (En la realidad saca el equipo que acaba de encajar)
+  if (match.pendingKickoffTeamId) {
+    const kickoffTeam = match.pendingKickoffTeamId === match.homeClub.id ? match.homeClub : match.awayClub;
+    const isHomeKickoff = kickoffTeam.id === match.homeClub.id;
+    const kPlayers = isHomeKickoff ? homePlayers : awayPlayers;
+    const kickoffStriker = kPlayers.find((p) => ['DC', 'EI', 'ED'].includes(p.position)) || kPlayers[kPlayers.length - 1];
+
+    const kHomeBase = getBaseFormationCoords(match.homeClub.formation, true);
+    const kAwayBase = getBaseFormationCoords(match.awayClub.formation, false);
+
+    const kickoffPositions: Record<string, { x: number; y: number }> = {};
+    match.homeLineup.forEach((id, idx) => {
+      kickoffPositions[id] = {
+        x: Math.min(48, kHomeBase[idx]?.x || 25),
+        y: kHomeBase[idx]?.y || 50,
+      };
+    });
+    match.awayLineup.forEach((id, idx) => {
+      kickoffPositions[id] = {
+        x: Math.max(52, kAwayBase[idx]?.x || 75),
+        y: kAwayBase[idx]?.y || 50,
+      };
+    });
+
+    if (kickoffStriker) {
+      kickoffPositions[kickoffStriker.id] = { x: 50, y: 50 };
+    }
+
+    next.ballCarrierId = kickoffStriker?.id || null;
+    next.ballPosition = { x: 50, y: 50 };
+    next.playerPositions = kickoffPositions;
+    next.attackingTeamId = kickoffTeam.id;
+    next.pendingKickoffTeamId = null;
+
+    next.events.unshift({
+      minute: currentMinute,
+      type: 'commentary',
+      teamId: kickoffTeam.id,
+      playerId: kickoffStriker?.id,
+      playerName: kickoffStriker?.name,
+      description: `🔄 Saque de centro: ${kickoffTeam.name} reanuda el juego desde el círculo central tras encajar el gol.`,
+      ballZone: { x: 50, y: 50 },
+    });
+
+    return next;
+  }
+
+  // Cálculo de potencias tácticas
   const getTeamPwr = (players: Player[], ment: Club['mentalidad']) => {
     const avg = players.reduce((s, p) => s + p.overall, 0) / Math.max(1, players.length);
     let mod = 1.0;
@@ -378,10 +427,9 @@ export function tickLiveMatch(
     return avg * mod;
   };
 
-  const homePwr = getTeamPwr(homePlayers, match.homeClub.mentalidad) + 2.5; // Ventaja local
+  const homePwr = getTeamPwr(homePlayers, match.homeClub.mentalidad) + 2.5;
   const awayPwr = getTeamPwr(awayPlayers, match.awayClub.mentalidad);
 
-  // Determinar quién tiene la iniciativa ofensiva este minuto
   const homeProb = homePwr / (homePwr + awayPwr);
   const isHomeAttack = Math.random() < homeProb;
   const attTeam = isHomeAttack ? match.homeClub : match.awayClub;
@@ -392,67 +440,74 @@ export function tickLiveMatch(
 
   next.attackingTeamId = attTeam.id;
 
-  // 1. FASE DE JUEGO Y SELECCIÓN DE PORTADOR CON COHERENCIA TÁCTICA
+  // Clasificación de la acción del minuto
   const roll = Math.random();
-  const isDangerousPhase = roll < 0.20; // 20% jugada de peligro en el área
-  const isProgressionPhase = !isDangerousPhase && roll < 0.75; // 55% progresión en medio campo
+  const isDangerPhase = roll < 0.20; // 20% jugada de peligro en área
+  const isCornerPhase = !isDangerPhase && roll >= 0.88 && roll < 0.94; // 6% córner
+  const isFoulPhase = !isDangerPhase && !isCornerPhase && roll >= 0.94; // 6% falta
 
+  // 2. SELECCIÓN COHERENTE DEL PORTADOR DEL BALÓN
   let carrier: Player;
-  if (isDangerousPhase) {
-    // Fase de peligro: SOLO delanteros, extremos o mediapuntas
+  if (isDangerPhase) {
     const dangerCandidates = attPlayers.filter((p) => ['DC', 'EI', 'ED', 'MCO'].includes(p.position));
     carrier = dangerCandidates[Math.floor(Math.random() * dangerCandidates.length)] || attPlayers[attPlayers.length - 1];
-  } else if (isProgressionPhase) {
-    // Fase de progresión: mediocentros, volantes o extremos
-    const progCandidates = attPlayers.filter((p) => ['MC', 'MCD', 'MCO', 'EI', 'ED', 'MI', 'MD'].includes(p.position));
-    carrier = progCandidates[Math.floor(Math.random() * progCandidates.length)] || attPlayers[0];
+  } else if (isCornerPhase) {
+    const cornerCandidates = attPlayers.filter((p) => ['EI', 'ED', 'MCO', 'MC'].includes(p.position));
+    carrier = cornerCandidates[Math.floor(Math.random() * cornerCandidates.length)] || attPlayers[0];
   } else {
-    // Fase de salida desde atrás: pivotes, mediocentros o laterales
-    const buildCandidates = attPlayers.filter((p) => ['MCD', 'MC', 'LI', 'LD', 'CAI', 'CAD'].includes(p.position));
-    carrier = buildCandidates[Math.floor(Math.random() * buildCandidates.length)] || attPlayers[0];
+    const progCandidates = attPlayers.filter((p) => ['MC', 'MCD', 'MCO', 'EI', 'ED', 'LI', 'LD'].includes(p.position));
+    carrier = progCandidates[Math.floor(Math.random() * progCandidates.length)] || attPlayers[0];
   }
 
   next.ballCarrierId = carrier?.id || null;
 
-  // 2. DESPLAZAMIENTO COLECTIVO TRANQUILO Y ARMÓNICO (Sin saltos bruscos ni mareo)
-  // En ataque el bloque adelanta 1-5%; en defensa repliega 1-4%.
-  const attShift = isDangerousPhase ? 4.5 : isProgressionPhase ? 2.8 : 1.2;
-  const defShift = isDangerousPhase ? 3.8 : isProgressionPhase ? 2.2 : 0.8;
+  // 3. MOVIMIENTO TÁCTICO FLUIDO EN 2D (Desmarques diagonales, cortes hacia dentro e incursiones)
+  const attShiftX = isDangerPhase ? 4.5 : 2.5;
+  const defShiftX = isDangerPhase ? 3.8 : 2.0;
 
   const homeBase = getBaseFormationCoords(match.homeClub.formation, true);
   const awayBase = getBaseFormationCoords(match.awayClub.formation, false);
 
   const newPositions: Record<string, { x: number; y: number }> = {};
 
-  // Posicionar a cada jugador del Equipo Local respetando estrictamente su rol
+  // Posicionar equipo local con libertad 2D
   match.homeLineup.forEach((pId, idx) => {
     const p = allPlayersMap[pId];
     const base = homeBase[idx] || { x: 25, y: 50, pos: p?.position || 'MC' };
     const posRole = base.pos;
 
-    // Micro-variación suave (< 0.7%) para respiración visual sin vibraciones
-    const microX = Math.sin(currentMinute * 0.4 + idx * 0.7) * 0.7;
-    const microY = Math.cos(currentMinute * 0.35 + idx * 0.75) * 0.7;
+    // Desplazamiento diagonal armónico en X e Y
+    const diagX = Math.sin(currentMinute * 0.45 + idx * 1.3) * 2.2;
+    const diagY = Math.cos(currentMinute * 0.4 + idx * 1.5) * 3.8;
 
     let targetX = base.x;
-    let targetY = base.y;
+    let targetY = base.y + diagY;
 
     if (isHomeAttack) {
-      // Local en ataque hacia X=95
-      targetX += attShift + microX;
-      targetY += microY;
-
-      // El portador avanza un poco más en su carril natural
-      if (pId === next.ballCarrierId) {
-        targetX += isDangerousPhase ? 4.5 : 2.5;
+      targetX += attShiftX + diagX;
+      // Incursiones específicas por rol en ataque:
+      if (['DC'].includes(posRole)) {
+        // Delanteros tiran diagonales hacia el primer o segundo palo
+        targetY += Math.sin(currentMinute * 0.6) * 5.5;
+        if (pId === next.ballCarrierId) targetX += 4.0;
+      } else if (['EI', 'MI'].includes(posRole)) {
+        // Extremo izquierdo corta en diagonal hacia el balcón del área
+        targetY += Math.abs(Math.sin(currentMinute * 0.5)) * 4.5;
+      } else if (['ED', 'MD'].includes(posRole)) {
+        // Extremo derecho recorta hacia dentro
+        targetY -= Math.abs(Math.sin(currentMinute * 0.5)) * 4.5;
+      } else if (['MCO', 'MC'].includes(posRole)) {
+        // Medios se escalonan lateralmente para ofrecer líneas de pase
+        targetY += Math.sin(currentMinute * 0.55 + idx) * 3.5;
       }
     } else {
-      // Local en repliegue hacia X=5
-      targetX -= defShift - microX;
-      targetY += microY;
+      // En defensa el equipo repliega y bascula hacia el carril activo
+      targetX -= defShiftX - diagX;
+      if (['DFC'].includes(posRole)) {
+        targetY += Math.cos(currentMinute * 0.35 + idx) * 2.5;
+      }
     }
 
-    // CLAMPEO ESTRICTO POR ROL: un DC nunca baja a defensa ni un DFC sube a delantera
     const clamped = clampToRoleZone(posRole, true, targetX, targetY);
     newPositions[pId] = {
       x: Math.round(clamped.x * 10) / 10,
@@ -460,33 +515,37 @@ export function tickLiveMatch(
     };
   });
 
-  // Posicionar a cada jugador del Equipo Visitante respetando estrictamente su rol
+  // Posicionar equipo visitante con libertad 2D
   match.awayLineup.forEach((pId, idx) => {
     const p = allPlayersMap[pId];
     const base = awayBase[idx] || { x: 75, y: 50, pos: p?.position || 'MC' };
     const posRole = base.pos;
 
-    const microX = Math.cos(currentMinute * 0.4 + idx * 0.7) * 0.7;
-    const microY = Math.sin(currentMinute * 0.35 + idx * 0.75) * 0.7;
+    const diagX = Math.cos(currentMinute * 0.45 + idx * 1.3) * 2.2;
+    const diagY = Math.sin(currentMinute * 0.4 + idx * 1.5) * 3.8;
 
     let targetX = base.x;
-    let targetY = base.y;
+    let targetY = base.y + diagY;
 
     if (!isHomeAttack) {
-      // Visitante en ataque hacia X=5
-      targetX -= attShift - microX;
-      targetY += microY;
-
-      if (pId === next.ballCarrierId) {
-        targetX -= isDangerousPhase ? 4.5 : 2.5;
+      targetX -= attShiftX - diagX;
+      if (['DC'].includes(posRole)) {
+        targetY += Math.sin(currentMinute * 0.6) * 5.5;
+        if (pId === next.ballCarrierId) targetX -= 4.0;
+      } else if (['EI', 'MI'].includes(posRole)) {
+        targetY += Math.abs(Math.sin(currentMinute * 0.5)) * 4.5;
+      } else if (['ED', 'MD'].includes(posRole)) {
+        targetY -= Math.abs(Math.sin(currentMinute * 0.5)) * 4.5;
+      } else if (['MCO', 'MC'].includes(posRole)) {
+        targetY += Math.sin(currentMinute * 0.55 + idx) * 3.5;
       }
     } else {
-      // Visitante en repliegue hacia X=95
-      targetX += defShift + microX;
-      targetY += microY;
+      targetX += defShiftX + diagX;
+      if (['DFC'].includes(posRole)) {
+        targetY += Math.cos(currentMinute * 0.35 + idx) * 2.5;
+      }
     }
 
-    // CLAMPEO ESTRICTO POR ROL
     const clamped = clampToRoleZone(posRole, false, targetX, targetY);
     newPositions[pId] = {
       x: Math.round(clamped.x * 10) / 10,
@@ -496,7 +555,7 @@ export function tickLiveMatch(
 
   next.playerPositions = newPositions;
 
-  // Fijar la posición del balón exactamente a los pies del jugador que la porta
+  // Fijar posición inicial del balón en los pies del portador
   if (next.ballCarrierId && newPositions[next.ballCarrierId]) {
     next.ballPosition = {
       x: newPositions[next.ballCarrierId].x,
@@ -513,12 +572,219 @@ export function tickLiveMatch(
   next.homeStats.possession = Math.max(35, Math.min(65, rawPoss));
   next.awayStats.possession = 100 - next.homeStats.possession;
 
-  // 3. EVENTOS DEL PARTIDO (DISPARO, GOL, PARADA, TARJETA)
-  if (isDangerousPhase) {
+  const statsObj = isHomeAttack ? next.homeStats : next.awayStats;
+  const defStats = isHomeAttack ? next.awayStats : next.homeStats;
+
+  // 4. RESOLUCIÓN DE ACCIONES TÁCTICAS REALES
+
+  // A) MECÁNICA REAL: CÓRNER (SAQUE DE ESQUINA)
+  if (isCornerPhase) {
+    statsObj.corners += 1;
+    const cornerSide = Math.random() > 0.5 ? 2 : 98; // Banderín superior o inferior
+    const cornerX = isHomeAttack ? 98 : 2;
+    const cornerY = cornerSide;
+
+    const cornerTaker = carrier;
+    // Colocar al lanzador en el banderín de córner con el balón
+    if (cornerTaker) {
+      newPositions[cornerTaker.id] = { x: cornerX, y: cornerY };
+      next.ballCarrierId = cornerTaker.id;
+      next.ballPosition = { x: cornerX, y: cornerY };
+    }
+
+    // Rematador de cabeza en el área (DC o DFC con buen físico)
+    const headerCandidates = attPlayers.filter((p) => ['DC', 'DFC', 'MC'].includes(p.position));
+    const headerTarget = headerCandidates[Math.floor(Math.random() * headerCandidates.length)] || attPlayers[attPlayers.length - 1];
+
+    const cornerRoll = Math.random();
+    if (cornerRoll < 0.20) {
+      // ¡GOL DE CÓRNER!
+      if (isHomeAttack) next.homeScore += 1;
+      else next.awayScore += 1;
+      statsObj.shots += 1;
+      statsObj.shotsOnTarget += 1;
+      statsObj.chances += 1;
+
+      next.pendingKickoffTeamId = defTeam.id; // El equipo que encaja saca de centro
+      next.ballPosition = { x: isHomeAttack ? 97 : 3, y: 50 };
+
+      if (headerTarget) {
+        next.playerRatings[headerTarget.id] = Math.min(10, (next.playerRatings[headerTarget.id] || 6.0) + 1.1);
+      }
+      if (cornerTaker) {
+        next.playerRatings[cornerTaker.id] = Math.min(10, (next.playerRatings[cornerTaker.id] || 6.0) + 0.6);
+      }
+
+      next.events.unshift({
+        minute: currentMinute,
+        type: 'goal',
+        teamId: attTeam.id,
+        playerId: headerTarget?.id,
+        playerName: headerTarget?.name,
+        assistPlayerId: cornerTaker?.id,
+        assistPlayerName: cornerTaker?.name,
+        description: `⚽ ¡GOOOOOOL DE CÓRNER! (${currentMinute}') ¡Centro con rosca de ${cornerTaker?.name} y cabezazo imperial de ${headerTarget?.name} al fondo de la red!`,
+        ballZone: next.ballPosition,
+      });
+    } else if (cornerRoll < 0.50) {
+      // REMATE Y PARADA DEL PORTERO
+      statsObj.shots += 1;
+      statsObj.shotsOnTarget += 1;
+      next.ballPosition = { x: isHomeAttack ? 94 : 6, y: newPositions[defGk?.id]?.y || 50 };
+      if (defGk) {
+        next.ballCarrierId = defGk.id;
+        next.playerRatings[defGk.id] = Math.min(10, (next.playerRatings[defGk.id] || 6.0) + 0.4);
+      }
+
+      next.events.unshift({
+        minute: currentMinute,
+        type: 'save',
+        teamId: defTeam.id,
+        playerId: defGk?.id,
+        playerName: defGk?.name,
+        description: `🧤 ¡PARADÓN a remate de córner! ${headerTarget?.name} cabeceó picado con potencia pero ${defGk?.name} ataja sobre la línea.`,
+        ballZone: next.ballPosition,
+      });
+    } else {
+      // DESPEJE DEFENSIVO
+      next.ballPosition = { x: isHomeAttack ? 76 : 24, y: 50 };
+      next.events.unshift({
+        minute: currentMinute,
+        type: 'corner',
+        teamId: attTeam.id,
+        playerId: cornerTaker?.id,
+        playerName: cornerTaker?.name,
+        description: `🚩 Córner ejecutado por ${cornerTaker?.name}: centro tenso al primer palo que la zaga de ${defTeam.name} despeja contundentemente.`,
+        ballZone: { x: cornerX, y: cornerY },
+      });
+    }
+  }
+
+  // B) MECÁNICA REAL: FALTA (EN EL LUGAR DE LA INFRACCIÓN + TIRO LIBRE DIRECTO SI ES CERCA)
+  else if (isFoulPhase) {
+    defStats.fouls += 1;
+    const defender = defPlayers[Math.floor(Math.random() * defPlayers.length)] || defPlayers[0];
+    const foulX = newPositions[carrier?.id]?.x || (isHomeAttack ? 65 : 35);
+    const foulY = newPositions[carrier?.id]?.y || 50;
+
+    // El balón se coloca exactamente en el punto donde se cometió la falta
+    next.ballPosition = { x: foulX, y: foulY };
+
+    // Determinar si la falta es cercana a la portería rival (≤ 25 metros de la meta)
+    const isCloseFoul = isHomeAttack ? foulX >= 70 && foulY >= 24 && foulY <= 76 : foulX <= 30 && foulY >= 24 && foulY <= 76;
+
+    if (isCloseFoul) {
+      // FALTA PELIGROSA: TIRO LIBRE DIRECTO A PUERTA
+      statsObj.shots += 1;
+      // Elegir al especialista en faltas (jugador con armas o mejor golpeo)
+      const fkSpecialists = attPlayers.filter((p) => p.weapons.some((w) => ['shot', 'curve', 'precision', 'vision'].includes(w.type)) || p.stats.shooting >= 80);
+      const specialist = fkSpecialists[0] || carrier || attPlayers[attPlayers.length - 1];
+
+      // Colocar al especialista en el punto de falta
+      newPositions[specialist.id] = { x: foulX, y: foulY };
+      next.ballCarrierId = specialist.id;
+
+      const weapon = specialist?.weapons?.[0];
+      const shotQuality = (specialist?.stats.shooting || 78) + (weapon ? weapon.level * 0.15 : 0);
+      const gkDefense = (defGk?.stats.goalkeeping || 72);
+
+      const fkRoll = Math.random();
+      const goalProbability = 0.28 * (shotQuality / (shotQuality + gkDefense));
+
+      if (fkRoll < goalProbability) {
+        // ¡GOLAZO DE FALTA DIRECTA!
+        statsObj.shotsOnTarget += 1;
+        statsObj.chances += 1;
+        if (isHomeAttack) next.homeScore += 1;
+        else next.awayScore += 1;
+
+        next.pendingKickoffTeamId = defTeam.id; // Saca el rival tras el gol
+        next.ballPosition = { x: isHomeAttack ? 97 : 3, y: 50 };
+
+        if (specialist) {
+          next.playerRatings[specialist.id] = Math.min(10, (next.playerRatings[specialist.id] || 6.0) + 1.2);
+        }
+
+        let desc = `⚽ ¡GOLAZO DE FALTA DIRECTA! (${currentMinute}') `;
+        if (weapon) {
+          desc += `¡${specialist.name} supera la barrera ejecutando su ${weapon.name} y clavando el balón en la escuadra!`;
+        } else {
+          desc += `¡Lanzamiento magistral con rosca de ${specialist.name} por encima de la barrera directo a la red!`;
+        }
+
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'goal',
+          teamId: attTeam.id,
+          playerId: specialist?.id,
+          playerName: specialist?.name,
+          description: desc,
+          ballZone: next.ballPosition,
+        });
+      } else if (fkRoll < 0.60) {
+        // PARADA DEL PORTERO TRAS FALTA DIRECTA
+        statsObj.shotsOnTarget += 1;
+        next.ballPosition = { x: isHomeAttack ? 94 : 6, y: newPositions[defGk?.id]?.y || 50 };
+        if (defGk) {
+          next.ballCarrierId = defGk.id;
+          next.playerRatings[defGk.id] = Math.min(10, (next.playerRatings[defGk.id] || 6.0) + 0.4);
+        }
+
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'save',
+          teamId: defTeam.id,
+          playerId: defGk?.id,
+          playerName: defGk?.name,
+          description: `🧤 ¡PARADÓN a tiro libre directo! ${specialist.name} buscó la escuadra con rosca, pero ${defGk?.name} se estira y desvía el balón.`,
+          ballZone: next.ballPosition,
+        });
+      } else {
+        // TIRO LIBRE FUERA O BARRERA
+        next.ballPosition = { x: isHomeAttack ? 96 : 4, y: Math.random() > 0.5 ? 26 : 74 };
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'foul',
+          teamId: attTeam.id,
+          playerId: specialist?.id,
+          playerName: specialist?.name,
+          description: `🎯 Falta peligrosa ejecutada por ${specialist.name}: el lanzamiento supera la barrera pero sale rozando el larguero.`,
+          ballZone: { x: foulX, y: foulY },
+        });
+      }
+    } else {
+      // FALTA EN ZONA MEDIA O DEFENSIVA (TIRO LIBRE EN CORTO)
+      const isCard = Math.random() < 0.30;
+      if (isCard && defender) {
+        next.playerRatings[defender.id] = Math.max(4.0, (next.playerRatings[defender.id] || 6.0) - 0.5);
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'yellow_card',
+          teamId: defTeam.id,
+          playerId: defender.id,
+          playerName: defender.name,
+          description: `🟨 Tarjeta amarilla para ${defender.name} por cortar bruscamente el avance de ${carrier?.name} en X:${Math.round(foulX)}%.`,
+          ballZone: { x: foulX, y: foulY },
+        });
+      } else {
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'foul',
+          teamId: attTeam.id,
+          playerId: carrier?.id,
+          playerName: carrier?.name,
+          description: `⚠️ Falta de ${defender?.name} sobre ${carrier?.name} en el círculo de juego. Se ejecuta tiro libre en el punto de la infracción.`,
+          ballZone: { x: foulX, y: foulY },
+        });
+      }
+    }
+  }
+
+  // C) JUGADA DE PELIGRO EN JUEGO ABIERTO (DISPARO, GOL O PARADA)
+  else if (isDangerPhase) {
     const shooter = carrier;
     const passer = attPlayers.filter((p) => p.id !== shooter?.id && ['MC', 'MCO', 'EI', 'ED'].includes(p.position))[0];
 
-    const statsObj = isHomeAttack ? next.homeStats : next.awayStats;
     statsObj.shots += 1;
 
     // Efecto de arma Blue Lock
@@ -546,13 +812,12 @@ export function tickLiveMatch(
 
       const goalThreshold = 0.42 * (shotPower / (shotPower + gkPower));
       if (Math.random() < goalThreshold) {
-        // ¡GOL!
+        // ¡GOL EN JUEGO ABIERTO!
         statsObj.chances += 1;
-        if (isHomeAttack) {
-          next.homeScore += 1;
-        } else {
-          next.awayScore += 1;
-        }
+        if (isHomeAttack) next.homeScore += 1;
+        else next.awayScore += 1;
+
+        next.pendingKickoffTeamId = defTeam.id; // El equipo que encaja debe sacar de centro en el próximo minuto
 
         if (shooter) {
           next.playerRatings[shooter.id] = Math.min(10, (next.playerRatings[shooter.id] || 6.0) + 1.2);
@@ -571,7 +836,6 @@ export function tickLiveMatch(
           goalDesc += ` (Asistencia de ${passer.name})`;
         }
 
-        // El balón entra al fondo de la red
         next.ballPosition = { x: isHomeAttack ? 97 : 3, y: 50 };
 
         next.events.unshift({
@@ -589,7 +853,6 @@ export function tickLiveMatch(
         // PARADA DEL PORTERO
         if (defGk) {
           next.playerRatings[defGk.id] = Math.min(10, (next.playerRatings[defGk.id] || 6.0) + 0.4);
-          // Balón en manos del portero
           next.ballCarrierId = defGk.id;
           next.ballPosition = { x: isHomeAttack ? 94 : 6, y: newPositions[defGk.id]?.y || 50 };
         }
@@ -611,12 +874,13 @@ export function tickLiveMatch(
           ballZone: next.ballPosition,
         });
 
+        // 50% de las paradas forzadas desvían a córner para el próximo minuto
         if (Math.random() < 0.5) {
           statsObj.corners += 1;
         }
       }
     } else {
-      // Disparo fuera
+      // DISPARO FUERA
       next.events.unshift({
         minute: currentMinute,
         type: 'shot',
@@ -627,30 +891,11 @@ export function tickLiveMatch(
         ballZone: next.ballPosition,
       });
     }
-  } else if (roll > 0.96) {
-    // Falta o tarjeta
-    const defender = defPlayers[Math.floor(Math.random() * defPlayers.length)];
-    const defStats = isHomeAttack ? next.awayStats : next.homeStats;
-    defStats.fouls += 1;
+  }
 
-    const isCard = Math.random() < 0.35;
-    if (isCard && defender) {
-      next.playerRatings[defender.id] = Math.max(4.0, (next.playerRatings[defender.id] || 6.0) - 0.5);
-
-      next.events.unshift({
-        minute: currentMinute,
-        type: 'yellow_card',
-        teamId: defTeam.id,
-        playerId: defender.id,
-        playerName: defender.name,
-        description: `🟨 Tarjeta amarilla para ${defender.name} por cortar la conducción de ${carrier?.name}.`,
-        ballZone: next.ballPosition,
-      });
-    }
-  } else if (roll > 0.86 && roll <= 0.90) {
-    // Duelo de mediocampo / Metavisión
+  // D) ACCIÓN DE CIRCULACIÓN / DUELO DE METAVISIÓN
+  else if (roll > 0.80 && roll <= 0.88) {
     const midAtt = attPlayers.find((p) => p.weapons.some((w) => w.type === 'vision')) || carrier;
-
     if (midAtt) {
       next.events.unshift({
         minute: currentMinute,
