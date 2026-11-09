@@ -42,81 +42,225 @@ export interface LiveMatchState {
   playerRatings: Record<string, number>; // playerId -> 6.0 to 10.0
 }
 
-// Coordenadas base en una escala 0-100 para campo completo
-// Local juega de izquierda (portería en X=5) a derecha (portería rival en X=95)
+// Coordenadas base en escala 0-100 para el campo completo (11v11 reglamentario)
+// Local juega de izquierda (portería propia en X=5) a derecha (portería rival en X=95)
 export const FORMATION_COORDS_HOME: Record<Formation, Array<{ x: number; y: number; pos: string }>> = {
   '4-3-3': [
     { x: 6, y: 50, pos: 'POR' },
-    { x: 19, y: 15, pos: 'LI' },
-    { x: 17, y: 38, pos: 'DFC' },
-    { x: 17, y: 62, pos: 'DFC' },
-    { x: 19, y: 85, pos: 'LD' },
-    { x: 30, y: 50, pos: 'MCD' },
-    { x: 36, y: 30, pos: 'MC' },
-    { x: 36, y: 70, pos: 'MC' },
-    { x: 44, y: 18, pos: 'EI' },
-    { x: 46, y: 50, pos: 'DC' },
-    { x: 44, y: 82, pos: 'ED' },
+    { x: 24, y: 16, pos: 'LI' },
+    { x: 19, y: 38, pos: 'DFC' },
+    { x: 19, y: 62, pos: 'DFC' },
+    { x: 24, y: 84, pos: 'LD' },
+    { x: 36, y: 50, pos: 'MCD' },
+    { x: 48, y: 34, pos: 'MC' },
+    { x: 48, y: 66, pos: 'MC' },
+    { x: 68, y: 20, pos: 'EI' },
+    { x: 74, y: 50, pos: 'DC' },
+    { x: 68, y: 80, pos: 'ED' },
   ],
   '4-2-3-1': [
     { x: 6, y: 50, pos: 'POR' },
-    { x: 19, y: 15, pos: 'LI' },
-    { x: 17, y: 38, pos: 'DFC' },
-    { x: 17, y: 62, pos: 'DFC' },
-    { x: 19, y: 85, pos: 'LD' },
-    { x: 28, y: 35, pos: 'MCD' },
-    { x: 28, y: 65, pos: 'MCD' },
-    { x: 42, y: 18, pos: 'EI' },
-    { x: 40, y: 50, pos: 'MCO' },
-    { x: 42, y: 82, pos: 'ED' },
-    { x: 46, y: 50, pos: 'DC' },
+    { x: 24, y: 16, pos: 'LI' },
+    { x: 19, y: 38, pos: 'DFC' },
+    { x: 19, y: 62, pos: 'DFC' },
+    { x: 24, y: 84, pos: 'LD' },
+    { x: 35, y: 36, pos: 'MCD' },
+    { x: 35, y: 64, pos: 'MCD' },
+    { x: 66, y: 20, pos: 'EI' },
+    { x: 58, y: 50, pos: 'MCO' },
+    { x: 66, y: 80, pos: 'ED' },
+    { x: 74, y: 50, pos: 'DC' },
   ],
   '4-4-2': [
     { x: 6, y: 50, pos: 'POR' },
-    { x: 19, y: 15, pos: 'LI' },
-    { x: 17, y: 38, pos: 'DFC' },
-    { x: 17, y: 62, pos: 'DFC' },
-    { x: 19, y: 85, pos: 'LD' },
-    { x: 34, y: 16, pos: 'MI' },
-    { x: 32, y: 38, pos: 'MC' },
-    { x: 32, y: 62, pos: 'MC' },
-    { x: 34, y: 84, pos: 'MD' },
-    { x: 46, y: 38, pos: 'DC' },
-    { x: 46, y: 62, pos: 'DC' },
+    { x: 24, y: 16, pos: 'LI' },
+    { x: 19, y: 38, pos: 'DFC' },
+    { x: 19, y: 62, pos: 'DFC' },
+    { x: 24, y: 84, pos: 'LD' },
+    { x: 50, y: 18, pos: 'MI' },
+    { x: 45, y: 38, pos: 'MC' },
+    { x: 45, y: 62, pos: 'MC' },
+    { x: 50, y: 82, pos: 'MD' },
+    { x: 73, y: 40, pos: 'DC' },
+    { x: 73, y: 60, pos: 'DC' },
   ],
   '3-5-2': [
     { x: 6, y: 50, pos: 'POR' },
-    { x: 17, y: 24, pos: 'DFC' },
-    { x: 16, y: 50, pos: 'DFC' },
-    { x: 17, y: 76, pos: 'DFC' },
-    { x: 32, y: 14, pos: 'CAI' },
-    { x: 30, y: 36, pos: 'MC' },
-    { x: 30, y: 64, pos: 'MC' },
-    { x: 32, y: 86, pos: 'CAD' },
-    { x: 40, y: 50, pos: 'MCO' },
-    { x: 46, y: 38, pos: 'DC' },
-    { x: 46, y: 62, pos: 'DC' },
+    { x: 19, y: 25, pos: 'DFC' },
+    { x: 17, y: 50, pos: 'DFC' },
+    { x: 19, y: 75, pos: 'DFC' },
+    { x: 44, y: 14, pos: 'CAI' },
+    { x: 40, y: 36, pos: 'MC' },
+    { x: 40, y: 64, pos: 'MC' },
+    { x: 44, y: 86, pos: 'CAD' },
+    { x: 58, y: 50, pos: 'MCO' },
+    { x: 73, y: 40, pos: 'DC' },
+    { x: 73, y: 60, pos: 'DC' },
   ],
   '5-3-2': [
     { x: 6, y: 50, pos: 'POR' },
-    { x: 19, y: 14, pos: 'LI' },
-    { x: 17, y: 32, pos: 'DFC' },
-    { x: 15, y: 50, pos: 'DFC' },
-    { x: 17, y: 68, pos: 'DFC' },
-    { x: 19, y: 86, pos: 'LD' },
-    { x: 32, y: 30, pos: 'MC' },
-    { x: 30, y: 50, pos: 'MCD' },
-    { x: 32, y: 70, pos: 'MC' },
-    { x: 46, y: 38, pos: 'DC' },
-    { x: 46, y: 62, pos: 'DC' },
+    { x: 24, y: 14, pos: 'LI' },
+    { x: 19, y: 32, pos: 'DFC' },
+    { x: 17, y: 50, pos: 'DFC' },
+    { x: 19, y: 68, pos: 'DFC' },
+    { x: 24, y: 86, pos: 'LD' },
+    { x: 44, y: 34, pos: 'MC' },
+    { x: 38, y: 50, pos: 'MCD' },
+    { x: 44, y: 66, pos: 'MC' },
+    { x: 73, y: 40, pos: 'DC' },
+    { x: 73, y: 60, pos: 'DC' },
   ],
 };
+
+// Restricción posicional estricta: un delantero NUNCA defiende en su área ni un defensa ataca de 9
+export function clampToRoleZone(
+  pos: string,
+  isHome: boolean,
+  x: number,
+  y: number
+): { x: number; y: number } {
+  if (isHome) {
+    // Local: Ataca hacia la derecha (X=95), Defiende su portería en X=5
+    switch (pos) {
+      case 'POR':
+        return {
+          x: Math.min(8, Math.max(5, x)),
+          y: Math.min(56, Math.max(44, y)),
+        };
+      case 'DFC':
+        return {
+          x: Math.min(28, Math.max(14, x)),
+          y: Math.min(74, Math.max(26, y)),
+        };
+      case 'LI':
+      case 'CAI':
+        return {
+          x: Math.min(52, Math.max(18, x)),
+          y: Math.min(26, Math.max(10, y)),
+        };
+      case 'LD':
+      case 'CAD':
+        return {
+          x: Math.min(52, Math.max(18, x)),
+          y: Math.min(90, Math.max(74, y)),
+        };
+      case 'MCD':
+        return {
+          x: Math.min(46, Math.max(28, x)),
+          y: Math.min(65, Math.max(35, y)),
+        };
+      case 'MC':
+        return {
+          x: Math.min(62, Math.max(36, x)),
+          y: Math.min(80, Math.max(20, y)),
+        };
+      case 'MI':
+        return {
+          x: Math.min(66, Math.max(38, x)),
+          y: Math.min(30, Math.max(12, y)),
+        };
+      case 'MD':
+        return {
+          x: Math.min(66, Math.max(38, x)),
+          y: Math.min(88, Math.max(70, y)),
+        };
+      case 'MCO':
+        return {
+          x: Math.min(72, Math.max(48, x)),
+          y: Math.min(70, Math.max(30, y)),
+        };
+      case 'EI':
+        return {
+          x: Math.min(88, Math.max(58, x)),
+          y: Math.min(30, Math.max(12, y)),
+        };
+      case 'ED':
+        return {
+          x: Math.min(88, Math.max(58, x)),
+          y: Math.min(88, Math.max(70, y)),
+        };
+      case 'DC':
+      default:
+        return {
+          x: Math.min(90, Math.max(64, x)),
+          y: Math.min(68, Math.max(32, y)),
+        };
+    }
+  } else {
+    // Visitante: Ataca hacia la izquierda (X=5), Defiende su portería en X=95
+    switch (pos) {
+      case 'POR':
+        return {
+          x: Math.min(95, Math.max(92, x)),
+          y: Math.min(56, Math.max(44, y)),
+        };
+      case 'DFC':
+        return {
+          x: Math.min(86, Math.max(72, x)),
+          y: Math.min(74, Math.max(26, y)),
+        };
+      case 'LI':
+      case 'CAI':
+        return {
+          x: Math.min(82, Math.max(48, x)),
+          y: Math.min(90, Math.max(74, y)),
+        };
+      case 'LD':
+      case 'CAD':
+        return {
+          x: Math.min(82, Math.max(48, x)),
+          y: Math.min(26, Math.max(10, y)),
+        };
+      case 'MCD':
+        return {
+          x: Math.min(72, Math.max(54, x)),
+          y: Math.min(65, Math.max(35, y)),
+        };
+      case 'MC':
+        return {
+          x: Math.min(64, Math.max(38, x)),
+          y: Math.min(80, Math.max(20, y)),
+        };
+      case 'MI':
+        return {
+          x: Math.min(62, Math.max(34, x)),
+          y: Math.min(88, Math.max(70, y)),
+        };
+      case 'MD':
+        return {
+          x: Math.min(62, Math.max(34, x)),
+          y: Math.min(30, Math.max(12, y)),
+        };
+      case 'MCO':
+        return {
+          x: Math.min(52, Math.max(28, x)),
+          y: Math.min(70, Math.max(30, y)),
+        };
+      case 'EI':
+        return {
+          x: Math.min(42, Math.max(12, x)),
+          y: Math.min(88, Math.max(70, y)),
+        };
+      case 'ED':
+        return {
+          x: Math.min(42, Math.max(12, x)),
+          y: Math.min(30, Math.max(12, y)),
+        };
+      case 'DC':
+      default:
+        return {
+          x: Math.min(36, Math.max(10, x)),
+          y: Math.min(68, Math.max(32, y)),
+        };
+    }
+  }
+}
 
 export function getBaseFormationCoords(formation: Formation, isHome: boolean): Array<{ x: number; y: number; pos: string }> {
   const homeCoords = FORMATION_COORDS_HOME[formation] || FORMATION_COORDS_HOME['4-3-3'];
   if (isHome) return homeCoords;
 
-  // Visitante juega hacia la izquierda (espejado)
+  // Visitante juega hacia la izquierda (espejado horizontal)
   return homeCoords.map((c) => ({
     x: 100 - c.x,
     y: c.y,
@@ -248,194 +392,119 @@ export function tickLiveMatch(
 
   next.attackingTeamId = attTeam.id;
 
-  // 1. SELECCIONAR AL PORTADOR DEL BALÓN (Ball Carrier)
+  // 1. FASE DE JUEGO Y SELECCIÓN DE PORTADOR CON COHERENCIA TÁCTICA
   const roll = Math.random();
-  const isDangerousPhase = roll < 0.15;
+  const isDangerousPhase = roll < 0.20; // 20% jugada de peligro en el área
+  const isProgressionPhase = !isDangerousPhase && roll < 0.75; // 55% progresión en medio campo
 
   let carrier: Player;
   if (isDangerousPhase) {
-    // Fase de peligro: delanteros o mediapuntas
+    // Fase de peligro: SOLO delanteros, extremos o mediapuntas
     const dangerCandidates = attPlayers.filter((p) => ['DC', 'EI', 'ED', 'MCO'].includes(p.position));
     carrier = dangerCandidates[Math.floor(Math.random() * dangerCandidates.length)] || attPlayers[attPlayers.length - 1];
+  } else if (isProgressionPhase) {
+    // Fase de progresión: mediocentros, volantes o extremos
+    const progCandidates = attPlayers.filter((p) => ['MC', 'MCD', 'MCO', 'EI', 'ED', 'MI', 'MD'].includes(p.position));
+    carrier = progCandidates[Math.floor(Math.random() * progCandidates.length)] || attPlayers[0];
   } else {
-    // Fase de construcción / progresión: mediocentros, extremos o laterales
-    const buildCandidates = attPlayers.filter((p) => ['MC', 'MCD', 'MCO', 'EI', 'ED', 'LI', 'LD'].includes(p.position));
+    // Fase de salida desde atrás: pivotes, mediocentros o laterales
+    const buildCandidates = attPlayers.filter((p) => ['MCD', 'MC', 'LI', 'LD', 'CAI', 'CAD'].includes(p.position));
     carrier = buildCandidates[Math.floor(Math.random() * buildCandidates.length)] || attPlayers[0];
   }
 
   next.ballCarrierId = carrier?.id || null;
 
-  // 2. CALCULAR POSICIONES INDIVIDUALES Y AUTÓNOMAS DE CADA JUGADOR (Evitar movimiento en bloque)
-  const newPositions: Record<string, { x: number; y: number }> = {};
+  // 2. DESPLAZAMIENTO COLECTIVO TRANQUILO Y ARMÓNICO (Sin saltos bruscos ni mareo)
+  // En ataque el bloque adelanta 1-5%; en defensa repliega 1-4%.
+  const attShift = isDangerousPhase ? 4.5 : isProgressionPhase ? 2.8 : 1.2;
+  const defShift = isDangerousPhase ? 3.8 : isProgressionPhase ? 2.2 : 0.8;
 
   const homeBase = getBaseFormationCoords(match.homeClub.formation, true);
   const awayBase = getBaseFormationCoords(match.awayClub.formation, false);
 
-  // Destino del portador del balón
-  let carrierTargetX: number;
-  let carrierTargetY: number;
+  const newPositions: Record<string, { x: number; y: number }> = {};
 
-  if (isHomeAttack) {
-    // Atacante local avanza hacia la portería visitante (X=95)
-    carrierTargetX = isDangerousPhase ? 78 + Math.random() * 12 : 52 + Math.random() * 26;
-    carrierTargetY = 20 + Math.random() * 60;
-  } else {
-    // Atacante visitante avanza hacia la portería local (X=5)
-    carrierTargetX = isDangerousPhase ? 22 - Math.random() * 12 : 48 - Math.random() * 26;
-    carrierTargetY = 20 + Math.random() * 60;
-  }
-
-  // EL BALÓN SE MUEVE EXACTAMENTE CON EL JUGADOR QUE LO PORTA
-  next.ballPosition = {
-    x: Math.round(carrierTargetX),
-    y: Math.round(carrierTargetY),
-  };
-
-  // Posicionar a cada jugador del Equipo Local individualmente
+  // Posicionar a cada jugador del Equipo Local respetando estrictamente su rol
   match.homeLineup.forEach((pId, idx) => {
     const p = allPlayersMap[pId];
-    const base = homeBase[idx] || { x: 20, y: 50, pos: p?.position || 'MC' };
+    const base = homeBase[idx] || { x: 25, y: 50, pos: p?.position || 'MC' };
+    const posRole = base.pos;
 
-    if (pId === next.ballCarrierId) {
-      // El jugador que lleva la pelota está justo con el balón
-      newPositions[pId] = {
-        x: Math.round(carrierTargetX),
-        y: Math.round(carrierTargetY),
-      };
-      return;
-    }
+    // Micro-variación suave (< 0.7%) para respiración visual sin vibraciones
+    const microX = Math.sin(currentMinute * 0.4 + idx * 0.7) * 0.7;
+    const microY = Math.cos(currentMinute * 0.35 + idx * 0.75) * 0.7;
 
-    // Variación individual por jugador y minuto (para que cada uno tenga su propia trayectoria)
-    const personalJitterX = Math.sin(currentMinute * 1.7 + idx * 2.3) * 3.5;
-    const personalJitterY = Math.cos(currentMinute * 1.4 + idx * 2.9) * 3.0;
-
-    let posX = base.x;
-    let posY = base.y;
+    let targetX = base.x;
+    let targetY = base.y;
 
     if (isHomeAttack) {
-      // Equipo local en fase ofensiva:
-      if (base.pos === 'POR') {
-        posX = 8 + Math.min(6, (carrierTargetX - 50) * 0.1);
-        posY = 50 + (carrierTargetY - 50) * 0.15;
-      } else if (['DFC'].includes(base.pos)) {
-        // Centrales suben a apoyar pero guardan vigilancia (X entre 25 y 40)
-        posX = base.x + 10 + personalJitterX;
-        posY = base.y + personalJitterY;
-      } else if (['LI', 'LD', 'CAI', 'CAD'].includes(base.pos)) {
-        // Laterales doblan por la banda
-        posX = Math.min(75, base.x + 30 + personalJitterX);
-        posY = base.y > 50 ? 86 + personalJitterY * 0.5 : 14 + personalJitterY * 0.5;
-      } else if (['MCD', 'MC', 'MCO'].includes(base.pos)) {
-        // Medios se escalonan para recibir pase en tres cuartos
-        posX = Math.min(78, base.x + 22 + personalJitterX);
-        posY = Math.min(85, Math.max(15, base.y + (carrierTargetY - base.y) * 0.35 + personalJitterY));
-      } else {
-        // Delanteros y extremos buscan el área y diagonales
-        posX = Math.min(92, Math.max(68, carrierTargetX + (idx % 2 === 0 ? 5 : -4) + personalJitterX));
-        posY = Math.min(84, Math.max(16, base.y + personalJitterY * 1.2));
+      // Local en ataque hacia X=95
+      targetX += attShift + microX;
+      targetY += microY;
+
+      // El portador avanza un poco más en su carril natural
+      if (pId === next.ballCarrierId) {
+        targetX += isDangerousPhase ? 4.5 : 2.5;
       }
     } else {
-      // Equipo local en fase defensiva (visitante atacando hacia la portería local en X=5):
-      if (base.pos === 'POR') {
-        // Portero cubre el ángulo del disparo
-        posX = 6 + Math.max(0, (20 - carrierTargetX) * 0.2);
-        posY = Math.min(64, Math.max(36, 50 + (carrierTargetY - 50) * 0.4));
-      } else if (['DFC'].includes(base.pos)) {
-        // Centrales se repliegan en el área propia (X entre 12 y 22)
-        posX = Math.min(24, Math.max(10, base.x - 5 + personalJitterX));
-        posY = Math.min(68, Math.max(32, base.y + (carrierTargetY - base.y) * 0.25 + personalJitterY));
-      } else if (['MCD', 'MC'].includes(base.pos)) {
-        // Si es el defensor más cercano al balón, acude a presionar en solitario
-        const distToBall = Math.hypot(base.x - carrierTargetX, base.y - carrierTargetY);
-        if (distToBall < 30) {
-          posX = carrierTargetX + 4;
-          posY = carrierTargetY + (idx % 2 === 0 ? 3 : -3);
-        } else {
-          posX = Math.min(45, Math.max(18, base.x - 4 + personalJitterX));
-          posY = base.y + personalJitterY;
-        }
-      } else {
-        // Delanteros se quedan descolgados arriba para contragolpe (X entre 40 y 55)
-        posX = Math.max(38, base.x + personalJitterX);
-        posY = base.y + personalJitterY;
-      }
+      // Local en repliegue hacia X=5
+      targetX -= defShift - microX;
+      targetY += microY;
     }
 
+    // CLAMPEO ESTRICTO POR ROL: un DC nunca baja a defensa ni un DFC sube a delantera
+    const clamped = clampToRoleZone(posRole, true, targetX, targetY);
     newPositions[pId] = {
-      x: Math.round(Math.min(95, Math.max(5, posX))),
-      y: Math.round(Math.min(92, Math.max(8, posY))),
+      x: Math.round(clamped.x * 10) / 10,
+      y: Math.round(clamped.y * 10) / 10,
     };
   });
 
-  // Posicionar a cada jugador del Equipo Visitante individualmente
+  // Posicionar a cada jugador del Equipo Visitante respetando estrictamente su rol
   match.awayLineup.forEach((pId, idx) => {
     const p = allPlayersMap[pId];
-    const base = awayBase[idx] || { x: 80, y: 50, pos: p?.position || 'MC' };
+    const base = awayBase[idx] || { x: 75, y: 50, pos: p?.position || 'MC' };
+    const posRole = base.pos;
 
-    if (pId === next.ballCarrierId) {
-      // El jugador visitante que lleva la pelota
-      newPositions[pId] = {
-        x: Math.round(carrierTargetX),
-        y: Math.round(carrierTargetY),
-      };
-      return;
-    }
+    const microX = Math.cos(currentMinute * 0.4 + idx * 0.7) * 0.7;
+    const microY = Math.sin(currentMinute * 0.35 + idx * 0.75) * 0.7;
 
-    // Variación individual por jugador y minuto
-    const personalJitterX = Math.cos(currentMinute * 1.6 + idx * 2.5) * 3.5;
-    const personalJitterY = Math.sin(currentMinute * 1.3 + idx * 2.8) * 3.0;
-
-    let posX = base.x;
-    let posY = base.y;
+    let targetX = base.x;
+    let targetY = base.y;
 
     if (!isHomeAttack) {
-      // Equipo visitante en fase ofensiva (atacando hacia portería local en X=5):
-      if (base.pos === 'POR') {
-        posX = 92 - Math.min(6, (50 - carrierTargetX) * 0.1);
-        posY = 50 + (carrierTargetY - 50) * 0.15;
-      } else if (['DFC'].includes(base.pos)) {
-        posX = base.x - 10 + personalJitterX;
-        posY = base.y + personalJitterY;
-      } else if (['LI', 'LD', 'CAI', 'CAD'].includes(base.pos)) {
-        posX = Math.max(25, base.x - 30 + personalJitterX);
-        posY = base.y > 50 ? 86 + personalJitterY * 0.5 : 14 + personalJitterY * 0.5;
-      } else if (['MCD', 'MC', 'MCO'].includes(base.pos)) {
-        posX = Math.max(22, base.x - 22 + personalJitterX);
-        posY = Math.min(85, Math.max(15, base.y + (carrierTargetY - base.y) * 0.35 + personalJitterY));
-      } else {
-        posX = Math.max(8, Math.min(32, carrierTargetX + (idx % 2 === 0 ? -5 : 4) + personalJitterX));
-        posY = Math.min(84, Math.max(16, base.y + personalJitterY * 1.2));
+      // Visitante en ataque hacia X=5
+      targetX -= attShift - microX;
+      targetY += microY;
+
+      if (pId === next.ballCarrierId) {
+        targetX -= isDangerousPhase ? 4.5 : 2.5;
       }
     } else {
-      // Equipo visitante en fase defensiva (local atacando hacia portería visitante en X=95):
-      if (base.pos === 'POR') {
-        posX = 94 - Math.max(0, (carrierTargetX - 80) * 0.2);
-        posY = Math.min(64, Math.max(36, 50 + (carrierTargetY - 50) * 0.4));
-      } else if (['DFC'].includes(base.pos)) {
-        posX = Math.max(76, Math.min(90, base.x + 5 + personalJitterX));
-        posY = Math.min(68, Math.max(32, base.y + (carrierTargetY - base.y) * 0.25 + personalJitterY));
-      } else if (['MCD', 'MC'].includes(base.pos)) {
-        const distToBall = Math.hypot(base.x - carrierTargetX, base.y - carrierTargetY);
-        if (distToBall < 30) {
-          posX = carrierTargetX - 4;
-          posY = carrierTargetY + (idx % 2 === 0 ? 3 : -3);
-        } else {
-          posX = Math.max(55, Math.min(82, base.x + 4 + personalJitterX));
-          posY = base.y + personalJitterY;
-        }
-      } else {
-        posX = Math.min(62, base.x + personalJitterX);
-        posY = base.y + personalJitterY;
-      }
+      // Visitante en repliegue hacia X=95
+      targetX += defShift + microX;
+      targetY += microY;
     }
 
+    // CLAMPEO ESTRICTO POR ROL
+    const clamped = clampToRoleZone(posRole, false, targetX, targetY);
     newPositions[pId] = {
-      x: Math.round(Math.min(95, Math.max(5, posX))),
-      y: Math.round(Math.min(92, Math.max(8, posY))),
+      x: Math.round(clamped.x * 10) / 10,
+      y: Math.round(clamped.y * 10) / 10,
     };
   });
 
   next.playerPositions = newPositions;
+
+  // Fijar la posición del balón exactamente a los pies del jugador que la porta
+  if (next.ballCarrierId && newPositions[next.ballCarrierId]) {
+    next.ballPosition = {
+      x: newPositions[next.ballCarrierId].x,
+      y: newPositions[next.ballCarrierId].y,
+    };
+  } else {
+    next.ballPosition = { x: 50, y: 50 };
+  }
 
   // Actualizar posesión dinámica
   const totalMins = Math.max(1, currentMinute);
@@ -522,7 +591,7 @@ export function tickLiveMatch(
           next.playerRatings[defGk.id] = Math.min(10, (next.playerRatings[defGk.id] || 6.0) + 0.4);
           // Balón en manos del portero
           next.ballCarrierId = defGk.id;
-          next.ballPosition = { x: isHomeAttack ? 94 : 6, y: Math.round(carrierTargetY) };
+          next.ballPosition = { x: isHomeAttack ? 94 : 6, y: newPositions[defGk.id]?.y || 50 };
         }
         const gkWeapon = defGk?.weapons?.[0];
         let saveDesc = `🧤 ¡PARADÓN de ${defGk?.name || 'el portero'}! `;

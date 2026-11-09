@@ -17,76 +17,8 @@ import {
   Award,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { Player, Formation } from '@/types/football-manager';
-
-// Coordenadas base en una escala 0-100 para la mitad de campo
-const BASE_HALF_FORMATION: Record<Formation, Array<{ x: number; y: number; pos: string }>> = {
-  '4-3-3': [
-    { x: 8, y: 50, pos: 'POR' },
-    { x: 26, y: 16, pos: 'LI' },
-    { x: 23, y: 38, pos: 'DFC' },
-    { x: 23, y: 62, pos: 'DFC' },
-    { x: 26, y: 84, pos: 'LD' },
-    { x: 48, y: 50, pos: 'MCD' },
-    { x: 56, y: 30, pos: 'MC' },
-    { x: 56, y: 70, pos: 'MC' },
-    { x: 80, y: 18, pos: 'EI' },
-    { x: 86, y: 50, pos: 'DC' },
-    { x: 80, y: 82, pos: 'ED' },
-  ],
-  '4-2-3-1': [
-    { x: 8, y: 50, pos: 'POR' },
-    { x: 26, y: 16, pos: 'LI' },
-    { x: 23, y: 38, pos: 'DFC' },
-    { x: 23, y: 62, pos: 'DFC' },
-    { x: 26, y: 84, pos: 'LD' },
-    { x: 44, y: 36, pos: 'MCD' },
-    { x: 44, y: 64, pos: 'MCD' },
-    { x: 68, y: 20, pos: 'EI' },
-    { x: 68, y: 50, pos: 'MCO' },
-    { x: 68, y: 80, pos: 'ED' },
-    { x: 86, y: 50, pos: 'DC' },
-  ],
-  '4-4-2': [
-    { x: 8, y: 50, pos: 'POR' },
-    { x: 26, y: 16, pos: 'LI' },
-    { x: 23, y: 38, pos: 'DFC' },
-    { x: 23, y: 62, pos: 'DFC' },
-    { x: 26, y: 84, pos: 'LD' },
-    { x: 52, y: 16, pos: 'MI' },
-    { x: 50, y: 38, pos: 'MC' },
-    { x: 50, y: 62, pos: 'MC' },
-    { x: 52, y: 84, pos: 'MD' },
-    { x: 84, y: 38, pos: 'DC' },
-    { x: 84, y: 62, pos: 'DC' },
-  ],
-  '3-5-2': [
-    { x: 8, y: 50, pos: 'POR' },
-    { x: 24, y: 24, pos: 'DFC' },
-    { x: 22, y: 50, pos: 'DFC' },
-    { x: 24, y: 76, pos: 'DFC' },
-    { x: 50, y: 14, pos: 'CAI' },
-    { x: 48, y: 36, pos: 'MC' },
-    { x: 48, y: 64, pos: 'MC' },
-    { x: 50, y: 86, pos: 'CAD' },
-    { x: 68, y: 50, pos: 'MCO' },
-    { x: 86, y: 38, pos: 'DC' },
-    { x: 86, y: 62, pos: 'DC' },
-  ],
-  '5-3-2': [
-    { x: 8, y: 50, pos: 'POR' },
-    { x: 26, y: 14, pos: 'LI' },
-    { x: 22, y: 32, pos: 'DFC' },
-    { x: 20, y: 50, pos: 'DFC' },
-    { x: 22, y: 68, pos: 'DFC' },
-    { x: 26, y: 86, pos: 'LD' },
-    { x: 50, y: 30, pos: 'MC' },
-    { x: 48, y: 50, pos: 'MCD' },
-    { x: 50, y: 70, pos: 'MC' },
-    { x: 85, y: 38, pos: 'DC' },
-    { x: 85, y: 62, pos: 'DC' },
-  ],
-};
+import { Player } from '@/types/football-manager';
+import { getBaseFormationCoords } from '@/engine/match-engine-2d';
 
 export const LiveMatchView: React.FC = () => {
   const {
@@ -121,7 +53,7 @@ export const LiveMatchView: React.FC = () => {
       return;
     }
 
-    const intervalTime = speed === 1 ? 550 : speed === 2 ? 220 : 60;
+    const intervalTime = speed === 1 ? 850 : speed === 2 ? 400 : 120;
     const interval = setInterval(() => {
       tickMatchMinute();
     }, intervalTime);
@@ -130,6 +62,9 @@ export const LiveMatchView: React.FC = () => {
   }, [liveMatch, isPlaying, speed, tickMatchMinute, hasSeenHalfTime]);
 
   if (!liveMatch) return null;
+
+  // Duración de la transición adaptada dinámicamente a la velocidad para evitar tirones y mareos
+  const transitionMs = speed === 1 ? 650 : speed === 2 ? 300 : 90;
 
   const isUserHome = liveMatch.homeClub.id === userClubId;
   const userTeam = isUserHome ? liveMatch.homeClub : liveMatch.awayClub;
@@ -156,9 +91,9 @@ export const LiveMatchView: React.FC = () => {
     setSubModalOpen(false);
   };
 
-  // Calcular posiciones dinámicas de los 22 jugadores en el campo
-  const homeCoords = BASE_HALF_FORMATION[liveMatch.homeClub.formation] || BASE_HALF_FORMATION['4-3-3'];
-  const awayCoords = BASE_HALF_FORMATION[liveMatch.awayClub.formation] || BASE_HALF_FORMATION['4-3-3'];
+  // Calcular posiciones base en campo reglamentario completo (0-100)
+  const homeCoords = getBaseFormationCoords(liveMatch.homeClub.formation, true);
+  const awayCoords = getBaseFormationCoords(liveMatch.awayClub.formation, false);
 
   const ballX = liveMatch.ballPosition.x;
   const ballY = liveMatch.ballPosition.y;
@@ -326,9 +261,9 @@ export const LiveMatchView: React.FC = () => {
             {liveMatch.homeLineup.map((pId, idx) => {
               const player = playersMap[pId];
               const pos = liveMatch.playerPositions?.[pId];
-              const base = homeCoords[idx] || { x: 20 + idx * 5, y: 50 };
-              // Posición individual autónoma calculada por el motor táctico
-              const posX = pos ? pos.x : Math.min(92, Math.max(5, 5 + (base.x / 100) * 42));
+              const base = homeCoords[idx] || { x: 25, y: 50 };
+              // Posición individual reglamentaria calculada por el motor táctico
+              const posX = pos ? pos.x : base.x;
               const posY = pos ? pos.y : base.y;
 
               const isCarrier = liveMatch.ballCarrierId === pId;
@@ -339,22 +274,23 @@ export const LiveMatchView: React.FC = () => {
                 <div
                   key={`home-${pId}-${idx}`}
                   className={clsx(
-                    'absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out flex flex-col items-center pointer-events-none',
+                    'absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none',
                     isCarrier ? 'z-30' : 'z-10'
                   )}
                   style={{
                     left: `${posX}%`,
                     top: `${posY}%`,
+                    transition: `left ${transitionMs}ms ease-out, top ${transitionMs}ms ease-out`,
                   }}
                 >
                   <div
                     className={clsx(
-                      'w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-black text-[10px] md:text-xs shadow-md border-2 transition-all relative',
+                      'w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-black text-[10px] md:text-xs shadow-md border-2 transition-colors relative',
                       isCarrier
-                        ? 'ring-4 ring-yellow-400 shadow-[0_0_16px_#facc15] scale-110 border-yellow-300'
+                        ? 'border-yellow-400 ring-2 ring-yellow-400 shadow-[0_0_12px_#facc15]'
                         : isFlow
-                        ? 'border-cyan-400 ring-2 ring-cyan-400 animate-pulse shadow-[0_0_12px_#00ffff]'
-                        : 'border-white/60'
+                        ? 'border-cyan-400 ring-2 ring-cyan-400 shadow-[0_0_8px_#00ffff]'
+                        : 'border-white/70'
                     )}
                     style={{
                       backgroundColor: liveMatch.homeClub.primaryColor,
@@ -363,15 +299,15 @@ export const LiveMatchView: React.FC = () => {
                   >
                     {idx === 0 ? '1' : `${idx + 1}`}
                     {isCarrier && (
-                      <span className="absolute -top-3 -right-2 text-[10px] filter drop-shadow">
+                      <span className="absolute -top-2.5 -right-2 text-[10px] leading-none drop-shadow">
                         ⚽
                       </span>
                     )}
                   </div>
                   <span
                     className={clsx(
-                      'text-[9px] md:text-[10px] font-bold px-1 rounded shadow-sm whitespace-nowrap mt-0.5 max-w-[65px] truncate',
-                      isCarrier ? 'bg-yellow-400 text-black font-black' : 'text-white bg-slate-950/80'
+                      'text-[9px] font-semibold px-1 rounded shadow-sm whitespace-nowrap mt-0.5 max-w-[65px] truncate',
+                      isCarrier ? 'bg-yellow-400 text-black font-bold' : 'text-white bg-slate-950/80'
                     )}
                   >
                     {shortSurname}
@@ -384,9 +320,9 @@ export const LiveMatchView: React.FC = () => {
             {liveMatch.awayLineup.map((pId, idx) => {
               const player = playersMap[pId];
               const pos = liveMatch.playerPositions?.[pId];
-              const base = awayCoords[idx] || { x: 20 + idx * 5, y: 50 };
-              // Posición individual autónoma calculada por el motor táctico
-              const posX = pos ? pos.x : Math.min(95, Math.max(8, 95 - (base.x / 100) * 42));
+              const base = awayCoords[idx] || { x: 75, y: 50 };
+              // Posición individual reglamentaria calculada por el motor táctico
+              const posX = pos ? pos.x : base.x;
               const posY = pos ? pos.y : base.y;
 
               const isCarrier = liveMatch.ballCarrierId === pId;
@@ -397,21 +333,22 @@ export const LiveMatchView: React.FC = () => {
                 <div
                   key={`away-${pId}-${idx}`}
                   className={clsx(
-                    'absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out flex flex-col items-center pointer-events-none',
+                    'absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-none',
                     isCarrier ? 'z-30' : 'z-10'
                   )}
                   style={{
                     left: `${posX}%`,
                     top: `${posY}%`,
+                    transition: `left ${transitionMs}ms ease-out, top ${transitionMs}ms ease-out`,
                   }}
                 >
                   <div
                     className={clsx(
-                      'w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-black text-[10px] md:text-xs shadow-md border-2 transition-all relative',
+                      'w-6 h-6 md:w-7 md:h-7 rounded-full flex items-center justify-center font-black text-[10px] md:text-xs shadow-md border-2 transition-colors relative',
                       isCarrier
-                        ? 'ring-4 ring-yellow-400 shadow-[0_0_16px_#facc15] scale-110 border-yellow-300'
+                        ? 'border-yellow-400 ring-2 ring-yellow-400 shadow-[0_0_12px_#facc15]'
                         : isFlow
-                        ? 'border-yellow-400 ring-2 ring-yellow-400 animate-pulse shadow-[0_0_12px_#facc15]'
+                        ? 'border-yellow-400 ring-2 ring-yellow-400 shadow-[0_0_8px_#facc15]'
                         : 'border-black/50'
                     )}
                     style={{
@@ -421,15 +358,15 @@ export const LiveMatchView: React.FC = () => {
                   >
                     {idx === 0 ? '1' : `${idx + 1}`}
                     {isCarrier && (
-                      <span className="absolute -top-3 -right-2 text-[10px] filter drop-shadow">
+                      <span className="absolute -top-2.5 -right-2 text-[10px] leading-none drop-shadow">
                         ⚽
                       </span>
                     )}
                   </div>
                   <span
                     className={clsx(
-                      'text-[9px] md:text-[10px] font-bold px-1 rounded shadow-sm whitespace-nowrap mt-0.5 max-w-[65px] truncate',
-                      isCarrier ? 'bg-yellow-400 text-black font-black' : 'text-slate-200 bg-slate-950/80'
+                      'text-[9px] font-semibold px-1 rounded shadow-sm whitespace-nowrap mt-0.5 max-w-[65px] truncate',
+                      isCarrier ? 'bg-yellow-400 text-black font-bold' : 'text-slate-200 bg-slate-950/80'
                     )}
                   >
                     {shortSurname}
@@ -438,16 +375,17 @@ export const LiveMatchView: React.FC = () => {
               );
             })}
 
-            {/* Balón Animado con halo luminoso - Siguiendo al portador */}
+            {/* Balón que acompaña al jugador con suavidad o vuela a portería */}
             <div
-              className="absolute -translate-x-1/2 -translate-y-1/2 transition-all duration-700 ease-out z-20 pointer-events-none"
+              className="absolute -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none"
               style={{
                 left: `${ballX}%`,
                 top: `${ballY}%`,
+                transition: `left ${transitionMs}ms ease-out, top ${transitionMs}ms ease-out`,
               }}
             >
-              <div className="w-4 h-4 md:w-5 md:h-5 bg-white rounded-full shadow-[0_0_15px_rgba(255,255,255,0.95)] border-2 border-black flex items-center justify-center animate-bounce">
-                <div className="w-1.5 h-1.5 bg-black rounded-full" />
+              <div className="w-4 h-4 bg-white rounded-full shadow-[0_2px_8px_rgba(0,0,0,0.85)] border border-slate-900 flex items-center justify-center">
+                <div className="w-1.5 h-1.5 bg-slate-900 rounded-full" />
               </div>
             </div>
 
