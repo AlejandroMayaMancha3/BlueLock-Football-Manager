@@ -22,6 +22,8 @@ import {
   ArrowRightLeft,
   Clock,
   Target,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useGameStore } from '@/store/game-store';
@@ -47,6 +49,7 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
     selectedCurrency,
     transferOffers,
     toggleTransferListed,
+    toggleBlockOffers,
     acceptSellOffer,
     rejectSellOffer,
     renewPlayerContract,
@@ -193,6 +196,12 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
                       🏥 LESIONADO ({player.injuryWeeks} sem)
                     </span>
                   )}
+                  {player.blockOffers && (
+                    <span className="px-2 py-0.5 rounded bg-rose-950/90 text-rose-300 border border-rose-500/60 font-black text-[10px] flex items-center gap-1 shadow-sm">
+                      <Lock className="w-3 h-3 text-rose-400" />
+                      INTRANSFERIBLE
+                    </span>
+                  )}
                   {userClub.captainId === player.id && (
                     <span className="px-2 py-0.5 rounded bg-yellow-500 text-black font-black text-[10px]">
                       CAPITÁN
@@ -220,9 +229,32 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
               </div>
             </div>
 
-            {/* Acciones Rápidas (Poner en venta / Transferibles) */}
+            {/* Acciones Rápidas (Bloquear Ofertas y Poner en venta) */}
             {isUserPlayer && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => toggleBlockOffers(player.id)}
+                  className={clsx(
+                    'px-3.5 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 shadow-sm',
+                    player.blockOffers
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/60 hover:bg-rose-500/30 ring-1 ring-rose-500/40 shadow-rose-950/40'
+                      : 'bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border-slate-700'
+                  )}
+                  title={
+                    player.blockOffers
+                      ? 'Desbloquear ofertas: Permitir que los clubes rivales envíen ofertas de traspaso'
+                      : 'Bloquear ofertas: No recibir ofertas en el despacho por este jugador bajo ningún concepto'
+                  }
+                >
+                  {player.blockOffers ? (
+                    <Lock className="w-3.5 h-3.5 text-rose-400" />
+                  ) : (
+                    <Unlock className="w-3.5 h-3.5 text-slate-400" />
+                  )}
+                  <span>{player.blockOffers ? 'Ofertas Bloqueadas' : 'Bloquear Ofertas'}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => toggleTransferListed(player.id)}
@@ -646,6 +678,47 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
                     </span>
                   </div>
                 </div>
+
+                {/* Blindaje de Mercado y Bloqueo de Ofertas */}
+                {isUserPlayer && (
+                  <div className="mt-3 p-4 bg-slate-900/80 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={clsx(
+                          'w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border',
+                          player.blockOffers
+                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                        )}
+                      >
+                        {player.blockOffers ? <Lock className="w-5 h-5 text-rose-400" /> : <Unlock className="w-5 h-5" />}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white block">
+                          {player.blockOffers ? 'Ofertas Bloqueadas (Intransferible)' : 'Ofertas de Traspaso Permitidas'}
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          {player.blockOffers
+                            ? 'El despacho rechazará automáticamente cualquier oferta entrante de otros clubes sin molestarte.'
+                            : 'Los clubes rivales pueden presentar propuestas de compra formales en tu despacho.'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleBlockOffers(player.id)}
+                      className={clsx(
+                        'px-4 py-2 rounded-xl text-xs font-bold border transition-all shrink-0',
+                        player.blockOffers
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 hover:bg-rose-500/30'
+                          : 'bg-slate-800 hover:bg-slate-750 text-slate-200 border-slate-700'
+                      )}
+                    >
+                      {player.blockOffers ? 'Desbloquear Ofertas' : 'Bloquear Ofertas'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Formulario de Renovación */}

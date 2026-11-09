@@ -20,6 +20,7 @@ import {
   TrendingDown,
   AlertTriangle,
   CheckCircle2,
+  Lock,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { LeagueTableRow, Player } from '@/types/football-manager';
@@ -51,6 +52,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
     transferOffers,
     acceptSellOffer,
     rejectSellOffer,
+    toggleBlockOffers,
     openLastMatchSummary,
     startMatchDay,
     simulateFullMatchDay,
@@ -293,7 +295,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
                         <span>Ver Expediente</span>
                       </button>
                     )}
-                    <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end">
+                    <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end flex-wrap">
                       <button
                         type="button"
                         onClick={() => acceptSellOffer(offer.id)}
@@ -305,9 +307,21 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
                       <button
                         type="button"
                         onClick={() => rejectSellOffer(offer.id)}
-                        className="flex-1 sm:flex-initial px-3 py-1.5 bg-slate-800 hover:bg-rose-950 hover:text-rose-300 text-slate-300 font-bold text-xs rounded-lg border border-slate-700 transition-all text-center"
+                        className="flex-1 sm:flex-initial px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-lg border border-slate-700 transition-all text-center"
                       >
                         Rechazar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          rejectSellOffer(offer.id);
+                          if (player) toggleBlockOffers(player.id);
+                        }}
+                        className="flex-1 sm:flex-initial px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 text-rose-300 font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-1 shadow-xs"
+                        title="Rechazar esta oferta y bloquear al futbolista para no recibir más ofertas por él en el despacho"
+                      >
+                        <Lock className="w-3 h-3 text-rose-400" />
+                        <span>Rechazar y Bloquear</span>
                       </button>
                     </div>
                   </div>

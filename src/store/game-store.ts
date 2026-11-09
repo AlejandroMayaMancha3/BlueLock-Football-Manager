@@ -108,6 +108,7 @@ export interface GameStoreState {
   promoteYouthPlayer: () => { success: boolean; message: string };
   makeBuyOffer: (playerId: string, feeYen: number, wageYen: number, years: number) => { success: boolean; message: string };
   toggleTransferListed: (playerId: string) => void;
+  toggleBlockOffers: (playerId: string) => void;
   acceptSellOffer: (offerId: string) => void;
   rejectSellOffer: (offerId: string) => void;
   renewPlayerContract: (playerId: string, newWageYen: number, addYears: number) => { success: boolean; message: string };
@@ -796,10 +797,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       isSimulated: isSimulation,
     };
 
-    // Generar ofertas automáticas de compra de la IA para jugadores puestos en venta
+    // Generar ofertas automáticas de compra de la IA para jugadores puestos en venta (si no tienen ofertas bloqueadas)
     const currentOffers = [...get().transferOffers];
     const listedPlayers = finalPlayers.filter(
-      (p) => p.clubId === userClubId && p.isTransferListed && !currentOffers.some((o) => o.playerId === p.id && o.status === 'pending')
+      (p) => p.clubId === userClubId && p.isTransferListed && !p.blockOffers && !currentOffers.some((o) => o.playerId === p.id && o.status === 'pending')
     );
 
     listedPlayers.forEach((lp) => {
@@ -829,9 +830,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       }
     });
 
-    // Ofertas no solicitadas para estrellas mundiales (OVR >= 85) no transferibles
+    // Ofertas no solicitadas para estrellas mundiales (OVR >= 85) no transferibles (si no tienen ofertas bloqueadas)
     const unlistedStars = finalPlayers.filter(
-      (p) => p.clubId === userClubId && !p.isTransferListed && p.overall >= 85 && !currentOffers.some((o) => o.playerId === p.id && o.status === 'pending')
+      (p) => p.clubId === userClubId && !p.isTransferListed && !p.blockOffers && p.overall >= 85 && !currentOffers.some((o) => o.playerId === p.id && o.status === 'pending')
     );
 
     unlistedStars.forEach((star) => {
@@ -1579,9 +1580,42 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     const nextStatus = !player.isTransferListed;
     const updatedPlayers = players.map((p) =>
-      p.id === playerId ? { ...p, isTransferListed: nextStatus } : p
+      p.id === playerId
+        ? {
+            ...p,
+            isTransferListed: nextStatus,
+            // Si se pone en venta, desactivar el bloqueo de ofertas
+            blockOffers: nextStatus ? false : p.blockOffers,
+          }
+        : p
     );
     set({ players: updatedPlayers });
+    get().saveToStorage();
+  },
+
+  toggleBlockOffers: (playerId) => {
+    const { players, userClubId, transferOffers } = get();
+    const player = players.find((p) => p.id === playerId);
+    if (!player || player.clubId !== userClubId) return;
+
+    const nextBlocked = !player.blockOffers;
+    const updatedPlayers = players.map((p) =>
+      p.id === playerId
+        ? {
+            ...p,
+            blockOffers: nextBlocked,
+            // Si se bloquea, retirar inmediatamente de la lista de transferibles
+            isTransferListed: nextBlocked ? false : p.isTransferListed,
+          }
+        : p
+    );
+
+    // Si se activa el bloqueo de ofertas, retirar automáticamente cualquier oferta pendiente para este jugador
+    const updatedOffers = nextBlocked
+      ? transferOffers.filter((o) => !(o.playerId === playerId && o.status === 'pending'))
+      : transferOffers;
+
+    set({ players: updatedPlayers, transferOffers: updatedOffers });
     get().saveToStorage();
   },
 

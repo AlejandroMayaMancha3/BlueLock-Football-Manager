@@ -100,6 +100,7 @@ export interface Player {
   weeklyWageYen: number;
   contractYears: number;
   isTransferListed?: boolean;
+  blockOffers?: boolean; // Si está activo, rechaza y bloquea automáticamente todas las ofertas de traspaso entrantes en el despacho
   trainingFocus?: IndividualTrainingFocus;
   positionConversion?: PositionConversionPlan | null;
   injuryWeeks: number;

@@ -287,6 +287,12 @@ export const SquadView: React.FC = () => {
                   </span>
                 )}
 
+                {player.blockOffers && (
+                  <span className="text-[9px] bg-rose-950/80 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                    🔒 Ofertas Bloqueadas
+                  </span>
+                )}
+
                 {isExpiring && (
                   <span className="text-[9px] bg-rose-950/80 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-md font-bold">
                     ⚠️ Expira Contrato
@@ -428,6 +434,15 @@ export const SquadView: React.FC = () => {
                         {player.isTransferListed && (
                           <span className="text-[9px] bg-amber-950/80 text-amber-300 border border-amber-500/50 px-1.5 py-0.2 rounded font-bold">
                             🏷️ En Venta
+                          </span>
+                        )}
+
+                        {player.blockOffers && (
+                          <span
+                            className="text-[9px] bg-rose-950/80 text-rose-300 border border-rose-500/50 px-1.5 py-0.2 rounded font-bold flex items-center gap-1 shadow-sm"
+                            title="Ofertas bloqueadas: Este jugador está blindado y no recibirá ofertas en el despacho."
+                          >
+                            🔒 Bloqueado
                           </span>
                         )}
 
