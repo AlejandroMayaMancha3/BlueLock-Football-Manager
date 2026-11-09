@@ -22,21 +22,15 @@ Ponte en la piel de un entrenador egoísta y toma el mando de cualquier club eur
 ## 🌟 Características Principales
 
 ### 🏛️ 5 Grandes Ligas y 4 Divisiones (480 Clubes)
-- Compite en **España 🇪🇸, Inglaterra 🏴󠁧󠁢󠁥󠁮󠁧󠁿, Alemania 🇩🇪, Italia 🇮🇹 o Francia 🇫🇷**.
+- Compite en **España 🇪🇸, Inglaterra 🇬🇧, Alemania 🇩🇪, Italia 🇮🇹 o Francia 🇫🇷**.
 - Cada país cuenta con **4 categorías de 24 clubes cada una** (desde 1.ª División hasta 4.ª División).
-- Nombres reconocibles adaptados al estilo Blue Lock (*FC Barcha, Bastard München, Paris X Gen, Manshine City, Ubers, Berserk Dortmund, CD Utrera, etc.*).
+- Nombres reconocibles adaptados al estilo Blue Lock (*FC Barcha, Bastard München, Paris X Gen, Manshine City, Ubers, Berserk Dortmund, etc.*).
 
 ### 🔄 Ascensos, Descensos y Playoffs
 - **Liga de 46 jornadas:** Sistema a doble vuelta (23 de ida y 23 de vuelta).
 - **Ascensos directos y eliminatorias de Playoff** para subir de categoría.
 - **En 4.ª División no hay descensos:** solo ascensos hacia la 3.ª categoría.
 - Al terminar el año, la liga sigue viva: todos los equipos suben, bajan o renuevan sus contratos y presupuestos.
-
-### 📅 Calendario Estilo FIFA / EA Sports FC
-- Revisa todos los partidos de la temporada jornada a jornada.
-- Indicador claro de partidos en **Casa (Local)** o **Fuera (Visitante)**.
-- Consulta los marcadores finales, el historial de resultados (**Victoria, Empate, Derrota**) y los 12 enfrentamientos de cada fecha.
-- Botón directo para ir a la jornada actual y disputar el encuentro.
 
 ### 💰 Mercado de Fichajes y Ofertas Millonarias
 - Ficha jugadores de cualquier club y país con filtros por media, potencial, posición, edad o precio.
