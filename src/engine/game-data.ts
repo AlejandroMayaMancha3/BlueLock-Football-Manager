@@ -750,29 +750,38 @@ export function generateInitialClubsAndPlayers(): { clubs: Club[]; players: Play
     },
   };
 
-  const defaultPositions: Position[] = [
+  // Determinar los 3 clubes con mayor media/nivel en la liga
+  const sortedClubsByRating = [...clubsData].sort((a, b) => b.level - a.level || b.reputation - a.reputation);
+  const top3ClubIds = new Set(sortedClubsByRating.slice(0, 3).map((c) => c.id));
+
+  // Pool balanceado de posiciones para asegurar cobertura completa de líneas
+  const positionRotation: Position[] = [
     'POR', 'POR',
     'DFC', 'DFC', 'DFC', 'DFC',
     'LI', 'LI',
     'LD', 'LD',
     'MCD', 'MCD',
     'MC', 'MC', 'MC',
-    'MCO',
+    'MCO', 'MCO',
     'EI', 'ED',
-    'DC', 'DC', 'DC'
+    'DC', 'DC',
+    // Posiciones adicionales para rotación profunda y alcanzar el máximo de 25
+    'POR', 'DFC', 'MC', 'DC'
   ];
 
-  // Fill squads so each club has at least 21 players
+  // Configuración de tamaños de plantilla:
+  // Los 3 clubes con más media empiezan con el máximo de 25 jugadores.
+  // Todos los demás clubes empiezan con menos de 25 jugadores (entre 20 y 22 jugadores).
   clubsData.forEach((club) => {
-    const existing = players.filter((p) => p.clubId === club.id);
-    const existingPositions = existing.map((p) => p.position);
+    const isTop3 = top3ClubIds.has(club.id);
+    const targetSquadSize = isTop3 ? 25 : rnd(20, 22);
 
-    defaultPositions.forEach((pos, pIdx) => {
-      // Check if we need more of this position
-      const countInClub = existingPositions.filter((p) => p === pos).length;
-      if (countInClub > 0 && existingPositions.length >= 21) {
-        return;
-      }
+    let clubPlayers = players.filter((p) => p.clubId === club.id);
+    let pIdx = 0;
+
+    while (clubPlayers.length < targetSquadSize) {
+      const pos = positionRotation[pIdx % positionRotation.length];
+      pIdx++;
 
       const countryPool = namesByCountry[club.country] || namesByCountry['España'];
       const fn = countryPool.first[rnd(0, countryPool.first.length - 1)];
@@ -800,7 +809,7 @@ export function generateInitialClubsAndPlayers(): { clubs: Club[]; players: Play
       const valYen = Math.round((ovr * ovr * ovr * 22) + rnd(1000000, 5000000));
       const wageYen = Math.round(valYen * 0.025);
 
-      players.push({
+      const newPlayer: Player = {
         id: `p-${club.id}-${pIdx}-${Date.now()}-${rnd(100, 999)}`,
         clubId: club.id,
         name: fullName,
@@ -830,8 +839,11 @@ export function generateInitialClubsAndPlayers(): { clubs: Club[]; players: Play
         seasonRedCards: 0,
         seasonCleanSheets: 0,
         seasonAverageRating: 6.8,
-      });
-    });
+      };
+
+      players.push(newPlayer);
+      clubPlayers.push(newPlayer);
+    }
   });
 
   // Assign starting XI and captains for all clubs
