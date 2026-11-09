@@ -5,6 +5,7 @@ import { useGameStore } from '@/store/game-store';
 import { Search } from 'lucide-react';
 import clsx from 'clsx';
 import { Player } from '@/types/football-manager';
+import { PlayerDetailModal } from './PlayerDetailModal';
 import {
   formatMoney,
   convertFromYen,
@@ -23,6 +24,7 @@ export const MarketView: React.FC = () => {
   const [marketSearch, setMarketSearch] = useState('');
   const [marketPosFilter, setMarketPosFilter] = useState('ALL');
   const [selectedMarketPlayer, setSelectedMarketPlayer] = useState<Player | null>(null);
+  const [inspectingPlayer, setInspectingPlayer] = useState<Player | null>(null);
   const [offerFee, setOfferFee] = useState<number>(0);
   const [offerWage, setOfferWage] = useState<number>(0);
   const [offerYears, setOfferYears] = useState<number>(3);
@@ -113,7 +115,17 @@ export const MarketView: React.FC = () => {
             <tbody className="divide-y divide-slate-800/60">
               {players
                 .filter((p) => {
-                  if (marketPosFilter !== 'ALL' && p.position !== marketPosFilter) return false;
+                  if (marketPosFilter !== 'ALL') {
+                    if (marketPosFilter === 'EI') {
+                      if (p.position !== 'EI' && p.position !== 'ED') return false;
+                    } else if (marketPosFilter === 'MC') {
+                      if (p.position !== 'MC' && p.position !== 'MCO' && p.position !== 'MCD') return false;
+                    } else if (marketPosFilter === 'DFC') {
+                      if (p.position !== 'DFC' && p.position !== 'LI' && p.position !== 'LD') return false;
+                    } else if (p.position !== marketPosFilter) {
+                      return false;
+                    }
+                  }
                   if (marketSearch && !p.name.toLowerCase().includes(marketSearch.toLowerCase())) return false;
                   return true;
                 })
@@ -131,7 +143,16 @@ export const MarketView: React.FC = () => {
                         </span>
                       </td>
                       <td className="p-3">
-                        <div className="font-bold text-white text-sm">{p.name}</div>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => setInspectingPlayer(p)}
+                            className="font-bold text-white text-sm hover:text-cyan-400 cursor-pointer text-left transition-colors hover:underline"
+                            title={`Abrir expediente de ${p.name}`}
+                          >
+                            {p.name}
+                          </button>
+                        </div>
                         <div className="text-[10px] text-slate-400">{p.nationality}</div>
                       </td>
                       <td className="p-3 text-slate-400">{club?.name || 'Agente Libre'}</td>
@@ -307,6 +328,14 @@ export const MarketView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODAL DE EXPEDIENTE DEL JUGADOR AL CLICAR SU NOMBRE */}
+      {inspectingPlayer && (
+        <PlayerDetailModal
+          player={inspectingPlayer}
+          onClose={() => setInspectingPlayer(null)}
+        />
       )}
     </div>
   );

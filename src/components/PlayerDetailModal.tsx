@@ -58,8 +58,9 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
   const [renewalYears, setRenewalYears] = useState<number>(2);
   const minWageRequired = Math.round(player.weeklyWageYen * 1.15);
   const [renewalWage, setRenewalWage] = useState<number>(() => {
-    // Inicializar en la divisa elegida
-    return Math.round(minWageRequired / (selectedCurrency === 'EUR' ? 160 : selectedCurrency === 'USD' ? 150 : selectedCurrency === 'GBP' ? 190 : 1));
+    // Inicializar en la divisa elegida con ceil para evitar desajustes de redondeo
+    const rate = selectedCurrency === 'EUR' ? 160 : selectedCurrency === 'USD' ? 150 : selectedCurrency === 'GBP' ? 190 : 1;
+    return Math.ceil(minWageRequired / rate);
   });
   const [renewalFeedback, setRenewalFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -164,9 +165,29 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
                       Sec: {player.secondaryPosition}
                     </span>
                   )}
+                  {player.isBanned && (
+                    <span className="px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-500/50 font-bold text-[10px] flex items-center gap-1">
+                      🟥 SANCIONADO
+                    </span>
+                  )}
+                  {(player.injuryWeeks || 0) > 0 && (
+                    <span className="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-500/50 font-bold text-[10px] flex items-center gap-1">
+                      🏥 LESIONADO ({player.injuryWeeks} sem)
+                    </span>
+                  )}
                   {userClub.captainId === player.id && (
                     <span className="px-2 py-0.5 rounded bg-yellow-500 text-black font-black text-[10px]">
                       CAPITÁN
+                    </span>
+                  )}
+                  {userClub.penaltyTakerId === player.id && (
+                    <span className="px-2 py-0.5 rounded bg-blue-600 text-white font-black text-[10px]">
+                      PENALTIS
+                    </span>
+                  )}
+                  {userClub.freeKickTakerId === player.id && (
+                    <span className="px-2 py-0.5 rounded bg-emerald-600 text-white font-black text-[10px]">
+                      FALTAS
                     </span>
                   )}
                 </div>
@@ -225,7 +246,10 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => acceptSellOffer(playerOffer.id)}
+                  onClick={() => {
+                    acceptSellOffer(playerOffer.id);
+                    onClose();
+                  }}
                   className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl shadow transition-all flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5" />

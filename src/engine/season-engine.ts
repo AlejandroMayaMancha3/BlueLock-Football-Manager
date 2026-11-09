@@ -367,9 +367,13 @@ export function advanceToNextSeason(
 
     // Si el jugador pertenecía al usuario y su contrato finalizó (era de 1 año o menos al acabar la temporada):
     if (isUserPlayer && p.contractYears <= 1) {
-      // El jugador abandona el club libre y firma por un club rival
+      // El jugador abandona el club libre y firma por un club rival que tenga menos de 25 jugadores
       const rivalClubs = clubs.filter((c) => c.id !== userClubId);
-      const destinationClub = rivalClubs[Math.floor(Math.random() * rivalClubs.length)] || rivalClubs[0];
+      const eligibleDestinations = rivalClubs.filter(
+        (c) => evolvedPlayers.filter((ep) => ep.clubId === c.id).length < 25
+      );
+      const destinationClub =
+        eligibleDestinations[Math.floor(Math.random() * eligibleDestinations.length)] || rivalClubs[0];
       finalClubId = destinationClub.id;
       finalContractYears = 3;
       finalTransferListed = false;
@@ -422,17 +426,33 @@ export function advanceToNextSeason(
     let startingXI = [...c.startingXI];
     let substitutes = [...c.substitutes];
 
-    // Si es el club del usuario, depurar el once y banquillo de jugadores que expiraron contrato
-    if (c.id === userClubId) {
-      startingXI = startingXI.filter((id) => {
-        const player = evolvedPlayers.find((p) => p.id === id);
-        return player && player.clubId === userClubId;
-      });
-      substitutes = substitutes.filter((id) => {
-        const player = evolvedPlayers.find((p) => p.id === id);
-        return player && player.clubId === userClubId;
-      });
+    // Depurar y asegurar que cada club mantenga exactamente 11 titulares activos
+    const clubMembers = evolvedPlayers.filter((p) => p.clubId === c.id);
+    startingXI = startingXI.filter((id) => clubMembers.some((m) => m.id === id));
+    substitutes = substitutes.filter((id) => clubMembers.some((m) => m.id === id));
+
+    // Si faltan titulares para completar los 11:
+    if (startingXI.length < 11 && clubMembers.length >= 11) {
+      const candidates = clubMembers
+        .filter((m) => !startingXI.includes(m.id))
+        .sort((a, b) => b.overall - a.overall);
+      while (startingXI.length < 11 && candidates.length > 0) {
+        const nextIn = candidates.shift()!;
+        startingXI.push(nextIn.id);
+        substitutes = substitutes.filter((id) => id !== nextIn.id);
+      }
     }
+
+    // Asegurar capitán, lanzador de penaltis y de faltas válidos
+    const validCaptain = clubMembers.some((m) => m.id === c.captainId)
+      ? c.captainId
+      : startingXI[0] || clubMembers[0]?.id;
+    const validPenalty = clubMembers.some((m) => m.id === c.penaltyTakerId)
+      ? c.penaltyTakerId
+      : startingXI.find((id) => clubMembers.find((m) => m.id === id)?.position === 'DC') || validCaptain;
+    const validFk = clubMembers.some((m) => m.id === c.freeKickTakerId)
+      ? c.freeKickTakerId
+      : startingXI.find((id) => ['MCO', 'MC', 'EI'].includes(clubMembers.find((m) => m.id === id)?.position || '')) || validCaptain;
 
     return {
       ...c,
@@ -440,6 +460,9 @@ export function advanceToNextSeason(
       budgetYen: Math.round(c.budgetYen * 0.9) + Math.round(prize * 0.7),
       startingXI,
       substitutes,
+      captainId: validCaptain,
+      penaltyTakerId: validPenalty,
+      freeKickTakerId: validFk,
     };
   });
 

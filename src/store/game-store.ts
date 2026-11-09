@@ -77,6 +77,7 @@ export interface GameStoreState {
   updateTactics: (mentalidad: TacticalMentalidad, presion: TacticalPresion, estiloPase: TacticalPase) => void;
   updateFormation: (formation: Formation) => void;
   swapStartingPlayer: (playerOutId: string, playerInId: string) => void;
+  swapBenchPlayer: (benchPlayerId: string, reservePlayerId: string) => void;
   setRole: (role: 'captain' | 'penalty' | 'freekick', playerId: string) => void;
   setTrainingPlan: (plan: GameStoreState['trainingPlan']) => void;
   promoteYouthPlayer: () => { success: boolean; message: string };
@@ -503,6 +504,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           morale: Math.min(100, Math.max(25, p.morale + moraleBonus + (rating >= 8.0 ? 3 : 0))),
           form: Math.min(100, Math.max(35, Math.round(p.form * 0.65 + rating * 3.8))),
           marketValueYen: Math.round(p.marketValueYen * (1 + (playerGoals * 0.08) + (userWon ? 0.02 : 0))),
+          isBanned: playerReds > 0 || ((p.yellowCardsCount || 0) + playerYellows >= 5),
+          yellowCardsCount: ((p.yellowCardsCount || 0) + playerYellows >= 5) ? 0 : ((p.yellowCardsCount || 0) + playerYellows),
+          injuryWeeks: Math.max(0, (p.injuryWeeks || 0) - 1),
         };
       }
 
@@ -534,6 +538,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           form: newForm,
           morale: newMorale,
           fitness: Math.min(100, p.fitness + 15), // Descansado físicamente
+          isBanned: false, // Si descansó, cumple su partido de sanción
+          injuryWeeks: Math.max(0, (p.injuryWeeks || 0) - 1),
         };
       }
       return p;
@@ -623,8 +629,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     listedPlayers.forEach((lp) => {
       if (Math.random() < 0.75) {
         const rivalClubs = updatedClubs.filter((c) => c.id !== userClubId);
-        if (rivalClubs.length > 0) {
-          const buyer = rivalClubs[Math.floor(Math.random() * rivalClubs.length)];
+        const eligibleBuyers = rivalClubs.filter(
+          (c) => finalPlayers.filter((p) => p.clubId === c.id).length < 25
+        );
+        if (eligibleBuyers.length > 0) {
+          const buyer = eligibleBuyers[Math.floor(Math.random() * eligibleBuyers.length)];
           const mult = 0.88 + Math.random() * 0.32;
           currentOffers.push({
             id: `sell-offer-${Date.now()}-${lp.id}-${buyer.id}`,
@@ -709,29 +718,60 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   swapStartingPlayer: (playerOutId, playerInId) => {
-    const { clubs, userClubId } = get();
+    const { clubs, userClubId, players } = get();
     const userClub = clubs.find((c) => c.id === userClubId);
     if (!userClub) return;
 
-    const xi = [...userClub.startingXI];
-    const bench = [...userClub.substitutes];
+    let xi = [...userClub.startingXI];
+    let bench = [...userClub.substitutes];
 
     const outIdx = xi.indexOf(playerOutId);
-    const inIdx = bench.indexOf(playerInId);
+    const inBenchIdx = bench.indexOf(playerInId);
 
-    if (outIdx !== -1 && inIdx !== -1) {
-      xi[outIdx] = playerInId;
-      bench[inIdx] = playerOutId;
-    } else if (outIdx !== -1 && xi.indexOf(playerInId) !== -1) {
-      // Swap positions on pitch
+    // 1. Ambos en el campo (intercambio de posición táctica)
+    if (outIdx !== -1 && xi.indexOf(playerInId) !== -1) {
       const pos2 = xi.indexOf(playerInId);
       xi[outIdx] = playerInId;
       xi[pos2] = playerOutId;
+    }
+    // 2. Jugador del banquillo entra al 11 titular
+    else if (outIdx !== -1 && inBenchIdx !== -1) {
+      xi[outIdx] = playerInId;
+      bench[inBenchIdx] = playerOutId;
+    }
+    // 3. Jugador de reservas (pertenece al club pero no estaba en bench)
+    else if (outIdx !== -1) {
+      const userPlayers = players.filter((p) => p.clubId === userClubId);
+      if (userPlayers.some((p) => p.id === playerInId)) {
+        xi[outIdx] = playerInId;
+        bench = bench.filter((id) => id !== playerInId);
+        if (!bench.includes(playerOutId)) {
+          bench.push(playerOutId);
+        }
+      }
     }
 
     const updated = clubs.map((c) =>
       c.id === userClubId ? { ...c, startingXI: xi, substitutes: bench } : c
     );
+    set({ clubs: updated });
+    get().saveToStorage();
+  },
+
+  swapBenchPlayer: (benchPlayerId, reservePlayerId) => {
+    const { clubs, userClubId } = get();
+    const updated = clubs.map((c) => {
+      if (c.id === userClubId) {
+        let newBench = c.substitutes.map((id) => (id === benchPlayerId ? reservePlayerId : id));
+        if (!c.substitutes.includes(benchPlayerId)) {
+          if (newBench.length < 7 && !newBench.includes(reservePlayerId)) {
+            newBench.push(reservePlayerId);
+          }
+        }
+        return { ...c, substitutes: newBench };
+      }
+      return c;
+    });
     set({ clubs: updated });
     get().saveToStorage();
   },
@@ -831,7 +871,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     };
 
     const updatedClubs = clubs.map((c) =>
-      c.id === userClubId ? { ...c, cashYen: c.cashYen - promotionCost } : c
+      c.id === userClubId
+        ? {
+            ...c,
+            cashYen: c.cashYen - promotionCost,
+            substitutes: [...c.substitutes, newYouth.id],
+          }
+        : c
     );
 
     const updatedLedger: ClubLedgerEntry[] = [
@@ -972,12 +1018,41 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     const updatedClubs = clubs.map((c) => {
       if (c.id === userClubId) {
+        let newStartingXI = c.startingXI.filter((id) => id !== offer.playerId);
+        let newSubstitutes = c.substitutes.filter((id) => id !== offer.playerId);
+
+        // Si el jugador vendido era titular, reponer automáticamente con el mejor suplente
+        const remainingUserPlayers = updatedPlayers.filter((p) => p.clubId === userClubId);
+        if (newStartingXI.length < 11 && remainingUserPlayers.length >= 11) {
+          const replacement = remainingUserPlayers
+            .filter((p) => !newStartingXI.includes(p.id))
+            .sort((a, b) => b.overall - a.overall)[0];
+          if (replacement) {
+            newStartingXI.push(replacement.id);
+            newSubstitutes = newSubstitutes.filter((id) => id !== replacement.id);
+          }
+        }
+
+        // Si el jugador vendido era capitán o tirador, reasignar a un jugador activo
+        const newCaptain = remainingUserPlayers.some((p) => p.id === c.captainId)
+          ? c.captainId
+          : newStartingXI[0] || remainingUserPlayers[0]?.id;
+        const newPenalty = remainingUserPlayers.some((p) => p.id === c.penaltyTakerId)
+          ? c.penaltyTakerId
+          : newStartingXI.find((id) => remainingUserPlayers.find((p) => p.id === id)?.position === 'DC') || newCaptain;
+        const newFk = remainingUserPlayers.some((p) => p.id === c.freeKickTakerId)
+          ? c.freeKickTakerId
+          : newStartingXI.find((id) => ['MCO', 'MC', 'EI'].includes(remainingUserPlayers.find((p) => p.id === id)?.position || '')) || newCaptain;
+
         return {
           ...c,
           cashYen: c.cashYen + offer.offeredFeeYen,
           budgetYen: c.budgetYen + Math.round(offer.offeredFeeYen * 0.8),
-          startingXI: c.startingXI.filter((id) => id !== offer.playerId),
-          substitutes: c.substitutes.filter((id) => id !== offer.playerId),
+          startingXI: newStartingXI,
+          substitutes: newSubstitutes,
+          captainId: newCaptain,
+          penaltyTakerId: newPenalty,
+          freeKickTakerId: newFk,
         };
       }
       if (c.id === offer.buyerClubId) {
@@ -1038,11 +1113,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const player = players.find((p) => p.id === playerId);
     if (!player || !userClub) return { success: false, message: 'Jugador no encontrado.' };
 
-    const minAcceptableWage = player.weeklyWageYen * 1.15;
+    const minAcceptableWage = Math.round(player.weeklyWageYen * 1.148); // Tolerancia anti-redondeo entre divisas
     if (newWageYen < minAcceptableWage) {
       return {
         success: false,
-        message: `El jugador exige un incremento del 15% (mínimo ${formatMoney(minAcceptableWage, get().selectedCurrency)}/semana).`,
+        message: `El jugador exige un incremento del 15% (mínimo ${formatMoney(Math.round(player.weeklyWageYen * 1.15), get().selectedCurrency)}/semana).`,
       };
     }
 

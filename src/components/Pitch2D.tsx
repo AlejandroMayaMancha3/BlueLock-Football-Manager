@@ -127,6 +127,9 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
         const isSelected = selectedPlayerId === player.id;
         const isCaptain = club.captainId === player.id;
         const isPenalty = club.penaltyTakerId === player.id;
+        const isFreeKick = club.freeKickTakerId === player.id;
+        const isBanned = player.isBanned;
+        const isInjured = (player.injuryWeeks || 0) > 0;
         const hasWeapon = player.weapons && player.weapons.length > 0;
 
         return (
@@ -147,16 +150,32 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
             <div
               className={clsx(
                 'relative w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-xs md:text-sm shadow-lg border-2 transition-all',
-                isSelected
+                isBanned
+                  ? 'border-rose-500 ring-2 ring-rose-500/80 bg-rose-950'
+                  : isInjured
+                  ? 'border-amber-500 ring-2 ring-amber-500/80 bg-amber-950'
+                  : isSelected
                   ? 'border-yellow-400 ring-4 ring-yellow-400/50 scale-105'
                   : 'border-white/80'
               )}
               style={{
-                backgroundColor: club.primaryColor || '#0047bb',
+                backgroundColor: isBanned ? '#4c0519' : isInjured ? '#451a03' : (club.primaryColor || '#0047bb'),
                 color: club.secondaryColor || '#ffffff',
               }}
             >
               {player.overall}
+
+              {/* Sanción o Lesión */}
+              {isBanned && (
+                <span className="absolute -top-1 -left-1 bg-rose-600 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-white">
+                  🟥
+                </span>
+              )}
+              {!isBanned && isInjured && (
+                <span className="absolute -top-1 -left-1 bg-amber-600 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-white">
+                  🏥
+                </span>
+              )}
 
               {/* Insignia de Capitán */}
               {isCaptain && (
@@ -169,6 +188,13 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
               {isPenalty && !isCaptain && (
                 <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-white">
                   P
+                </span>
+              )}
+
+              {/* Insignia de Faltas */}
+              {isFreeKick && !isCaptain && !isPenalty && (
+                <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-white">
+                  F
                 </span>
               )}
 
