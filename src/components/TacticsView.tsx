@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/game-store';
 import { Pitch2D } from '@/components/Pitch2D';
 import { Formation, TacticalMentalidad, TacticalPresion, TacticalPase, Player } from '@/types/football-manager';
-import { Zap, AlertTriangle, Shield, Award, Users, ArrowRightLeft, X, CheckCircle2, Info } from 'lucide-react';
+import { Zap, AlertTriangle, Shield, Award, Users, ArrowRightLeft, X, CheckCircle2 } from 'lucide-react';
 import clsx from 'clsx';
 import { calculatePositionalAdaptation, getFormationRoles } from '@/engine/position-engine';
 
@@ -60,30 +60,27 @@ export const TacticsView: React.FC = () => {
     ? startersAdaptations.find((sa) => sa.player.id === tacticsSelectedPlayer.id)
     : null;
 
-  // Deseleccionar al hacer clic fuera de las opciones o pulsar Escape
+  const clearAllSelections = () => {
+    setTacticsSelectedPlayer(null);
+    setSelectedReserveForBench(null);
+    setSelectedBenchForReserve(null);
+  };
+
+  // Deseleccionar al pulsar Escape o al hacer clic COMPLETAMENTE FUERA de la vista de tácticas
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setTacticsSelectedPlayer(null);
-        setSelectedReserveForBench(null);
-        setSelectedBenchForReserve(null);
+        clearAllSelections();
       }
     };
 
     const handleDocumentClick = (e: MouseEvent) => {
+      // Solo deseleccionar si hay algo seleccionado y el clic ocurrió fuera del contenedor de tácticas
+      if (!tacticsSelectedPlayer && !selectedReserveForBench && !selectedBenchForReserve) return;
       const target = e.target as HTMLElement;
-      // Si el clic proviene de botones o tarjetas con acciones tácticas interactivas, no deseleccionar
-      if (
-        target.closest('.interactive-player-action') ||
-        target.closest('.interactive-player-card') ||
-        target.closest('.interactive-role-btn')
-      ) {
-        return;
+      if (tacticsContainerRef.current && !tacticsContainerRef.current.contains(target)) {
+        clearAllSelections();
       }
-      // En cualquier otro caso (clic fuera, clic en fondo, etc.), deseleccionar
-      setTacticsSelectedPlayer(null);
-      setSelectedReserveForBench(null);
-      setSelectedBenchForReserve(null);
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -92,13 +89,7 @@ export const TacticsView: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('click', handleDocumentClick);
     };
-  }, []);
-
-  const clearAllSelections = () => {
-    setTacticsSelectedPlayer(null);
-    setSelectedReserveForBench(null);
-    setSelectedBenchForReserve(null);
-  };
+  }, [tacticsSelectedPlayer, selectedReserveForBench, selectedBenchForReserve]);
 
   return (
     <div ref={tacticsContainerRef} className="space-y-6">
@@ -110,13 +101,13 @@ export const TacticsView: React.FC = () => {
             <span className="text-white font-medium">
               {tacticsSelectedPlayer && (
                 <>
-                  Modo cambio de titular activo: <b className="text-cyan-300 font-bold">{tacticsSelectedPlayer.name}</b> ({tacticsSelectedPlayer.position} · {tacticsSelectedPlayer.overall}).
-                  Haz clic en cualquier jugador del banquillo o reservas para intercambiarlo, o haz clic fuera para cancelar.
+                  Titular seleccionado: <b className="text-cyan-300 font-bold">{tacticsSelectedPlayer.name}</b> ({tacticsSelectedPlayer.position} · {tacticsSelectedPlayer.overall}).
+                  Pulsa en <b>&quot;Meter por {tacticsSelectedPlayer.name.split(' ').pop()}&quot;</b> en el banquillo o reservas para sustituirlo.
                 </>
               )}
               {selectedReserveForBench && (
                 <>
-                  Eligiendo sustituto en el banquillo para subir a <b className="text-cyan-300 font-bold">{selectedReserveForBench.name}</b> ({selectedReserveForBench.position} · {selectedReserveForBench.overall}).
+                  Eligiendo plaza en el banquillo para subir a <b className="text-cyan-300 font-bold">{selectedReserveForBench.name}</b> ({selectedReserveForBench.position} · {selectedReserveForBench.overall}).
                 </>
               )}
               {selectedBenchForReserve && (
@@ -130,10 +121,10 @@ export const TacticsView: React.FC = () => {
           <button
             type="button"
             onClick={clearAllSelections}
-            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl font-bold flex items-center gap-1.5 border border-slate-700 transition-all shrink-0 interactive-player-action"
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl font-bold flex items-center gap-1.5 border border-slate-700 transition-all shrink-0 shadow"
           >
             <X className="w-3.5 h-3.5" />
-            <span>Deseleccionar / Cancelar (ESC)</span>
+            <span>Deseleccionar (ESC)</span>
           </button>
         </div>
       )}
@@ -245,7 +236,7 @@ export const TacticsView: React.FC = () => {
             allPlayersMap={allPlayersMap}
             selectedPlayerId={tacticsSelectedPlayer?.id}
             onPlayerClick={(p) => {
-              // Si ya estaba seleccionado, deseleccionar; de lo contrario seleccionar
+              // Si pulsas en el mismo jugador, se deselecciona; si no, se selecciona para cambiarlo
               setTacticsSelectedPlayer((prev) => (prev?.id === p.id ? null : p));
               setSelectedReserveForBench(null);
               setSelectedBenchForReserve(null);
@@ -254,15 +245,15 @@ export const TacticsView: React.FC = () => {
           />
           <div className="flex items-center justify-between text-xs text-slate-400 px-1">
             <span>
-              💡 Haz clic en cualquier jugador para cambiarlo o asignarle roles. Haz clic en el césped vacío para deseleccionar.
+              💡 Haz clic en cualquier jugador para sustituirlo o asignarle roles. Haz clic en el césped vacío para deseleccionar.
             </span>
             {tacticsSelectedPlayer && (
               <button
                 type="button"
                 onClick={clearAllSelections}
-                className="text-cyan-400 hover:text-cyan-300 font-bold interactive-player-action"
+                className="text-cyan-400 hover:text-cyan-300 font-bold"
               >
-                Deseleccionar ({tacticsSelectedPlayer.name})
+                ✕ Deseleccionar ({tacticsSelectedPlayer.name})
               </button>
             )}
           </div>
@@ -280,12 +271,9 @@ export const TacticsView: React.FC = () => {
               <div className="flex bg-slate-950 rounded-xl p-0.5 border border-slate-800 text-[11px] font-bold">
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPanelTab('bench');
-                  }}
+                  onClick={() => setPanelTab('bench')}
                   className={clsx(
-                    'px-2.5 py-1 rounded-lg transition-all interactive-player-action',
+                    'px-2.5 py-1 rounded-lg transition-all',
                     panelTab === 'bench' ? 'bg-cyan-500 text-black' : 'text-slate-400 hover:text-white'
                   )}
                 >
@@ -293,12 +281,9 @@ export const TacticsView: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPanelTab('reserves');
-                  }}
+                  onClick={() => setPanelTab('reserves')}
                   className={clsx(
-                    'px-2.5 py-1 rounded-lg transition-all interactive-player-action',
+                    'px-2.5 py-1 rounded-lg transition-all',
                     panelTab === 'reserves' ? 'bg-cyan-500 text-black' : 'text-slate-400 hover:text-white'
                   )}
                 >
@@ -307,8 +292,32 @@ export const TacticsView: React.FC = () => {
               </div>
             </div>
 
-            {/* AVISO GUÍA CUANDO SE SELECCIONA UN RESERVA PARA SUBIR AL BANQUILLO */}
-            {selectedReserveForBench && panelTab === 'bench' && (
+            {/* AVISO GUÍA: CUANDO HAY UN TITULAR SELECCIONADO EN LA PIZARRA */}
+            {tacticsSelectedPlayer && (
+              <div className="p-3 bg-gradient-to-r from-cyan-950 via-slate-900 to-cyan-950 border border-cyan-500/70 rounded-xl space-y-1.5 text-xs shadow-lg animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-cyan-300 flex items-center gap-1.5">
+                    <ArrowRightLeft className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <span>
+                      Sustituyendo a: <b className="text-white">{tacticsSelectedPlayer.name}</b> ({tacticsSelectedPlayer.position} · {tacticsSelectedPlayer.overall})
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearAllSelections}
+                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold"
+                  >
+                    ✕ Cancelar
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-300">
+                  Haz clic en el botón <b>&quot;Meter por {tacticsSelectedPlayer.name.split(' ').pop()}&quot;</b> en cualquiera de los jugadores para meterlo en el 11 titular.
+                </p>
+              </div>
+            )}
+
+            {/* AVISO GUÍA: CUANDO SE SELECCIONA UN RESERVA PARA SUBIR AL BANQUILLO */}
+            {!tacticsSelectedPlayer && selectedReserveForBench && panelTab === 'bench' && (
               <div className="p-3 bg-gradient-to-r from-cyan-950/80 to-slate-900 border border-cyan-500/60 rounded-xl space-y-2 text-xs shadow-md animate-fadeIn">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-cyan-300 flex items-center gap-1.5">
@@ -317,11 +326,8 @@ export const TacticsView: React.FC = () => {
                   </span>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedReserveForBench(null);
-                    }}
-                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold interactive-player-action"
+                    onClick={() => setSelectedReserveForBench(null)}
+                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold"
                   >
                     ✕ Cancelar
                   </button>
@@ -332,12 +338,11 @@ export const TacticsView: React.FC = () => {
                 {benchPlayers.length < 7 && (
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={() => {
                       swapBenchPlayer(selectedReserveForBench.id, selectedReserveForBench.id);
                       setSelectedReserveForBench(null);
                     }}
-                    className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-lg text-xs transition-all shadow flex items-center justify-center gap-1.5 interactive-player-action"
+                    className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-lg text-xs transition-all shadow flex items-center justify-center gap-1.5"
                   >
                     <span>➕ Ocupar plaza libre en el banquillo ({benchPlayers.length}/7) sin retirar a nadie</span>
                   </button>
@@ -345,8 +350,8 @@ export const TacticsView: React.FC = () => {
               </div>
             )}
 
-            {/* AVISO GUÍA CUANDO SE SELECCIONA UN SUPLENTE PARA BAJAR A RESERVAS */}
-            {selectedBenchForReserve && panelTab === 'reserves' && (
+            {/* AVISO GUÍA: CUANDO SE SELECCIONA UN SUPLENTE PARA BAJAR A RESERVAS */}
+            {!tacticsSelectedPlayer && selectedBenchForReserve && panelTab === 'reserves' && (
               <div className="p-3 bg-gradient-to-r from-amber-950/80 to-slate-900 border border-amber-500/60 rounded-xl space-y-2 text-xs shadow-md animate-fadeIn">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-amber-300 flex items-center gap-1.5">
@@ -355,11 +360,8 @@ export const TacticsView: React.FC = () => {
                   </span>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedBenchForReserve(null);
-                    }}
-                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold interactive-player-action"
+                    onClick={() => setSelectedBenchForReserve(null)}
+                    className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-bold"
                   >
                     ✕ Cancelar
                   </button>
@@ -371,7 +373,7 @@ export const TacticsView: React.FC = () => {
             )}
 
             {/* Subtítulo orientativo */}
-            {!selectedReserveForBench && !selectedBenchForReserve && (
+            {!tacticsSelectedPlayer && !selectedReserveForBench && !selectedBenchForReserve && (
               <p className="text-[11px] text-slate-400">
                 {panelTab === 'bench'
                   ? 'Convocados para los cambios en vivo del partido (máx 7). Puedes cambiarlos por reservas.'
@@ -379,7 +381,7 @@ export const TacticsView: React.FC = () => {
               </p>
             )}
 
-            {/* LISTA DE JUGADORES */}
+            {/* LISTA DE JUGADORES (BANQUILLO / RESERVAS) */}
             <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
               {(panelTab === 'bench' ? benchPlayers : reservePlayers).length === 0 ? (
                 <div className="p-4 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">
@@ -397,8 +399,10 @@ export const TacticsView: React.FC = () => {
                     <div
                       key={p.id}
                       className={clsx(
-                        'p-2.5 rounded-xl border text-xs transition-all space-y-1.5 interactive-player-card',
-                        p.isBanned
+                        'p-2.5 rounded-xl border text-xs transition-all space-y-1.5',
+                        tacticsSelectedPlayer
+                          ? 'border-cyan-500/50 bg-cyan-950/20 hover:border-cyan-400'
+                          : p.isBanned
                           ? 'bg-rose-950/30 border-rose-800/60'
                           : (p.injuryWeeks || 0) > 0
                           ? 'bg-amber-950/30 border-amber-800/60'
@@ -444,15 +448,14 @@ export const TacticsView: React.FC = () => {
                           {tacticsSelectedPlayer && (
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
+                              onClick={() => {
                                 swapStartingPlayer(tacticsSelectedPlayer.id, p.id);
                                 clearAllSelections();
                               }}
-                              className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-black rounded text-[10px] transition-all flex items-center gap-1 interactive-player-action shadow-md"
+                              className="px-3 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-black rounded text-[11px] transition-all flex items-center gap-1 shadow-lg animate-pulse"
                             >
-                              <ArrowRightLeft className="w-3 h-3" />
-                              Por {tacticsSelectedPlayer.name.split(' ').pop()}
+                              <ArrowRightLeft className="w-3.5 h-3.5" />
+                              Meter por {tacticsSelectedPlayer.name.split(' ').pop()}
                             </button>
                           )}
 
@@ -460,12 +463,11 @@ export const TacticsView: React.FC = () => {
                           {!tacticsSelectedPlayer && selectedReserveForBench && panelTab === 'bench' && (
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
+                              onClick={() => {
                                 swapBenchPlayer(p.id, selectedReserveForBench.id);
                                 setSelectedReserveForBench(null);
                               }}
-                              className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-black rounded text-[10px] transition-all flex items-center gap-1 interactive-player-action shadow-lg animate-pulse"
+                              className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-black rounded text-[10px] transition-all flex items-center gap-1 shadow-lg animate-pulse"
                             >
                               <ArrowRightLeft className="w-3 h-3" />
                               Quitar por {selectedReserveForBench.name.split(' ').pop()}
@@ -476,12 +478,11 @@ export const TacticsView: React.FC = () => {
                           {!tacticsSelectedPlayer && selectedBenchForReserve && panelTab === 'reserves' && (
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
+                              onClick={() => {
                                 swapBenchPlayer(selectedBenchForReserve.id, p.id);
                                 setSelectedBenchForReserve(null);
                               }}
-                              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-black rounded text-[10px] transition-all flex items-center gap-1 interactive-player-action shadow-lg animate-pulse"
+                              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-black rounded text-[10px] transition-all flex items-center gap-1 shadow-lg animate-pulse"
                             >
                               <ArrowRightLeft className="w-3 h-3" />
                               Subir por {selectedBenchForReserve.name.split(' ').pop()}
@@ -492,12 +493,11 @@ export const TacticsView: React.FC = () => {
                           {!tacticsSelectedPlayer && !selectedReserveForBench && !selectedBenchForReserve && panelTab === 'reserves' && (
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
+                              onClick={() => {
                                 setSelectedReserveForBench(p);
                                 setPanelTab('bench');
                               }}
-                              className="px-2.5 py-1 bg-slate-800 hover:bg-cyan-500 hover:text-black text-slate-300 font-bold rounded text-[10px] transition-all interactive-player-action flex items-center gap-1"
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-cyan-500 hover:text-black text-slate-300 font-bold rounded text-[10px] transition-all flex items-center gap-1"
                             >
                               <ArrowRightLeft className="w-3 h-3" />
                               Subir al Banquillo...
@@ -508,12 +508,11 @@ export const TacticsView: React.FC = () => {
                           {!tacticsSelectedPlayer && !selectedReserveForBench && !selectedBenchForReserve && panelTab === 'bench' && (
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
+                              onClick={() => {
                                 setSelectedBenchForReserve(p);
                                 setPanelTab('reserves');
                               }}
-                              className="px-2 py-0.5 bg-slate-800 hover:bg-amber-500 hover:text-black text-slate-400 font-medium rounded text-[10px] transition-all interactive-player-action"
+                              className="px-2 py-0.5 bg-slate-800 hover:bg-amber-500 hover:text-black text-slate-400 font-medium rounded text-[10px] transition-all"
                             >
                               Bajar a Reservas...
                             </button>
@@ -537,7 +536,7 @@ export const TacticsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={clearAllSelections}
-                  className="text-[10px] text-slate-500 hover:text-slate-300 interactive-player-action"
+                  className="text-[10px] text-slate-500 hover:text-slate-300"
                 >
                   ✕ Cerrar
                 </button>
@@ -572,12 +571,9 @@ export const TacticsView: React.FC = () => {
               <div className="grid grid-cols-3 gap-1.5">
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setRole('captain', tacticsSelectedPlayer.id);
-                  }}
+                  onClick={() => setRole('captain', tacticsSelectedPlayer.id)}
                   className={clsx(
-                    'px-2 py-1.5 rounded text-[10px] font-bold border transition-all text-center interactive-role-btn',
+                    'px-2 py-1.5 rounded text-[10px] font-bold border transition-all text-center',
                     userClub.captainId === tacticsSelectedPlayer.id
                       ? 'bg-yellow-500 text-black border-yellow-400 shadow-md font-black'
                       : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/40 hover:bg-yellow-500/20'
@@ -587,12 +583,9 @@ export const TacticsView: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setRole('penalty', tacticsSelectedPlayer.id);
-                  }}
+                  onClick={() => setRole('penalty', tacticsSelectedPlayer.id)}
                   className={clsx(
-                    'px-2 py-1.5 rounded text-[10px] font-bold border transition-all text-center interactive-role-btn',
+                    'px-2 py-1.5 rounded text-[10px] font-bold border transition-all text-center',
                     userClub.penaltyTakerId === tacticsSelectedPlayer.id
                       ? 'bg-blue-600 text-white border-blue-400 shadow-md font-black'
                       : 'bg-blue-500/10 text-blue-400 border-blue-500/40 hover:bg-blue-500/20'
@@ -602,12 +595,9 @@ export const TacticsView: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setRole('freekick', tacticsSelectedPlayer.id);
-                  }}
+                  onClick={() => setRole('freekick', tacticsSelectedPlayer.id)}
                   className={clsx(
-                    'px-2 py-1.5 rounded text-[10px] font-bold border transition-all text-center interactive-role-btn',
+                    'px-2 py-1.5 rounded text-[10px] font-bold border transition-all text-center',
                     userClub.freeKickTakerId === tacticsSelectedPlayer.id
                       ? 'bg-emerald-600 text-white border-emerald-400 shadow-md font-black'
                       : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/20'

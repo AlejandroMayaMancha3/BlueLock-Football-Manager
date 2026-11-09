@@ -96,9 +96,12 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
 
   return (
     <div
-      onClick={() => {
-        // Al hacer clic en el césped de la pizarra, deseleccionar
-        if (onPitchClick) onPitchClick();
+      onClick={(e) => {
+        // Al hacer clic en el césped de la pizarra (no en un jugador), deseleccionar
+        const target = e.target as HTMLElement;
+        if (!target.closest('button')) {
+          if (onPitchClick) onPitchClick();
+        }
       }}
       className="relative w-full aspect-[1.55] rounded-xl overflow-hidden border-2 border-emerald-500/40 shadow-2xl select-none bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900 cursor-pointer"
     >
