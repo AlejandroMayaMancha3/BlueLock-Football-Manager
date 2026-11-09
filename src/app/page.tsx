@@ -16,6 +16,7 @@ import {
   FolderUp,
   RotateCcw,
   Coins,
+  Calendar,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { computeLeagueTable } from '@/engine/season-engine';
@@ -30,6 +31,7 @@ import { SquadView } from '@/components/SquadView';
 import { TacticsView } from '@/components/TacticsView';
 import { LiveMatchView } from '@/components/LiveMatchView';
 import { TableView } from '@/components/TableView';
+import { CalendarView } from '@/components/CalendarView';
 import { MarketView } from '@/components/MarketView';
 import { TrainingView } from '@/components/TrainingView';
 import { FinanceView } from '@/components/FinanceView';
@@ -565,6 +567,7 @@ export default function FootballManagerApp() {
           { id: 'tactics', label: 'Táctica & Pizarra', icon: Target },
           { id: 'live_match', label: 'Partido en Vivo', icon: Play, alert: !!liveMatch },
           { id: 'table', label: 'Clasificación', icon: Trophy },
+          { id: 'calendar', label: 'Calendario', icon: Calendar },
           { id: 'market', label: 'Mercado Fichajes', icon: Search },
           { id: 'training', label: 'Entreno & Cantera', icon: TrendingUp },
           { id: 'finance', label: 'Finanzas', icon: DollarSign },
@@ -597,6 +600,7 @@ export default function FootballManagerApp() {
         {activeTab === 'tactics' && <TacticsView />}
         {activeTab === 'live_match' && (liveMatch ? <LiveMatchView /> : <OfficeView leagueTable={leagueTable} />)}
         {activeTab === 'table' && <TableView leagueTable={leagueTable} />}
+        {activeTab === 'calendar' && <CalendarView />}
         {activeTab === 'market' && <MarketView />}
         {activeTab === 'training' && <TrainingView />}
         {activeTab === 'finance' && <FinanceView />}

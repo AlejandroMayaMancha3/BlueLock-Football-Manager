@@ -61,7 +61,7 @@ export interface GameStoreState {
   clubs: Club[];
   players: Player[];
   fixtures: MatchFixture[];
-  activeTab: 'office' | 'squad' | 'tactics' | 'live_match' | 'table' | 'market' | 'training' | 'finance' | 'inbox';
+  activeTab: 'office' | 'squad' | 'tactics' | 'live_match' | 'table' | 'calendar' | 'market' | 'training' | 'finance' | 'inbox';
   liveMatch: LiveMatchState | null;
   boardTrust: number; // 0-100
   squadMorale: number; // 0-100
