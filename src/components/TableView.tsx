@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useGameStore } from '@/store/game-store';
 import {
   Trophy,
@@ -45,6 +45,12 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
   const [selectedCountry, setSelectedCountry] = useState<CountryLeague>(userCountry);
   const [activeTabDivisionId, setActiveTabDivisionId] = useState<string>(userDivisionId);
   const [expandedClubId, setExpandedClubId] = useState<string | null>(null);
+
+  // Sincronizar automáticamente el país y la división activa cuando cambie la temporada o la división del usuario
+  useEffect(() => {
+    setActiveTabDivisionId(userDivisionId);
+    setSelectedCountry(userCountry);
+  }, [userDivisionId, userCountry, currentSeason]);
 
   // Obtener las divisiones del país actualmente seleccionado
   const availableDivisions = useMemo(() => {

@@ -624,8 +624,17 @@ export default function FootballManagerApp() {
         {activeTab === 'squad' && <SquadView />}
         {activeTab === 'tactics' && <TacticsView />}
         {activeTab === 'live_match' && (liveMatch ? <LiveMatchView /> : <OfficeView leagueTable={leagueTable} />)}
-        {activeTab === 'table' && <TableView leagueTable={leagueTable} />}
-        {activeTab === 'calendar' && <CalendarView />}
+        {activeTab === 'table' && (
+          <TableView
+            key={`${userClub?.divisionId || userClub?.league}-${currentSeason}`}
+            leagueTable={leagueTable}
+          />
+        )}
+        {activeTab === 'calendar' && (
+          <CalendarView
+            key={`${userClub?.divisionId || userClub?.league}-${currentSeason}`}
+          />
+        )}
         {activeTab === 'market' && <MarketView />}
         {activeTab === 'training' && <TrainingView />}
         {activeTab === 'finance' && <FinanceView />}

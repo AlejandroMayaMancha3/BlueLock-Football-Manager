@@ -7,9 +7,10 @@ import {
   PromotionRelegationMovement,
   SeasonTransitionReport,
   CountryLeague,
+  TierLevel,
 } from '@/types/football-manager';
 import { shouldAwakenWeapon, generateContextualWeapon } from './weapon-registry';
-import { getDivisionsByCountry } from './data/divisions-catalog';
+import { getDivisionsByCountry, getDivisionById, COUNTRIES_CATALOG } from './data/divisions-catalog';
 import { calculatePlayerMarketValue } from './player-valuation';
 
 // Generates 22 rounds for 12 clubs using round-robin algorithm
@@ -379,7 +380,7 @@ export function advanceToNextSeason(
 } {
   const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
   const userPos = table.findIndex((r) => r.clubId === userClubId) + 1;
-  const userOldTier = userClub.tier || 1;
+  const userOldTier = (userClub.tier || getDivisionById(userClub.divisionId || userClub.league)?.tier || 1) as TierLevel;
   const champion = table[0];
 
   // Premios económicos escalonados para 24 posiciones
@@ -454,7 +455,7 @@ export function advanceToNextSeason(
     if (isUserPlayer && p.contractYears <= 1) {
       const rivalClubs = clubs.filter((c) => c.id !== userClubId);
       const eligibleDestinations = rivalClubs.filter(
-        (c) => evolvedPlayers.filter((ep) => ep.clubId === c.id).length < 25
+        (c) => players.filter((ep) => ep.clubId === c.id).length < 25
       );
       const destinationClub =
         eligibleDestinations[Math.floor(Math.random() * eligibleDestinations.length)] || rivalClubs[0];
@@ -562,182 +563,203 @@ export function advanceToNextSeason(
     };
   });
 
-  // 3. Simulación de la pirámide completa de las 4 divisiones del país
-  const country = (userClub.country as CountryLeague) || 'Spain';
-  const countryDivisions = getDivisionsByCountry(country);
-  const div1 = countryDivisions.find((d) => d.tier === 1)!;
-  const div2 = countryDivisions.find((d) => d.tier === 2)!;
-  const div3 = countryDivisions.find((d) => d.tier === 3)!;
-  const div4 = countryDivisions.find((d) => d.tier === 4)!;
+  // 3. Simulación de la pirámide completa y ascensos/descensos para TODAS las 5 naciones
+  const userCountry = (userClub.country as CountryLeague) || 'Spain';
+  const allPromotions: PromotionRelegationMovement[] = [];
+  const allRelegations: PromotionRelegationMovement[] = [];
+  const countryChampions: Record<string, { tier: number; divisionName: string; clubId: string; clubName: string }[]> = {};
 
-  const tierTables: Record<number, LeagueTableRow[]> = {};
-  [1, 2, 3, 4].forEach((t) => {
-    if (userClub.tier === t) {
-      tierTables[t] = table;
-    } else {
-      const div = countryDivisions.find((d) => d.tier === t)!;
-      const divClubs = evolvedClubs.filter((c) => (c.divisionId || c.league) === div.id);
-      tierTables[t] = simulateAiDivisionTable(divClubs);
+  COUNTRIES_CATALOG.forEach((cntry) => {
+    const cDivisions = getDivisionsByCountry(cntry.id);
+    const cDiv1 = cDivisions.find((d) => d.tier === 1)!;
+    const cDiv2 = cDivisions.find((d) => d.tier === 2)!;
+    const cDiv3 = cDivisions.find((d) => d.tier === 3)!;
+    const cDiv4 = cDivisions.find((d) => d.tier === 4)!;
+
+    const cTierTables: Record<number, LeagueTableRow[]> = {};
+    [1, 2, 3, 4].forEach((t) => {
+      if (cntry.id === userCountry && userOldTier === t) {
+        cTierTables[t] = table;
+      } else {
+        const div = cDivisions.find((d) => d.tier === t)!;
+        const divClubs = evolvedClubs.filter((c) => (c.divisionId || c.league) === div.id);
+        cTierTables[t] = simulateAiDivisionTable(divClubs);
+      }
+    });
+
+    countryChampions[cntry.id] = [
+      { tier: 1, divisionName: cDiv1.name, clubId: cTierTables[1][0]?.clubId || '', clubName: cTierTables[1][0]?.clubName || '' },
+      { tier: 2, divisionName: cDiv2.name, clubId: cTierTables[2][0]?.clubId || '', clubName: cTierTables[2][0]?.clubName || '' },
+      { tier: 3, divisionName: cDiv3.name, clubId: cTierTables[3][0]?.clubId || '', clubName: cTierTables[3][0]?.clubName || '' },
+      { tier: 4, divisionName: cDiv4.name, clubId: cTierTables[4][0]?.clubId || '', clubName: cTierTables[4][0]?.clubName || '' },
+    ];
+
+    // --- INTERCAMBIO TIER 1 <-> TIER 2 ---
+    // Descienden de Tier 1 a Tier 2 (total 3 equipos: directos + playoff/relegation)
+    const t1RelegCount = (cDiv1.relegationDirect || 0) + (cDiv1.relegationPlayoff || 0) || 3;
+    const t1RelegatedRows = cTierTables[1].slice(-t1RelegCount);
+    t1RelegatedRows.forEach((row, idx) => {
+      allRelegations.push({
+        clubId: row.clubId,
+        clubName: row.clubName,
+        fromDivisionId: cDiv1.id,
+        fromDivisionName: cDiv1.name,
+        toDivisionId: cDiv2.id,
+        toDivisionName: cDiv2.name,
+        type: 'relegation_direct',
+        finalPosition: (cTierTables[1].length - t1RelegCount) + idx + 1,
+      });
+    });
+
+    // Ascienden de Tier 2 a Tier 1 (1.º y 2.º directo + ganador playoff 3.º al 6.º)
+    const t2DirectCount = cDiv2.promotionDirect || 2;
+    const t2PlayoffCount = cDiv2.promotionPlayoff || 4;
+    const t2DirectPromRows = cTierTables[2].slice(0, t2DirectCount);
+    t2DirectPromRows.forEach((row, idx) => {
+      allPromotions.push({
+        clubId: row.clubId,
+        clubName: row.clubName,
+        fromDivisionId: cDiv2.id,
+        fromDivisionName: cDiv2.name,
+        toDivisionId: cDiv1.id,
+        toDivisionName: cDiv1.name,
+        type: 'promotion_direct',
+        finalPosition: idx + 1,
+      });
+    });
+
+    const t2PlayoffRows = cTierTables[2].slice(t2DirectCount, t2DirectCount + t2PlayoffCount);
+    if (t2PlayoffRows.length > 0) {
+      const userInT2Playoff = t2PlayoffRows.find((r) => r.clubId === userClubId);
+      const t2PlayoffWinnerRow = userInT2Playoff || t2PlayoffRows[Math.floor(Math.random() * t2PlayoffRows.length)] || t2PlayoffRows[0];
+      allPromotions.push({
+        clubId: t2PlayoffWinnerRow.clubId,
+        clubName: t2PlayoffWinnerRow.clubName,
+        fromDivisionId: cDiv2.id,
+        fromDivisionName: cDiv2.name,
+        toDivisionId: cDiv1.id,
+        toDivisionName: cDiv1.name,
+        type: 'promotion_playoff',
+        finalPosition: cTierTables[2].findIndex((r) => r.clubId === t2PlayoffWinnerRow.clubId) + 1,
+      });
+    }
+
+    // --- INTERCAMBIO TIER 2 <-> TIER 3 ---
+    // Descienden de Tier 2 a Tier 3 (total 3 equipos: directos + playoff/relegation)
+    const t2RelegCount = (cDiv2.relegationDirect || 0) + (cDiv2.relegationPlayoff || 0) || 3;
+    const t2RelegatedRows = cTierTables[2].slice(-t2RelegCount);
+    t2RelegatedRows.forEach((row, idx) => {
+      allRelegations.push({
+        clubId: row.clubId,
+        clubName: row.clubName,
+        fromDivisionId: cDiv2.id,
+        fromDivisionName: cDiv2.name,
+        toDivisionId: cDiv3.id,
+        toDivisionName: cDiv3.name,
+        type: 'relegation_direct',
+        finalPosition: (cTierTables[2].length - t2RelegCount) + idx + 1,
+      });
+    });
+
+    // Ascienden de Tier 3 a Tier 2 (1.º y 2.º directo + ganador playoff 3.º al 6.º)
+    const t3DirectCount = cDiv3.promotionDirect || 2;
+    const t3PlayoffCount = cDiv3.promotionPlayoff || 4;
+    const t3DirectPromRows = cTierTables[3].slice(0, t3DirectCount);
+    t3DirectPromRows.forEach((row, idx) => {
+      allPromotions.push({
+        clubId: row.clubId,
+        clubName: row.clubName,
+        fromDivisionId: cDiv3.id,
+        fromDivisionName: cDiv3.name,
+        toDivisionId: cDiv2.id,
+        toDivisionName: cDiv2.name,
+        type: 'promotion_direct',
+        finalPosition: idx + 1,
+      });
+    });
+
+    const t3PlayoffRows = cTierTables[3].slice(t3DirectCount, t3DirectCount + t3PlayoffCount);
+    if (t3PlayoffRows.length > 0) {
+      const userInT3Playoff = t3PlayoffRows.find((r) => r.clubId === userClubId);
+      const t3PlayoffWinnerRow = userInT3Playoff || t3PlayoffRows[Math.floor(Math.random() * t3PlayoffRows.length)] || t3PlayoffRows[0];
+      allPromotions.push({
+        clubId: t3PlayoffWinnerRow.clubId,
+        clubName: t3PlayoffWinnerRow.clubName,
+        fromDivisionId: cDiv3.id,
+        fromDivisionName: cDiv3.name,
+        toDivisionId: cDiv2.id,
+        toDivisionName: cDiv2.name,
+        type: 'promotion_playoff',
+        finalPosition: cTierTables[3].findIndex((r) => r.clubId === t3PlayoffWinnerRow.clubId) + 1,
+      });
+    }
+
+    // --- INTERCAMBIO TIER 3 <-> TIER 4 ---
+    // Descienden de Tier 3 a Tier 4 (total 4 equipos: directos + playoff)
+    const t3RelegCount = (cDiv3.relegationDirect || 0) + (cDiv3.relegationPlayoff || 0) || 4;
+    const t3RelegatedRows = cTierTables[3].slice(-t3RelegCount);
+    t3RelegatedRows.forEach((row, idx) => {
+      allRelegations.push({
+        clubId: row.clubId,
+        clubName: row.clubName,
+        fromDivisionId: cDiv3.id,
+        fromDivisionName: cDiv3.name,
+        toDivisionId: cDiv4.id,
+        toDivisionName: cDiv4.name,
+        type: 'relegation_direct',
+        finalPosition: (cTierTables[3].length - t3RelegCount) + idx + 1,
+      });
+    });
+
+    // Ascienden de Tier 4 a Tier 3 (1.º, 2.º y 3.º directo + ganador playoff 4.º al 7.º)
+    const t4DirectCount = cDiv4.promotionDirect || 3;
+    const t4PlayoffCount = cDiv4.promotionPlayoff || 4;
+    const t4DirectPromRows = cTierTables[4].slice(0, t4DirectCount);
+    t4DirectPromRows.forEach((row, idx) => {
+      allPromotions.push({
+        clubId: row.clubId,
+        clubName: row.clubName,
+        fromDivisionId: cDiv4.id,
+        fromDivisionName: cDiv4.name,
+        toDivisionId: cDiv3.id,
+        toDivisionName: cDiv3.name,
+        type: 'promotion_direct',
+        finalPosition: idx + 1,
+      });
+    });
+
+    const t4PlayoffRows = cTierTables[4].slice(t4DirectCount, t4DirectCount + t4PlayoffCount);
+    if (t4PlayoffRows.length > 0) {
+      const userInT4Playoff = t4PlayoffRows.find((r) => r.clubId === userClubId);
+      const t4PlayoffWinnerRow = userInT4Playoff || t4PlayoffRows[Math.floor(Math.random() * t4PlayoffRows.length)] || t4PlayoffRows[0];
+      allPromotions.push({
+        clubId: t4PlayoffWinnerRow.clubId,
+        clubName: t4PlayoffWinnerRow.clubName,
+        fromDivisionId: cDiv4.id,
+        fromDivisionName: cDiv4.name,
+        toDivisionId: cDiv3.id,
+        toDivisionName: cDiv3.name,
+        type: 'promotion_playoff',
+        finalPosition: cTierTables[4].findIndex((r) => r.clubId === t4PlayoffWinnerRow.clubId) + 1,
+      });
     }
   });
 
-  // 4. Procesar ascensos y descensos
-  const promotions: PromotionRelegationMovement[] = [];
-  const relegations: PromotionRelegationMovement[] = [];
-
-  // --- INTERCAMBIO TIER 1 <-> TIER 2 ---
-  // Descienden de Tier 1 a Tier 2 (los 3 últimos clasificados: 22.º, 23.º, 24.º)
-  const t1RelegatedRows = tierTables[1].slice(21, 24);
-  t1RelegatedRows.forEach((row, idx) => {
-    relegations.push({
-      clubId: row.clubId,
-      clubName: row.clubName,
-      fromDivisionId: div1.id,
-      fromDivisionName: div1.name,
-      toDivisionId: div2.id,
-      toDivisionName: div2.name,
-      type: 'relegation_direct',
-      finalPosition: 22 + idx,
-    });
-  });
-
-  // Ascienden de Tier 2 a Tier 1 (1.º y 2.º directo + ganador playoff 3.º al 6.º)
-  const t2DirectCount = div2.promotionDirect || 2;
-  const t2PlayoffCount = div2.promotionPlayoff || 4;
-  const t2DirectPromRows = tierTables[2].slice(0, t2DirectCount);
-  t2DirectPromRows.forEach((row, idx) => {
-    promotions.push({
-      clubId: row.clubId,
-      clubName: row.clubName,
-      fromDivisionId: div2.id,
-      fromDivisionName: div2.name,
-      toDivisionId: div1.id,
-      toDivisionName: div1.name,
-      type: 'promotion_direct',
-      finalPosition: idx + 1,
-    });
-  });
-
-  const t2PlayoffRows = tierTables[2].slice(t2DirectCount, t2DirectCount + t2PlayoffCount);
-  const userInT2Playoff = t2PlayoffRows.find((r) => r.clubId === userClubId);
-  const t2PlayoffWinnerRow = userInT2Playoff || t2PlayoffRows[Math.floor(Math.random() * t2PlayoffRows.length)] || t2PlayoffRows[0];
-  promotions.push({
-    clubId: t2PlayoffWinnerRow.clubId,
-    clubName: t2PlayoffWinnerRow.clubName,
-    fromDivisionId: div2.id,
-    fromDivisionName: div2.name,
-    toDivisionId: div1.id,
-    toDivisionName: div1.name,
-    type: 'promotion_playoff',
-    finalPosition: tierTables[2].findIndex((r) => r.clubId === t2PlayoffWinnerRow.clubId) + 1,
-  });
-
-  // --- INTERCAMBIO TIER 2 <-> TIER 3 ---
-  // Descienden de Tier 2 a Tier 3 (los 3 últimos clasificados: 22.º, 23.º, 24.º)
-  const t2RelegatedRows = tierTables[2].slice(21, 24);
-  t2RelegatedRows.forEach((row, idx) => {
-    relegations.push({
-      clubId: row.clubId,
-      clubName: row.clubName,
-      fromDivisionId: div2.id,
-      fromDivisionName: div2.name,
-      toDivisionId: div3.id,
-      toDivisionName: div3.name,
-      type: 'relegation_direct',
-      finalPosition: 22 + idx,
-    });
-  });
-
-  // Ascienden de Tier 3 a Tier 2 (1.º y 2.º directo + ganador playoff 3.º al 6.º)
-  const t3DirectCount = div3.promotionDirect || 2;
-  const t3PlayoffCount = div3.promotionPlayoff || 4;
-  const t3DirectPromRows = tierTables[3].slice(0, t3DirectCount);
-  t3DirectPromRows.forEach((row, idx) => {
-    promotions.push({
-      clubId: row.clubId,
-      clubName: row.clubName,
-      fromDivisionId: div3.id,
-      fromDivisionName: div3.name,
-      toDivisionId: div2.id,
-      toDivisionName: div2.name,
-      type: 'promotion_direct',
-      finalPosition: idx + 1,
-    });
-  });
-
-  const t3PlayoffRows = tierTables[3].slice(t3DirectCount, t3DirectCount + t3PlayoffCount);
-  const userInT3Playoff = t3PlayoffRows.find((r) => r.clubId === userClubId);
-  const t3PlayoffWinnerRow = userInT3Playoff || t3PlayoffRows[Math.floor(Math.random() * t3PlayoffRows.length)] || t3PlayoffRows[0];
-  promotions.push({
-    clubId: t3PlayoffWinnerRow.clubId,
-    clubName: t3PlayoffWinnerRow.clubName,
-    fromDivisionId: div3.id,
-    fromDivisionName: div3.name,
-    toDivisionId: div2.id,
-    toDivisionName: div2.name,
-    type: 'promotion_playoff',
-    finalPosition: tierTables[3].findIndex((r) => r.clubId === t3PlayoffWinnerRow.clubId) + 1,
-  });
-
-  // --- INTERCAMBIO TIER 3 <-> TIER 4 ---
-  // Descienden de Tier 3 a Tier 4 (los 4 últimos clasificados: 21.º al 24.º)
-  const t3RelegatedRows = tierTables[3].slice(20, 24);
-  t3RelegatedRows.forEach((row, idx) => {
-    relegations.push({
-      clubId: row.clubId,
-      clubName: row.clubName,
-      fromDivisionId: div3.id,
-      fromDivisionName: div3.name,
-      toDivisionId: div4.id,
-      toDivisionName: div4.name,
-      type: 'relegation_direct',
-      finalPosition: 21 + idx,
-    });
-  });
-
-  // Ascienden de Tier 4 a Tier 3 (1.º, 2.º y 3.º directo + ganador playoff 4.º al 7.º)
-  const t4DirectCount = div4.promotionDirect || 3;
-  const t4PlayoffCount = div4.promotionPlayoff || 4;
-  const t4DirectPromRows = tierTables[4].slice(0, t4DirectCount);
-  t4DirectPromRows.forEach((row, idx) => {
-    promotions.push({
-      clubId: row.clubId,
-      clubName: row.clubName,
-      fromDivisionId: div4.id,
-      fromDivisionName: div4.name,
-      toDivisionId: div3.id,
-      toDivisionName: div3.name,
-      type: 'promotion_direct',
-      finalPosition: idx + 1,
-    });
-  });
-
-  const t4PlayoffRows = tierTables[4].slice(t4DirectCount, t4DirectCount + t4PlayoffCount);
-  const userInT4Playoff = t4PlayoffRows.find((r) => r.clubId === userClubId);
-  const t4PlayoffWinnerRow = userInT4Playoff || t4PlayoffRows[Math.floor(Math.random() * t4PlayoffRows.length)] || t4PlayoffRows[0];
-  promotions.push({
-    clubId: t4PlayoffWinnerRow.clubId,
-    clubName: t4PlayoffWinnerRow.clubName,
-    fromDivisionId: div4.id,
-    fromDivisionName: div4.name,
-    toDivisionId: div3.id,
-    toDivisionName: div3.name,
-    type: 'promotion_playoff',
-    finalPosition: tierTables[4].findIndex((r) => r.clubId === t4PlayoffWinnerRow.clubId) + 1,
-  });
-
-  // EN 4.ª DIVISIÓN (TIER 4): ¡NO HAY DESCENSOS! SOLO ASCENSOS HACIA LA 3.ª
-
-  // 5. Aplicar cambios de categoría a los clubes
-  const promotionMap = new Map(promotions.map((p) => [p.clubId, p]));
-  const relegationMap = new Map(relegations.map((r) => [r.clubId, r]));
+  // 4. Aplicar cambios de categoría a los clubes
+  const promotionMap = new Map(allPromotions.map((p) => [p.clubId, p]));
+  const relegationMap = new Map(allRelegations.map((r) => [r.clubId, r]));
 
   evolvedClubs.forEach((club) => {
+    if (!club.tier) {
+      const d = getDivisionById(club.divisionId || club.league);
+      if (d) club.tier = d.tier;
+    }
+
     const prom = promotionMap.get(club.id);
     if (prom) {
       club.divisionId = prom.toDivisionId;
       club.league = prom.toDivisionId;
-      const targetDiv = countryDivisions.find((d) => d.id === prom.toDivisionId);
+      const targetDiv = getDivisionById(prom.toDivisionId);
       if (targetDiv) {
         club.tier = targetDiv.tier;
         const boostEur = targetDiv.tier === 1 ? 20000000 : targetDiv.tier === 2 ? 6000000 : 2000000;
@@ -751,7 +773,7 @@ export function advanceToNextSeason(
     if (rel) {
       club.divisionId = rel.toDivisionId;
       club.league = rel.toDivisionId;
-      const targetDiv = countryDivisions.find((d) => d.id === rel.toDivisionId);
+      const targetDiv = getDivisionById(rel.toDivisionId);
       if (targetDiv) {
         club.tier = targetDiv.tier;
         club.reputation = Math.max(35, club.reputation - 2);
@@ -759,25 +781,30 @@ export function advanceToNextSeason(
     }
   });
 
-  // 6. Determinar el destino del club del usuario
+  // 5. Determinar el destino del club del usuario
   const userClubAfter = evolvedClubs.find((c) => c.id === userClubId) || evolvedClubs[0];
-  const userNewTier = userClubAfter.tier || 1;
+  const userNewTier = (userClubAfter.tier || getDivisionById(userClubAfter.divisionId || userClubAfter.league)?.tier || 1) as TierLevel;
 
   let userOutcome: 'champion' | 'promoted' | 'relegated' | 'stayed' = 'stayed';
-  if (userPos === 1) {
-    userOutcome = 'champion';
-  } else if (userNewTier < userOldTier) {
-    userOutcome = 'promoted';
+  if (userNewTier < userOldTier) {
+    userOutcome = userPos === 1 ? 'champion' : 'promoted';
   } else if (userNewTier > userOldTier) {
     userOutcome = 'relegated';
+  } else {
+    userOutcome = userPos === 1 ? 'champion' : 'stayed';
   }
 
-  // 7. Generar nuevo calendario de 46 jornadas para la división del club del usuario
+  // 6. Generar nuevo calendario de 46 jornadas para la nueva división del club del usuario
   const nextSeason = currentSeason + 1;
   const userNewDivId = userClubAfter.divisionId || userClubAfter.league;
   const divClubs = evolvedClubs.filter((c) => (c.divisionId || c.league) === userNewDivId);
   const clubsForFixtures = divClubs.length >= 2 ? divClubs : evolvedClubs;
   const newFixtures = generateSeasonFixtures(nextSeason, clubsForFixtures);
+
+  const userCountryDivisions = getDivisionsByCountry(userCountry);
+  const userCountryDivIds = new Set(userCountryDivisions.map((d) => d.id));
+  const userPromotions = allPromotions.filter((p) => userCountryDivIds.has(p.toDivisionId) || userCountryDivIds.has(p.fromDivisionId));
+  const userRelegations = allRelegations.filter((r) => userCountryDivIds.has(r.toDivisionId) || userCountryDivIds.has(r.fromDivisionId));
 
   const historyEntry: SeasonHistoryEntry = {
     seasonNumber: currentSeason,
@@ -791,32 +818,27 @@ export function advanceToNextSeason(
     topScorerClubName: topClub?.name || 'Liga',
     prizeMoneyYen: userPrize,
     divisionId: userClub.divisionId,
-    divisionName: countryDivisions.find((d) => d.tier === userOldTier)?.name,
+    divisionName: userCountryDivisions.find((d) => d.tier === userOldTier)?.name,
     userOutcome,
-    promotedClubNames: promotions.map((p) => p.clubName),
-    relegatedClubNames: relegations.map((r) => r.clubName),
+    promotedClubNames: userPromotions.map((p) => p.clubName),
+    relegatedClubNames: userRelegations.map((r) => r.clubName),
   };
 
   const seasonTransitionReport: SeasonTransitionReport = {
     seasonNumber: currentSeason,
-    country,
+    country: userCountry,
     userOutcome,
     userClubId,
     userClubName: userClub.name,
-    userOldDivisionName: countryDivisions.find((d) => d.tier === userOldTier)?.name || 'División',
-    userNewDivisionName: countryDivisions.find((d) => d.tier === userNewTier)?.name || 'División',
+    userOldDivisionName: userCountryDivisions.find((d) => d.tier === userOldTier)?.name || 'División',
+    userNewDivisionName: userCountryDivisions.find((d) => d.tier === userNewTier)?.name || 'División',
     userOldTier,
     userNewTier,
     userPosition: userPos,
     prizeMoneyYen: userPrize,
-    champions: [
-      { tier: 1, divisionName: div1.name, clubId: tierTables[1][0].clubId, clubName: tierTables[1][0].clubName },
-      { tier: 2, divisionName: div2.name, clubId: tierTables[2][0].clubId, clubName: tierTables[2][0].clubName },
-      { tier: 3, divisionName: div3.name, clubId: tierTables[3][0].clubId, clubName: tierTables[3][0].clubName },
-      { tier: 4, divisionName: div4.name, clubId: tierTables[4][0].clubId, clubName: tierTables[4][0].clubName },
-    ],
-    promotions,
-    relegations,
+    champions: countryChampions[userCountry] || [],
+    promotions: userPromotions,
+    relegations: userRelegations,
   };
 
   return {

@@ -295,7 +295,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     promotionDirect: 2, // 1.º y 2.º
     promotionPlayoff: 4, // 3.º al 6.º playoff
     relegationDirect: 3, // 22.º, 23.º y 24.º
-    relegationPlayoff: 1, // Playout 20.º vs 21.º
+    relegationPlayoff: 0,
     hasGroups: false,
     reputationRange: [66, 76],
     budgetRangeEur: [4500000, 16000000],

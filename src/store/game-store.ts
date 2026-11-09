@@ -45,6 +45,7 @@ import { optimizeLineupPositions, selectBest11FromSquad } from '@/engine/positio
 import { startPositionConversion, cancelPositionConversion } from '@/engine/training-engine';
 import { DECISION_EVENTS_POOL } from '@/engine/events-data';
 import { formatMoney } from '@/lib/currency';
+import { getDivisionById } from '@/engine/data/divisions-catalog';
 
 const STORAGE_KEY = 'bluelock_football_manager_v2';
 
@@ -239,12 +240,19 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       if (!data) return false;
       const parsed = JSON.parse(data);
       if (parsed && parsed.clubs && parsed.players && parsed.fixtures) {
-        const sanitizedClubs = parsed.clubs.map((c: any) => ({
-          ...c,
-          substitutes: Array.from(new Set<string>((c.substitutes || []) as string[]))
-            .filter((id) => !(c.startingXI || []).includes(id))
-            .slice(0, 7),
-        }));
+        const sanitizedClubs = parsed.clubs.map((c: any) => {
+          const divId = c.divisionId || c.league;
+          const dInfo = getDivisionById(divId);
+          return {
+            ...c,
+            divisionId: divId,
+            league: divId,
+            tier: c.tier || dInfo?.tier || 1,
+            substitutes: Array.from(new Set<string>((c.substitutes || []) as string[]))
+              .filter((id) => !(c.startingXI || []).includes(id))
+              .slice(0, 7),
+          };
+        });
         // Normalizar valoraciones de mercado para corregir precios desactualizados o no calibrados
         const calibratedPlayers = normalizePlayerValuations(parsed.players);
         // Asegurar que todos los clubes y futbolistas internacionales de los 5 países estén presentes

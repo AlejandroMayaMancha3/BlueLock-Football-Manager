@@ -134,7 +134,11 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
               {lastSeasonTransitionReport.userOutcome === 'stayed' && <CheckCircle2 className="w-6 h-6 text-cyan-400 shrink-0" />}
               <div>
                 <div className="font-black text-sm">
-                  {lastSeasonTransitionReport.userOutcome === 'champion' && '¡CAMPEÓN DE LIGA! Tu club conquista el título.'}
+                  {lastSeasonTransitionReport.userOutcome === 'champion' && (
+                    lastSeasonTransitionReport.userOldTier > 1
+                      ? `¡CAMPEÓN Y ASCENSO LOGRADO! Tu club conquista el título y asciende a ${lastSeasonTransitionReport.userNewDivisionName}.`
+                      : '¡CAMPEÓN DE LIGA! Tu club conquista el título de la máxima categoría.'
+                  )}
                   {lastSeasonTransitionReport.userOutcome === 'promoted' && `¡ASCENSO LOGRADO! Tu club asciende a ${lastSeasonTransitionReport.userNewDivisionName}.`}
                   {lastSeasonTransitionReport.userOutcome === 'relegated' && `DESCENSO CONFIRMADO: Tu club competirá en ${lastSeasonTransitionReport.userNewDivisionName}.`}
                   {lastSeasonTransitionReport.userOutcome === 'stayed' && `PERMANENCIA ASEGURADA: Puesto ${lastSeasonTransitionReport.userPosition}.º en ${lastSeasonTransitionReport.userNewDivisionName}.`}
