@@ -18,11 +18,21 @@ import {
   Award,
   Activity,
   HeartPulse,
+  Dumbbell,
+  ArrowRightLeft,
+  Clock,
+  Target,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useGameStore } from '@/store/game-store';
-import { Player, Position } from '@/types/football-manager';
+import { Player, Position, IndividualTrainingFocus } from '@/types/football-manager';
 import { checkIsProdigy } from '@/engine/weapon-registry';
+import {
+  TRAINING_FOCUS_CATALOG,
+  ALL_POSITIONS,
+  getPositionName,
+  calculateConversionWeeks,
+} from '@/engine/training-engine';
 import { formatMoney, formatWithSpaces, parseNumberFromSpaces, convertToYen } from '@/lib/currency';
 
 interface PlayerDetailModalProps {
@@ -40,6 +50,9 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
     acceptSellOffer,
     rejectSellOffer,
     renewPlayerContract,
+    setPlayerTrainingFocus,
+    startPositionConversion,
+    cancelPositionConversion,
     players,
   } = useGameStore();
 
@@ -52,7 +65,8 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
   // Ofertas pendientes para este jugador
   const playerOffer = transferOffers.find((o) => o.playerId === player.id && o.status === 'pending');
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'season' | 'contract'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'season' | 'contract' | 'training'>('profile');
+  const [trainingFeedback, setTrainingFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
   // Estado del formulario de renovación
   const [renewalYears, setRenewalYears] = useState<number>(2);
@@ -272,6 +286,23 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
           {[
             { id: 'profile', label: 'Ficha Técnica & Atributos', icon: Zap },
             { id: 'season', label: 'Rendimiento & Temporada', icon: Activity },
+            ...(isUserPlayer
+              ? [
+                  {
+                    id: 'training',
+                    label: 'Desarrollo & Posición',
+                    icon: Dumbbell,
+                    badge: player.positionConversion
+                      ? `🔄 ${player.positionConversion.targetPosition} (${Math.round(
+                          (player.positionConversion.weeksElapsed /
+                            Math.max(1, player.positionConversion.totalWeeks)) *
+                            100
+                        )}%)`
+                      : undefined,
+                    badgeColor: 'bg-cyan-950/80 text-cyan-300 border-cyan-500/50',
+                  },
+                ]
+              : []),
             {
               id: 'contract',
               label: 'Contrato & Renovación',
@@ -687,6 +718,228 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
                   Solo puedes renovar contratos a futbolistas que pertenezcan a tu plantilla.
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB 4: DESARROLLO & CAMBIO DE POSICIÓN (ESTILO FIFA) */}
+          {activeTab === 'training' && isUserPlayer && (
+            <div className="space-y-6 animate-fadeIn">
+              {trainingFeedback && (
+                <div
+                  className={clsx(
+                    'p-3.5 rounded-xl border text-xs font-bold flex items-center justify-between gap-3 shadow',
+                    trainingFeedback.success
+                      ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
+                      : 'bg-rose-950/60 border-rose-500/50 text-rose-300'
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    {trainingFeedback.success ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-rose-400" />}
+                    <span>{trainingFeedback.message}</span>
+                  </div>
+                  <button type="button" onClick={() => setTrainingFeedback(null)} className="text-slate-400 hover:text-white">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* 1. ENFOQUE DE DESARROLLO INDIVIDUAL */}
+              <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-3">
+                <div>
+                  <h4 className="text-sm font-black text-white flex items-center gap-2">
+                    <Target className="w-4 h-4 text-cyan-400" />
+                    <span>Plan de Desarrollo Individual de Atributos</span>
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Elige la faceta técnica o física en la que {player.name} enfocará su evolución en los entrenamientos.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                  {TRAINING_FOCUS_CATALOG.map((f) => {
+                    const isSelected = (player.trainingFocus || 'balanced') === f.id;
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => {
+                          setPlayerTrainingFocus(player.id, f.id);
+                          setTrainingFeedback({
+                            success: true,
+                            message: `Plan actualizado: ${player.name} ahora entrena en modo [${f.name}].`,
+                          });
+                        }}
+                        className={clsx(
+                          'p-3.5 rounded-xl border text-left transition-all flex flex-col justify-between space-y-2',
+                          isSelected
+                            ? 'bg-cyan-950/40 border-cyan-400 ring-2 ring-cyan-500/30 shadow-lg'
+                            : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-base">{f.icon}</span>
+                          <span
+                            className={clsx(
+                              'text-[9px] font-black uppercase px-1.5 py-0.5 rounded',
+                              isSelected ? 'bg-cyan-500 text-black' : 'bg-slate-800 text-slate-400'
+                            )}
+                          >
+                            {isSelected ? 'ACTIVO' : 'SELECCIONAR'}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h5 className="font-bold text-white text-xs">{f.name}</h5>
+                          <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-tight">
+                            {f.shortDesc}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1 pt-1 border-t border-slate-800/80">
+                          {f.boostedStats.map((b, i) => (
+                            <span key={i} className="text-[9px] font-bold text-cyan-300 bg-cyan-950/80 px-1 rounded">
+                              {b}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. RECONVERSIÓN DINÁMICA DE POSICIÓN */}
+              <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 space-y-4">
+                <div>
+                  <h4 className="text-sm font-black text-white flex items-center gap-2">
+                    <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
+                    <span>Reconversión Dinámica de Posición (Estilo FIFA)</span>
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Posición actual: <b className="text-white font-bold">{player.position}</b> ({getPositionName(player.position)}).
+                    El tiempo requerido se calcula dinámicamente según la distancia táctica, la edad ({player.age} años) y los atributos actuales.
+                  </p>
+                </div>
+
+                {player.positionConversion ? (
+                  // PLAN ACTIVO EN CURSO
+                  <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/50 space-y-3 shadow-lg">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 h-8 rounded-lg bg-cyan-500 text-black font-black text-xs flex items-center justify-center">
+                          {player.position}
+                        </span>
+                        <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
+                        <span className="w-8 h-8 rounded-lg bg-emerald-500 text-black font-black text-xs flex items-center justify-center">
+                          {player.positionConversion.targetPosition}
+                        </span>
+                        <div className="ml-2">
+                          <span className="font-bold text-white text-xs block">
+                            Reconvirtiendo a {getPositionName(player.positionConversion.targetPosition)}
+                          </span>
+                          <span className="text-[11px] text-cyan-300">
+                            En progreso hacia nueva demarcación natural
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          cancelPositionConversion(player.id);
+                          setTrainingFeedback({
+                            success: false,
+                            message: `Se ha cancelado la reconversión de posición de ${player.name}.`,
+                          });
+                        }}
+                        className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-600/60 text-rose-300 font-bold text-xs rounded-xl transition-all self-start sm:self-auto"
+                      >
+                        ✕ Cancelar Reconversión
+                      </button>
+                    </div>
+
+                    {/* Barra de progreso */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-slate-300 flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>
+                            Jornada {player.positionConversion.weeksElapsed} de {player.positionConversion.totalWeeks}
+                            {' · '}
+                            Faltan {Math.max(0, player.positionConversion.totalWeeks - player.positionConversion.weeksElapsed)} jornadas
+                          </span>
+                        </span>
+                        <span className="text-cyan-400 font-mono">
+                          {Math.min(100, Math.round((player.positionConversion.weeksElapsed / Math.max(1, player.positionConversion.totalWeeks)) * 100))}%
+                        </span>
+                      </div>
+
+                      <div className="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden border border-slate-800">
+                        <div
+                          className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(100, Math.round((player.positionConversion.weeksElapsed / Math.max(1, player.positionConversion.totalWeeks)) * 100))}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // LISTA DE POSICIONES A LAS QUE CAMBIAR
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-slate-300 block">
+                      Selecciona la nueva posición que deseas que aprenda:
+                    </span>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                      {ALL_POSITIONS.filter((pos) => pos !== player.position).map((targetPos) => {
+                        const calculation = calculateConversionWeeks(player, targetPos);
+                        const isSecondary = player.secondaryPosition === targetPos;
+
+                        return (
+                          <div
+                            key={targetPos}
+                            className="p-3 bg-slate-900 border border-slate-800 hover:border-cyan-500/50 rounded-xl flex items-center justify-between gap-2 transition-all"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-8 h-7 rounded bg-slate-950 border border-slate-700 flex items-center justify-center text-[11px] font-black text-cyan-300">
+                                {targetPos}
+                              </span>
+                              <div>
+                                <div className="flex items-center gap-1">
+                                  <span className="font-bold text-white text-xs">{getPositionName(targetPos)}</span>
+                                  {isSecondary && (
+                                    <span className="text-[9px] bg-emerald-950 text-emerald-300 px-1 rounded border border-emerald-500/40">
+                                      2ª Pos
+                                    </span>
+                                  )}
+                                </div>
+                                <span className={clsx('text-[10px] font-bold', calculation.difficultyColor)}>
+                                  {calculation.difficultyLabel} · {calculation.weeks} {calculation.weeks === 1 ? 'jornada' : 'jornadas'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                startPositionConversion(player.id, targetPos);
+                                setTrainingFeedback({
+                                  success: true,
+                                  message: `¡Plan iniciado! ${player.name} aprenderá la posición de ${targetPos} en aproximadamente ${calculation.weeks} jornadas.`,
+                                });
+                              }}
+                              className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-[11px] rounded-lg shadow transition-all shrink-0"
+                            >
+                              Iniciar ({calculation.weeks} j.)
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
