@@ -96,26 +96,14 @@ const NAME_DATABASE: Record<CountryLeague, { first: string[]; last: string[] }> 
   },
 };
 
-export function generatePyramidClubsAndPlayers(
-  selectedCountry: CountryLeague,
-  selectedDivisionId: string
+export function generateClubsAndPlayersFromTemplates(
+  templates: ClubTemplate[],
+  selectedCountry: CountryLeague
 ): { clubs: Club[]; players: Player[] } {
-  // 1. Filtrar los clubes: todos los del país seleccionado (para la pirámide completa)
-  // más los clubes canónicos de otras ligas para el mercado internacional
-  let candidateTemplates = CLUBS_MASTER_CATALOG.filter((c) => c.country === selectedCountry);
-  if (candidateTemplates.length === 0) {
-    candidateTemplates = CLUBS_MASTER_CATALOG.filter((c) => c.divisionId === selectedDivisionId);
-  }
-
-  // Asegurar que al menos tengamos los clubes de la división activa
-  const activeDivTemplates = candidateTemplates.filter((c) => c.divisionId === selectedDivisionId);
-  const otherDivTemplates = candidateTemplates.filter((c) => c.divisionId !== selectedDivisionId);
-  const templatesToUse = [...activeDivTemplates, ...otherDivTemplates];
-
   const allPlayers: Player[] = [];
   const allClubs: Club[] = [];
 
-  templatesToUse.forEach((tmpl) => {
+  templates.forEach((tmpl) => {
     const clubId = tmpl.id;
     const clubPlayers: Player[] = [];
     const namePool = NAME_DATABASE[tmpl.country] || NAME_DATABASE.Spain;
@@ -194,8 +182,9 @@ export function generatePyramidClubsAndPlayers(
       });
     }
 
-    // 2. Completar plantilla hasta 19 futbolistas asegurando equilibrio posicional
-    const targetSquadSize = 19;
+    // 2. Completar plantilla: 19 para país activo, 14 para 1.ª división internacional, 5 para tiers inferiores
+    const isUserCountry = tmpl.country === selectedCountry;
+    const targetSquadSize = isUserCountry ? 19 : tmpl.tier === 1 ? 14 : 5;
     const requiredPositions: Position[] = [
       'POR', 'POR',
       'DFC', 'DFC', 'DFC', 'DFC',
@@ -363,4 +352,36 @@ export function generatePyramidClubsAndPlayers(
   });
 
   return { clubs: allClubs, players: allPlayers };
+}
+
+export function generatePyramidClubsAndPlayers(
+  selectedCountry: CountryLeague,
+  _selectedDivisionId?: string
+): { clubs: Club[]; players: Player[] } {
+  // Generar todos los 480 clubes y futbolistas de los 5 países para mercado global total
+  return generateClubsAndPlayersFromTemplates(CLUBS_MASTER_CATALOG, selectedCountry);
+}
+
+export function ensureAllClubsAndPlayers(
+  existingClubs: Club[],
+  existingPlayers: Player[],
+  selectedCountry: CountryLeague
+): { clubs: Club[]; players: Player[] } {
+  const existingClubIds = new Set(existingClubs.map((c) => c.id));
+  const missingTemplates = CLUBS_MASTER_CATALOG.filter((t) => !existingClubIds.has(t.id));
+
+  if (missingTemplates.length === 0) {
+    return { clubs: existingClubs, players: existingPlayers };
+  }
+
+  // Generar clubes y jugadores que faltan (ej. otros países en partidas antiguas)
+  const { clubs: newClubs, players: newPlayers } = generateClubsAndPlayersFromTemplates(
+    missingTemplates,
+    selectedCountry
+  );
+
+  return {
+    clubs: [...existingClubs, ...newClubs],
+    players: [...existingPlayers, ...newPlayers],
+  };
 }

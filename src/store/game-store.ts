@@ -22,7 +22,11 @@ import {
   SeasonTransitionReport,
 } from '@/types/football-manager';
 import { generateInitialClubsAndPlayers, calculateOvr } from '@/engine/game-data';
-import { generatePyramidClubsAndPlayers, getClubTemplateById } from '@/engine/data/leagues-catalog';
+import {
+  generatePyramidClubsAndPlayers,
+  getClubTemplateById,
+  ensureAllClubsAndPlayers,
+} from '@/engine/data/leagues-catalog';
 import { calculatePlayerMarketValue, normalizePlayerValuations } from '@/engine/player-valuation';
 import {
   generateSeasonFixtures,
@@ -242,10 +246,16 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         }));
         // Normalizar valoraciones de mercado para corregir precios desactualizados o no calibrados
         const calibratedPlayers = normalizePlayerValuations(parsed.players);
+        // Asegurar que todos los clubes y futbolistas internacionales de los 5 países estén presentes
+        const { clubs: completeClubs, players: completePlayers } = ensureAllClubsAndPlayers(
+          sanitizedClubs,
+          calibratedPlayers,
+          (parsed.selectedCountry as CountryLeague) || 'Spain'
+        );
         set({
           ...parsed,
-          clubs: sanitizedClubs,
-          players: calibratedPlayers,
+          clubs: completeClubs,
+          players: completePlayers,
           selectedCurrency: parsed.selectedCurrency || 'EUR',
         });
         return true;
