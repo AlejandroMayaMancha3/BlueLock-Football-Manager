@@ -15,6 +15,11 @@ import {
   X,
   UserCheck,
   Tag,
+  Trophy,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { LeagueTableRow, Player } from '@/types/football-manager';
@@ -41,6 +46,8 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
     fixtures,
     selectedDivisionId,
     lastMatchSummary,
+    lastSeasonTransitionReport,
+    clearSeasonTransitionReport,
     transferOffers,
     acceptSellOffer,
     rejectSellOffer,
@@ -80,6 +87,122 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
 
   return (
     <div className="space-y-6">
+      {/* 0. REPORTE OFICIAL DE CIERRE DE TEMPORADA, ASCENSOS Y DESCENSOS */}
+      {lastSeasonTransitionReport && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border-2 border-cyan-500/60 rounded-3xl p-6 shadow-2xl space-y-5 animate-fadeIn">
+          {/* Cabecera */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                <Trophy className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] text-cyan-400 font-mono font-bold uppercase tracking-wider block">
+                  Boletín Oficial · Fin de Temporada {lastSeasonTransitionReport.seasonNumber}
+                </span>
+                <h3 className="text-xl font-black text-white">
+                  Balance Oficial de Ascensos y Descensos
+                </h3>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={clearSeasonTransitionReport}
+              className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-black font-black text-xs rounded-xl shadow-lg transition-all"
+            >
+              Comenzar Temporada {currentSeason} →
+            </button>
+          </div>
+
+          {/* Veredicto del Club del Usuario */}
+          <div
+            className={clsx(
+              'p-4 rounded-2xl border flex items-center justify-between gap-4',
+              lastSeasonTransitionReport.userOutcome === 'champion' && 'bg-yellow-950/40 border-yellow-500/60 text-yellow-200',
+              lastSeasonTransitionReport.userOutcome === 'promoted' && 'bg-emerald-950/40 border-emerald-500/60 text-emerald-200',
+              lastSeasonTransitionReport.userOutcome === 'relegated' && 'bg-rose-950/40 border-rose-500/60 text-rose-200',
+              lastSeasonTransitionReport.userOutcome === 'stayed' && 'bg-slate-950 border-slate-800 text-slate-300'
+            )}
+          >
+            <div className="flex items-center gap-3">
+              {lastSeasonTransitionReport.userOutcome === 'champion' && <Trophy className="w-6 h-6 text-yellow-400 shrink-0" />}
+              {lastSeasonTransitionReport.userOutcome === 'promoted' && <TrendingUp className="w-6 h-6 text-emerald-400 shrink-0" />}
+              {lastSeasonTransitionReport.userOutcome === 'relegated' && <TrendingDown className="w-6 h-6 text-rose-400 shrink-0" />}
+              {lastSeasonTransitionReport.userOutcome === 'stayed' && <CheckCircle2 className="w-6 h-6 text-cyan-400 shrink-0" />}
+              <div>
+                <div className="font-black text-sm">
+                  {lastSeasonTransitionReport.userOutcome === 'champion' && '¡CAMPEÓN DE LIGA! Tu club conquista el título.'}
+                  {lastSeasonTransitionReport.userOutcome === 'promoted' && `¡ASCENSO LOGRADO! Tu club asciende a ${lastSeasonTransitionReport.userNewDivisionName}.`}
+                  {lastSeasonTransitionReport.userOutcome === 'relegated' && `DESCENSO CONFIRMADO: Tu club competirá en ${lastSeasonTransitionReport.userNewDivisionName}.`}
+                  {lastSeasonTransitionReport.userOutcome === 'stayed' && `PERMANENCIA ASEGURADA: Puesto ${lastSeasonTransitionReport.userPosition}.º en ${lastSeasonTransitionReport.userNewDivisionName}.`}
+                </div>
+                <div className="text-xs opacity-80 mt-0.5">
+                  Premio económico ingresado: +{formatMoney(lastSeasonTransitionReport.prizeMoneyYen, selectedCurrency)}.
+                </div>
+              </div>
+            </div>
+            <span className="text-xs font-mono font-bold px-3 py-1 rounded-lg bg-black/40 border border-white/10 shrink-0">
+              {lastSeasonTransitionReport.userPosition}.º puesto
+            </span>
+          </div>
+
+          {/* Campeones de las 4 Categorías */}
+          <div>
+            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+              🏆 Campeones de las 4 Divisiones
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {lastSeasonTransitionReport.champions.map((champ) => (
+                <div key={champ.divisionName} className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs">
+                  <div className="text-[10px] text-yellow-400 font-bold uppercase truncate">{champ.divisionName}</div>
+                  <div className="font-black text-white text-sm truncate mt-0.5">{champ.clubName}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Listado de Ascensos y Descensos */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            {/* Ascensos */}
+            <div className="p-4 bg-slate-950/80 border border-emerald-500/30 rounded-2xl space-y-2">
+              <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                <TrendingUp className="w-4 h-4" /> Movimientos de Ascenso ({lastSeasonTransitionReport.promotions.length})
+              </div>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {lastSeasonTransitionReport.promotions.map((p) => (
+                  <div key={p.clubId} className="flex items-center justify-between text-xs py-1 border-b border-slate-800/60">
+                    <span className="font-bold text-white">{p.clubName}</span>
+                    <span className="text-[11px] text-emerald-400 font-mono">
+                      {p.fromDivisionName} → {p.toDivisionName}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Descensos */}
+            <div className="p-4 bg-slate-950/80 border border-rose-500/30 rounded-2xl space-y-2">
+              <div className="flex items-center gap-2 text-rose-400 font-bold text-xs uppercase tracking-wider">
+                <TrendingDown className="w-4 h-4" /> Movimientos de Descenso ({lastSeasonTransitionReport.relegations.length})
+              </div>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                {lastSeasonTransitionReport.relegations.map((r) => (
+                  <div key={r.clubId} className="flex items-center justify-between text-xs py-1 border-b border-slate-800/60">
+                    <span className="font-bold text-white">{r.clubName}</span>
+                    <span className="text-[11px] text-rose-400 font-mono">
+                      {r.fromDivisionName} → {r.toDivisionName}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-500 italic mt-1">
+                * Recordatorio: En las 4.ª divisiones no hay descensos, solo ascensos hacia la 3.ª división.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 1. NOTIFICACIONES DE OFERTAS DE COMPRA RECIBIDAS (TEMPORALES HASTA ACEPTAR O RECHAZAR) */}
       {receivedOffers.length > 0 && (
         <div className="bg-gradient-to-r from-amber-950/60 via-slate-900 to-amber-950/40 border-2 border-amber-500/60 rounded-2xl p-6 shadow-2xl space-y-4 animate-fadeIn">

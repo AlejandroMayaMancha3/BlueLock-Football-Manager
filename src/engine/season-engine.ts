@@ -1,5 +1,15 @@
-import { Club, Player, MatchFixture, LeagueTableRow, SeasonHistoryEntry } from '@/types/football-manager';
+import {
+  Club,
+  Player,
+  MatchFixture,
+  LeagueTableRow,
+  SeasonHistoryEntry,
+  PromotionRelegationMovement,
+  SeasonTransitionReport,
+  CountryLeague,
+} from '@/types/football-manager';
 import { shouldAwakenWeapon, generateContextualWeapon } from './weapon-registry';
+import { getDivisionsByCountry } from './data/divisions-catalog';
 
 // Generates 22 rounds for 12 clubs using round-robin algorithm
 export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixture[] {
@@ -268,7 +278,65 @@ export function computeLeagueTable(clubs: Club[], fixtures: MatchFixture[]): Lea
   });
 }
 
-// End of season rollover
+// Simula la tabla de clasificación final realista de 46 jornadas para una división IA
+export function simulateAiDivisionTable(divisionClubs: Club[]): LeagueTableRow[] {
+  const table: LeagueTableRow[] = divisionClubs.map((club) => {
+    const basePower = club.level * 1.6 + (club.reputation * 0.4);
+    const variance = (Math.random() * 16) - 8;
+    return {
+      clubId: club.id,
+      clubName: club.name,
+      shortName: club.shortName,
+      played: 46,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      goalDifference: 0,
+      points: 0,
+      formHistory: [],
+      rawStrength: basePower + variance,
+    } as any;
+  });
+
+  table.sort((a: any, b: any) => b.rawStrength - a.rawStrength);
+
+  table.forEach((row: any, rank) => {
+    const targetPoints = Math.max(
+      28,
+      Math.min(104, Math.round(96 - (rank * 2.7) + (Math.random() * 6 - 3)))
+    );
+    const draws = Math.floor(Math.random() * 7) + 8;
+    const wins = Math.max(5, Math.min(30, Math.floor((targetPoints - draws) / 3)));
+    const losses = Math.max(0, 46 - wins - draws);
+    const actualPoints = (wins * 3) + draws;
+
+    const goalsFor = Math.max(25, Math.round((wins * 2.1) + (draws * 0.9) + Math.random() * 10));
+    const goalsAgainst = Math.max(20, Math.round((losses * 1.8) + (draws * 0.9) + Math.random() * 8));
+
+    row.played = 46;
+    row.won = wins;
+    row.drawn = draws;
+    row.lost = losses;
+    row.points = actualPoints;
+    row.goalsFor = goalsFor;
+    row.goalsAgainst = goalsAgainst;
+    row.goalDifference = goalsFor - goalsAgainst;
+
+    const formSample: ('W' | 'D' | 'L')[] = ['W', 'W', 'D', 'W', 'L'];
+    row.formHistory = formSample.sort(() => Math.random() - 0.5);
+    delete row.rawStrength;
+  });
+
+  return table.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+    return b.goalsFor - a.goalsFor;
+  });
+}
+
+// End of season rollover con simulación de toda la pirámide y ascensos/descensos
 export function advanceToNextSeason(
   currentSeason: number,
   userClubId: string,
@@ -281,11 +349,14 @@ export function advanceToNextSeason(
   newPlayers: Player[];
   newFixtures: MatchFixture[];
   seasonHistoryEntry: SeasonHistoryEntry;
+  seasonTransitionReport: SeasonTransitionReport;
 } {
+  const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
   const userPos = table.findIndex((r) => r.clubId === userClubId) + 1;
+  const userOldTier = userClub.tier || 1;
   const champion = table[0];
 
-  // Prize money according to final position (escalonado para 24 posiciones)
+  // Premios económicos escalonados para 24 posiciones
   const prizePool = [
     500000000, 420000000, 360000000, 310000000, 270000000, 240000000,
     210000000, 190000000, 170000000, 150000000, 135000000, 120000000,
@@ -294,73 +365,50 @@ export function advanceToNextSeason(
   ];
   const userPrize = prizePool[userPos - 1] || 30000000;
 
-  // Find top scorer
+  // Máximo goleador
   const topScorer = [...players].sort((a, b) => b.seasonGoals - a.seasonGoals)[0];
   const topClub = clubs.find((c) => c.id === topScorer?.clubId);
 
-  const historyEntry: SeasonHistoryEntry = {
-    seasonNumber: currentSeason,
-    championClubId: champion.clubId,
-    championClubName: champion.clubName,
-    userPosition: userPos,
-    userClubId,
-    userClubName: clubs.find((c) => c.id === userClubId)?.name || 'Mi Club',
-    topScorerName: topScorer?.name || 'Desconocido',
-    topScorerGoals: topScorer?.seasonGoals || 0,
-    topScorerClubName: topClub?.name || 'Liga',
-    prizeMoneyYen: userPrize,
-  };
-
-  // Evolve players: Age + 1, growth or decline based on match experience & potential, contracts - 1, reset season stats
+  // 1. Evolución de futbolistas
   const evolvedPlayers: Player[] = players.map((p) => {
     const age = p.age + 1;
     const matchesPlayed = p.seasonMatches || 0;
     let growth = 0;
     let newPotential = p.potential || p.overall;
 
-    // 1. JUGADORES JÓVENES EN DESARROLLO (Edad <= 22)
     if (age <= 22) {
       if (matchesPlayed >= 14) {
-        // Gran rodaje (>=14 partidos): Progresión acelerada hacia su potencial
         const roomToGrow = Math.max(0, newPotential - p.overall);
-        growth = Math.min(roomToGrow, Math.floor(Math.random() * 3) + 2); // +2 a +4 de media
+        growth = Math.min(roomToGrow, Math.floor(Math.random() * 3) + 2);
         if (p.seasonAverageRating >= 7.5 || p.seasonGoals >= 10) {
-          // Despierta un nuevo límite
           newPotential = Math.min(99, newPotential + 1);
         }
       } else if (matchesPlayed >= 7) {
-        // Rodaje medio (7-13 partidos): Progresión moderada
         const roomToGrow = Math.max(0, newPotential - p.overall);
-        growth = Math.min(roomToGrow, Math.floor(Math.random() * 2) + 1); // +1 a +2 de media
+        growth = Math.min(roomToGrow, Math.floor(Math.random() * 2) + 1);
       } else {
-        // Pocos o ningún partido (<=6 partidos): Estancamiento y pérdida de potencial
         growth = 0;
         if (matchesPlayed <= 3) {
-          // Falta grave de minutos: el potencial se degrada
-          const potentialDrop = Math.floor(Math.random() * 2) + 1; // -1 o -2
+          const potentialDrop = Math.floor(Math.random() * 2) + 1;
           newPotential = Math.max(p.overall, newPotential - potentialDrop);
-          growth = Math.random() < 0.4 ? -1 : 0; // Pérdida de forma competitiva
+          growth = Math.random() < 0.4 ? -1 : 0;
         }
       }
-    }
-    // 2. JUGADORES EN SU PRIME (Edad 23 a 28)
-    else if (age <= 28) {
+    } else if (age <= 28) {
       if (matchesPlayed >= 14) {
         const roomToGrow = Math.max(0, newPotential - p.overall);
-        growth = Math.min(roomToGrow, Math.floor(Math.random() * 2)); // 0 a +1 si tiene margen
+        growth = Math.min(roomToGrow, Math.floor(Math.random() * 2));
       } else if (matchesPlayed <= 4) {
-        growth = -1; // Falta de ritmo
+        growth = -1;
         newPotential = Math.max(p.overall - 1, newPotential - 1);
       } else {
-        growth = 0; // Estable
+        growth = 0;
       }
-    }
-    // 3. VETERANOS (Edad 29+)
-    else {
+    } else {
       if (matchesPlayed >= 15) {
-        growth = -1; // Declive atenuado por titularidad constante
+        growth = -1;
       } else {
-        growth = -Math.floor(Math.random() * 3) - 1; // Declive acelerado (-1 a -3)
+        growth = -Math.floor(Math.random() * 3) - 1;
       }
       newPotential = Math.min(newPotential, Math.max(p.overall + growth, 50));
     }
@@ -372,15 +420,12 @@ export function advanceToNextSeason(
       newStats[key] = Math.min(99, Math.max(30, newStats[key] + growth));
     });
 
-    // Contrato y expiración para jugadores del usuario
     const isUserPlayer = p.clubId === userClubId;
     let finalClubId = p.clubId;
     let finalContractYears = Math.max(0, p.contractYears - 1);
     let finalTransferListed = p.isTransferListed;
 
-    // Si el jugador pertenecía al usuario y su contrato finalizó (era de 1 año o menos al acabar la temporada):
     if (isUserPlayer && p.contractYears <= 1) {
-      // El jugador abandona el club libre y firma por un club rival que tenga menos de 25 jugadores
       const rivalClubs = clubs.filter((c) => c.id !== userClubId);
       const eligibleDestinations = rivalClubs.filter(
         (c) => evolvedPlayers.filter((ep) => ep.clubId === c.id).length < 25
@@ -392,7 +437,6 @@ export function advanceToNextSeason(
       finalTransferListed = false;
     }
 
-    // Despertar de Armas de Ego tras la evolución de fin de temporada
     let finalWeapons = [...(p.weapons || [])];
     const candidatePlayer: Player = { ...p, overall: newOvr, potential: newPotential, stats: newStats, age };
     const awakenCheck = shouldAwakenWeapon(candidatePlayer);
@@ -431,20 +475,19 @@ export function advanceToNextSeason(
     };
   });
 
-  // Update clubs with prize money and renewed budget
+  // 2. Evolución de presupuestos y alineaciones de los clubes
   const evolvedClubs: Club[] = clubs.map((c) => {
-    const pos = table.findIndex((r) => r.clubId === c.id) + 1;
-    const prize = prizePool[pos - 1] || 50000000;
+    const isUserC = c.id === userClubId;
+    const pos = isUserC ? userPos : Math.floor(Math.random() * 24) + 1;
+    const prize = prizePool[pos - 1] || 30000000;
 
     let startingXI = [...c.startingXI];
     let substitutes = [...c.substitutes];
 
-    // Depurar y asegurar que cada club mantenga exactamente 11 titulares activos
     const clubMembers = evolvedPlayers.filter((p) => p.clubId === c.id);
     startingXI = startingXI.filter((id) => clubMembers.some((m) => m.id === id));
     substitutes = substitutes.filter((id) => clubMembers.some((m) => m.id === id));
 
-    // Si faltan titulares para completar los 11:
     if (startingXI.length < 11 && clubMembers.length >= 11) {
       const candidates = clubMembers
         .filter((m) => !startingXI.includes(m.id))
@@ -456,12 +499,10 @@ export function advanceToNextSeason(
       }
     }
 
-    // Asegurar que el banquillo contenga un máximo estricto de 7 suplentes sin solapar con el 11
     substitutes = Array.from(new Set(substitutes))
       .filter((id) => !startingXI.includes(id))
       .slice(0, 7);
 
-    // Asegurar capitán, lanzador de penaltis y de faltas válidos
     const validCaptain = clubMembers.some((m) => m.id === c.captainId)
       ? c.captainId
       : startingXI[0] || clubMembers[0]?.id;
@@ -484,12 +525,256 @@ export function advanceToNextSeason(
     };
   });
 
+  // 3. Simulación de la pirámide completa de las 4 divisiones del país
+  const country = (userClub.country as CountryLeague) || 'Spain';
+  const countryDivisions = getDivisionsByCountry(country);
+  const div1 = countryDivisions.find((d) => d.tier === 1)!;
+  const div2 = countryDivisions.find((d) => d.tier === 2)!;
+  const div3 = countryDivisions.find((d) => d.tier === 3)!;
+  const div4 = countryDivisions.find((d) => d.tier === 4)!;
+
+  const tierTables: Record<number, LeagueTableRow[]> = {};
+  [1, 2, 3, 4].forEach((t) => {
+    if (userClub.tier === t) {
+      tierTables[t] = table;
+    } else {
+      const div = countryDivisions.find((d) => d.tier === t)!;
+      const divClubs = evolvedClubs.filter((c) => (c.divisionId || c.league) === div.id);
+      tierTables[t] = simulateAiDivisionTable(divClubs);
+    }
+  });
+
+  // 4. Procesar ascensos y descensos
+  const promotions: PromotionRelegationMovement[] = [];
+  const relegations: PromotionRelegationMovement[] = [];
+
+  // --- INTERCAMBIO TIER 1 <-> TIER 2 ---
+  // Descienden de Tier 1 a Tier 2 (los 3 últimos clasificados: 22.º, 23.º, 24.º)
+  const t1RelegatedRows = tierTables[1].slice(21, 24);
+  t1RelegatedRows.forEach((row, idx) => {
+    relegations.push({
+      clubId: row.clubId,
+      clubName: row.clubName,
+      fromDivisionId: div1.id,
+      fromDivisionName: div1.name,
+      toDivisionId: div2.id,
+      toDivisionName: div2.name,
+      type: 'relegation_direct',
+      finalPosition: 22 + idx,
+    });
+  });
+
+  // Ascienden de Tier 2 a Tier 1 (1.º y 2.º directo + ganador playoff 3.º al 6.º)
+  const t2DirectPromRows = tierTables[2].slice(0, 2);
+  t2DirectPromRows.forEach((row, idx) => {
+    promotions.push({
+      clubId: row.clubId,
+      clubName: row.clubName,
+      fromDivisionId: div2.id,
+      fromDivisionName: div2.name,
+      toDivisionId: div1.id,
+      toDivisionName: div1.name,
+      type: 'promotion_direct',
+      finalPosition: idx + 1,
+    });
+  });
+
+  const t2PlayoffRows = tierTables[2].slice(2, 6);
+  const userInT2Playoff = t2PlayoffRows.find((r) => r.clubId === userClubId);
+  const t2PlayoffWinnerRow = userInT2Playoff || t2PlayoffRows[Math.floor(Math.random() * t2PlayoffRows.length)] || t2PlayoffRows[0];
+  promotions.push({
+    clubId: t2PlayoffWinnerRow.clubId,
+    clubName: t2PlayoffWinnerRow.clubName,
+    fromDivisionId: div2.id,
+    fromDivisionName: div2.name,
+    toDivisionId: div1.id,
+    toDivisionName: div1.name,
+    type: 'promotion_playoff',
+    finalPosition: tierTables[2].findIndex((r) => r.clubId === t2PlayoffWinnerRow.clubId) + 1,
+  });
+
+  // --- INTERCAMBIO TIER 2 <-> TIER 3 ---
+  // Descienden de Tier 2 a Tier 3 (los 3 últimos clasificados: 22.º, 23.º, 24.º)
+  const t2RelegatedRows = tierTables[2].slice(21, 24);
+  t2RelegatedRows.forEach((row, idx) => {
+    relegations.push({
+      clubId: row.clubId,
+      clubName: row.clubName,
+      fromDivisionId: div2.id,
+      fromDivisionName: div2.name,
+      toDivisionId: div3.id,
+      toDivisionName: div3.name,
+      type: 'relegation_direct',
+      finalPosition: 22 + idx,
+    });
+  });
+
+  // Ascienden de Tier 3 a Tier 2 (1.º y 2.º directo + ganador playoff 3.º al 6.º)
+  const t3DirectPromRows = tierTables[3].slice(0, 2);
+  t3DirectPromRows.forEach((row, idx) => {
+    promotions.push({
+      clubId: row.clubId,
+      clubName: row.clubName,
+      fromDivisionId: div3.id,
+      fromDivisionName: div3.name,
+      toDivisionId: div2.id,
+      toDivisionName: div2.name,
+      type: 'promotion_direct',
+      finalPosition: idx + 1,
+    });
+  });
+
+  const t3PlayoffRows = tierTables[3].slice(2, 6);
+  const userInT3Playoff = t3PlayoffRows.find((r) => r.clubId === userClubId);
+  const t3PlayoffWinnerRow = userInT3Playoff || t3PlayoffRows[Math.floor(Math.random() * t3PlayoffRows.length)] || t3PlayoffRows[0];
+  promotions.push({
+    clubId: t3PlayoffWinnerRow.clubId,
+    clubName: t3PlayoffWinnerRow.clubName,
+    fromDivisionId: div3.id,
+    fromDivisionName: div3.name,
+    toDivisionId: div2.id,
+    toDivisionName: div2.name,
+    type: 'promotion_playoff',
+    finalPosition: tierTables[3].findIndex((r) => r.clubId === t3PlayoffWinnerRow.clubId) + 1,
+  });
+
+  // --- INTERCAMBIO TIER 3 <-> TIER 4 ---
+  // Descienden de Tier 3 a Tier 4 (los 4 últimos clasificados: 21.º al 24.º)
+  const t3RelegatedRows = tierTables[3].slice(20, 24);
+  t3RelegatedRows.forEach((row, idx) => {
+    relegations.push({
+      clubId: row.clubId,
+      clubName: row.clubName,
+      fromDivisionId: div3.id,
+      fromDivisionName: div3.name,
+      toDivisionId: div4.id,
+      toDivisionName: div4.name,
+      type: 'relegation_direct',
+      finalPosition: 21 + idx,
+    });
+  });
+
+  // Ascienden de Tier 4 a Tier 3 (1.º, 2.º y 3.º directo + ganador playoff 4.º al 7.º)
+  const t4DirectPromRows = tierTables[4].slice(0, 3);
+  t4DirectPromRows.forEach((row, idx) => {
+    promotions.push({
+      clubId: row.clubId,
+      clubName: row.clubName,
+      fromDivisionId: div4.id,
+      fromDivisionName: div4.name,
+      toDivisionId: div3.id,
+      toDivisionName: div3.name,
+      type: 'promotion_direct',
+      finalPosition: idx + 1,
+    });
+  });
+
+  const t4PlayoffRows = tierTables[4].slice(3, 7);
+  const userInT4Playoff = t4PlayoffRows.find((r) => r.clubId === userClubId);
+  const t4PlayoffWinnerRow = userInT4Playoff || t4PlayoffRows[Math.floor(Math.random() * t4PlayoffRows.length)] || t4PlayoffRows[0];
+  promotions.push({
+    clubId: t4PlayoffWinnerRow.clubId,
+    clubName: t4PlayoffWinnerRow.clubName,
+    fromDivisionId: div4.id,
+    fromDivisionName: div4.name,
+    toDivisionId: div3.id,
+    toDivisionName: div3.name,
+    type: 'promotion_playoff',
+    finalPosition: tierTables[4].findIndex((r) => r.clubId === t4PlayoffWinnerRow.clubId) + 1,
+  });
+
+  // EN 4.ª DIVISIÓN (TIER 4): ¡NO HAY DESCENSOS! SOLO ASCENSOS HACIA LA 3.ª
+
+  // 5. Aplicar cambios de categoría a los clubes
+  const promotionMap = new Map(promotions.map((p) => [p.clubId, p]));
+  const relegationMap = new Map(relegations.map((r) => [r.clubId, r]));
+
+  evolvedClubs.forEach((club) => {
+    const prom = promotionMap.get(club.id);
+    if (prom) {
+      club.divisionId = prom.toDivisionId;
+      club.league = prom.toDivisionId;
+      const targetDiv = countryDivisions.find((d) => d.id === prom.toDivisionId);
+      if (targetDiv) {
+        club.tier = targetDiv.tier;
+        const boostEur = targetDiv.tier === 1 ? 20000000 : targetDiv.tier === 2 ? 6000000 : 2000000;
+        club.cashYen += Math.round(boostEur * 160);
+        club.budgetYen += Math.round(boostEur * 160 * 0.8);
+        club.reputation = Math.min(99, club.reputation + 4);
+      }
+    }
+
+    const rel = relegationMap.get(club.id);
+    if (rel) {
+      club.divisionId = rel.toDivisionId;
+      club.league = rel.toDivisionId;
+      const targetDiv = countryDivisions.find((d) => d.id === rel.toDivisionId);
+      if (targetDiv) {
+        club.tier = targetDiv.tier;
+        club.reputation = Math.max(35, club.reputation - 2);
+      }
+    }
+  });
+
+  // 6. Determinar el destino del club del usuario
+  const userClubAfter = evolvedClubs.find((c) => c.id === userClubId) || evolvedClubs[0];
+  const userNewTier = userClubAfter.tier || 1;
+
+  let userOutcome: 'champion' | 'promoted' | 'relegated' | 'stayed' = 'stayed';
+  if (userPos === 1) {
+    userOutcome = 'champion';
+  } else if (userNewTier < userOldTier) {
+    userOutcome = 'promoted';
+  } else if (userNewTier > userOldTier) {
+    userOutcome = 'relegated';
+  }
+
+  // 7. Generar nuevo calendario de 46 jornadas para la división del club del usuario
   const nextSeason = currentSeason + 1;
-  const userClub = evolvedClubs.find((c) => c.id === userClubId) || evolvedClubs[0];
-  const userDivId = userClub?.divisionId || userClub?.league;
-  const divClubs = evolvedClubs.filter((c) => (c.divisionId || c.league) === userDivId);
+  const userNewDivId = userClubAfter.divisionId || userClubAfter.league;
+  const divClubs = evolvedClubs.filter((c) => (c.divisionId || c.league) === userNewDivId);
   const clubsForFixtures = divClubs.length >= 2 ? divClubs : evolvedClubs;
   const newFixtures = generateSeasonFixtures(nextSeason, clubsForFixtures);
+
+  const historyEntry: SeasonHistoryEntry = {
+    seasonNumber: currentSeason,
+    championClubId: champion.clubId,
+    championClubName: champion.clubName,
+    userPosition: userPos,
+    userClubId,
+    userClubName: userClub.name,
+    topScorerName: topScorer?.name || 'Desconocido',
+    topScorerGoals: topScorer?.seasonGoals || 0,
+    topScorerClubName: topClub?.name || 'Liga',
+    prizeMoneyYen: userPrize,
+    divisionId: userClub.divisionId,
+    divisionName: countryDivisions.find((d) => d.tier === userOldTier)?.name,
+    userOutcome,
+    promotedClubNames: promotions.map((p) => p.clubName),
+    relegatedClubNames: relegations.map((r) => r.clubName),
+  };
+
+  const seasonTransitionReport: SeasonTransitionReport = {
+    seasonNumber: currentSeason,
+    country,
+    userOutcome,
+    userClubId,
+    userClubName: userClub.name,
+    userOldDivisionName: countryDivisions.find((d) => d.tier === userOldTier)?.name || 'División',
+    userNewDivisionName: countryDivisions.find((d) => d.tier === userNewTier)?.name || 'División',
+    userOldTier,
+    userNewTier,
+    userPosition: userPos,
+    prizeMoneyYen: userPrize,
+    champions: [
+      { tier: 1, divisionName: div1.name, clubId: tierTables[1][0].clubId, clubName: tierTables[1][0].clubName },
+      { tier: 2, divisionName: div2.name, clubId: tierTables[2][0].clubId, clubName: tierTables[2][0].clubName },
+      { tier: 3, divisionName: div3.name, clubId: tierTables[3][0].clubId, clubName: tierTables[3][0].clubName },
+      { tier: 4, divisionName: div4.name, clubId: tierTables[4][0].clubId, clubName: tierTables[4][0].clubName },
+    ],
+    promotions,
+    relegations,
+  };
 
   return {
     newSeason: nextSeason,
@@ -497,5 +782,7 @@ export function advanceToNextSeason(
     newPlayers: evolvedPlayers,
     newFixtures,
     seasonHistoryEntry: historyEntry,
+    seasonTransitionReport,
   };
 }
+

@@ -255,6 +255,34 @@ export interface DecisionEvent {
   }[];
 }
 
+export interface PromotionRelegationMovement {
+  clubId: string;
+  clubName: string;
+  fromDivisionId: string;
+  fromDivisionName: string;
+  toDivisionId: string;
+  toDivisionName: string;
+  type: 'promotion_direct' | 'promotion_playoff' | 'relegation_direct' | 'relegation_playoff';
+  finalPosition: number;
+}
+
+export interface SeasonTransitionReport {
+  seasonNumber: number;
+  country: CountryLeague;
+  userOutcome: 'champion' | 'promoted' | 'relegated' | 'stayed';
+  userClubId: string;
+  userClubName: string;
+  userOldDivisionName: string;
+  userNewDivisionName: string;
+  userOldTier: number;
+  userNewTier: number;
+  userPosition: number;
+  prizeMoneyYen: number;
+  champions: { tier: number; divisionName: string; clubName: string; clubId: string }[];
+  promotions: PromotionRelegationMovement[];
+  relegations: PromotionRelegationMovement[];
+}
+
 export interface SeasonHistoryEntry {
   seasonNumber: number;
   championClubId: string;
@@ -266,6 +294,11 @@ export interface SeasonHistoryEntry {
   topScorerGoals: number;
   topScorerClubName: string;
   prizeMoneyYen: number;
+  divisionId?: string;
+  divisionName?: string;
+  userOutcome?: 'champion' | 'promoted' | 'relegated' | 'stayed';
+  promotedClubNames?: string[];
+  relegatedClubNames?: string[];
 }
 
 export interface PlayerPerformanceSummary {

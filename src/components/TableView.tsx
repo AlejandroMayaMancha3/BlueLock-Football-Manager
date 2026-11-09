@@ -311,12 +311,16 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
                 <span className="w-3 h-3 rounded-full bg-cyan-500 inline-block" />
                 <span>2.º al 4.º Zona Élite</span>
               </div>
-              {relegDirect > 0 && (
+              {relegDirect > 0 ? (
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-rose-600 inline-block" />
                   <span>
                     {totalTeams - relegDirect + 1}.º al {totalTeams}.º Descenso Directo
                   </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-slate-500 font-medium">
+                  <span>ℹ️ En 4.ª división no hay descensos (solo ascensos a 3.ª)</span>
                 </div>
               )}
               {relegPlayoff > 0 && (
@@ -342,12 +346,16 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
                   </span>
                 </div>
               )}
-              {relegDirect > 0 && (
+              {relegDirect > 0 ? (
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-rose-600 inline-block" />
                   <span>
                     {totalTeams - relegDirect + 1}.º al {totalTeams}.º Descenso Directo
                   </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-slate-500 font-medium">
+                  <span>ℹ️ En 4.ª división no hay descensos (solo ascensos a 3.ª)</span>
                 </div>
               )}
               {relegPlayoff > 0 && (

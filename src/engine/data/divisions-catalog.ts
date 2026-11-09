@@ -112,7 +112,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     totalTeams: 24,
     promotionDirect: 3, // 1.º, 2.º y 3.º
     promotionPlayoff: 1, // 4.º al 7.º playoff
-    relegationDirect: 3, // 22.º al 24.º
+    relegationDirect: 0, // En 4.ª división no hay descensos
     relegationPlayoff: 0,
     hasGroups: false,
     reputationRange: [46, 61],
@@ -184,7 +184,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     totalTeams: 24,
     promotionDirect: 3, // 1.º, 2.º y 3.º
     promotionPlayoff: 1, // 4.º al 7.º
-    relegationDirect: 2, // 23.º y 24.º
+    relegationDirect: 0, // En 4.ª división no hay descensos
     relegationPlayoff: 0,
     hasGroups: false,
     reputationRange: [48, 62],
@@ -256,7 +256,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     totalTeams: 24,
     promotionDirect: 3, // 1.º, 2.º y 3.º
     promotionPlayoff: 1, // 4.º al 7.º playoff
-    relegationDirect: 3,
+    relegationDirect: 0, // En 4.ª división no hay descensos
     relegationPlayoff: 0,
     hasGroups: false,
     reputationRange: [46, 61],
@@ -328,7 +328,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     totalTeams: 24,
     promotionDirect: 3, // 1.º, 2.º y 3.º
     promotionPlayoff: 1, // 4.º al 7.º playoff
-    relegationDirect: 3,
+    relegationDirect: 0, // En 4.ª división no hay descensos
     relegationPlayoff: 0,
     hasGroups: false,
     reputationRange: [45, 60],
@@ -400,7 +400,7 @@ export const DIVISIONS_CATALOG: DivisionInfo[] = [
     totalTeams: 24,
     promotionDirect: 3, // 1.º, 2.º y 3.º
     promotionPlayoff: 1, // 4.º al 7.º playoff
-    relegationDirect: 3,
+    relegationDirect: 0, // En 4.ª división no hay descensos
     relegationPlayoff: 0,
     hasGroups: false,
     reputationRange: [44, 59],

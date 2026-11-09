@@ -19,6 +19,7 @@ import {
   IndividualTrainingFocus,
   CountryLeague,
   TierLevel,
+  SeasonTransitionReport,
 } from '@/types/football-manager';
 import { generateInitialClubsAndPlayers, calculateOvr } from '@/engine/game-data';
 import { generatePyramidClubsAndPlayers, getClubTemplateById } from '@/engine/data/leagues-catalog';
@@ -69,6 +70,8 @@ export interface GameStoreState {
   isSeasonCompleted: boolean;
   simulatedMatchSummary: MatchSummaryData | null;
   lastMatchSummary: MatchSummaryData | null;
+  lastSeasonTransitionReport: SeasonTransitionReport | null;
+  clearSeasonTransitionReport: () => void;
 
   // Actions
   startNewGame: (managerName: string, clubId: string, currency?: Currency, country?: CountryLeague, divisionId?: string) => void;
@@ -134,6 +137,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   isSeasonCompleted: false,
   simulatedMatchSummary: null,
   lastMatchSummary: null,
+  lastSeasonTransitionReport: null,
+  clearSeasonTransitionReport: () => {
+    set({ lastSeasonTransitionReport: null });
+    get().saveToStorage();
+  },
 
   setCurrency: (currency: Currency) => {
     set({ selectedCurrency: currency });
@@ -1527,7 +1535,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const clubsForTable = divClubs.length > 0 ? divClubs : clubs;
     const table = computeLeagueTable(clubsForTable, fixtures);
 
-    const { newSeason, newClubs, newPlayers, newFixtures, seasonHistoryEntry } = advanceToNextSeason(
+    const {
+      newSeason,
+      newClubs,
+      newPlayers,
+      newFixtures,
+      seasonHistoryEntry,
+      seasonTransitionReport,
+    } = advanceToNextSeason(
       currentSeason,
       userClubId,
       clubs,
@@ -1545,17 +1560,22 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       dateStr: `Inicio Temporada ${newSeason}`,
     };
 
+    const userClubAfter = newClubs.find((c) => c.id === userClubId) || newClubs[0];
+
     set({
       currentSeason: newSeason,
       currentRound: 1,
       clubs: newClubs,
       players: newPlayers,
       fixtures: newFixtures,
+      selectedDivisionId: userClubAfter.divisionId || userClubAfter.league,
+      selectedTier: userClubAfter.tier || 1,
       seasonHistory: [seasonHistoryEntry, ...seasonHistory],
       ledger: [prizeEntry, ...ledger],
       youthPromotedThisSeason: false,
       isSeasonCompleted: false,
       activeTab: 'office',
+      lastSeasonTransitionReport: seasonTransitionReport,
     });
 
     get().saveToStorage();
