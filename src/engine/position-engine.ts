@@ -158,6 +158,30 @@ export function calculatePositionalAdaptation(
     };
   }
 
+  // Ajuste natural de carrilero / interior de la misma banda
+  const isWideMidWingback =
+    (natural === 'MI' && ['CAI', 'LI'].includes(assignedRole)) ||
+    (natural === 'MD' && ['CAD', 'LD'].includes(assignedRole)) ||
+    (natural === 'CAI' && ['MI', 'EI'].includes(assignedRole)) ||
+    (natural === 'CAD' && ['MD', 'ED'].includes(assignedRole));
+
+  if (isWideMidWingback) {
+    return {
+      naturalPosition: natural,
+      assignedRole,
+      isNatural: false,
+      isSecondary: false,
+      penaltyOvr: 2,
+      effectiveOvr: Math.max(30, player.overall - 2),
+      performanceRatio: 0.96,
+      affinityTier: 'good',
+      affinityLabel: 'Carril / Banda Natural (-2)',
+      affinityColor: 'text-cyan-400',
+      badgeBg: 'bg-cyan-950/60 border-cyan-500/50 text-cyan-300',
+      description: 'Misma banda longitudinal. Se desenvuelve con soltura alternando repliegue y subida.',
+    };
+  }
+
   // 5. Ajustes de Medular (MC, MCO, MCD, MI, MD)
   const isMidfieldInternal =
     (natural === 'MC' && ['MCO', 'MCD', 'MI', 'MD'].includes(assignedRole)) ||
@@ -342,8 +366,8 @@ export function calculatePositionalAdaptation(
   const isRadicalCross =
     (['DC', 'EI', 'ED'].includes(natural) && ['DFC'].includes(assignedRole)) ||
     (['DFC'].includes(natural) && ['DC', 'EI', 'ED'].includes(assignedRole)) ||
-    (['LI', 'LD'].includes(natural) && ['DC'].includes(assignedRole)) ||
-    (['DC'].includes(natural) && ['LI', 'LD'].includes(assignedRole));
+    (['LI', 'LD', 'CAI', 'CAD'].includes(natural) && ['DC'].includes(assignedRole)) ||
+    (['DC'].includes(natural) && ['LI', 'LD', 'CAI', 'CAD'].includes(assignedRole));
 
   if (isRadicalCross) {
     const penalty = 24;

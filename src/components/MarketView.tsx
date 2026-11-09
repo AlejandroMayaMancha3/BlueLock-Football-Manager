@@ -75,8 +75,8 @@ export const MarketView: React.FC = () => {
             <option value="ALL">Todas las Posiciones</option>
             <option value="DC">Delanteros (DC)</option>
             <option value="EI">Extremos (EI/ED)</option>
-            <option value="MC">Centrocampistas (MC/MCO)</option>
-            <option value="DFC">Defensas (DFC/LI/LD)</option>
+            <option value="MC">Centrocampistas (MC/MCO/MCD/MI/MD)</option>
+            <option value="DFC">Defensas (DFC/LI/LD/CAI/CAD)</option>
             <option value="POR">Porteros (POR)</option>
           </select>
         </div>
@@ -119,9 +119,9 @@ export const MarketView: React.FC = () => {
                     if (marketPosFilter === 'EI') {
                       if (p.position !== 'EI' && p.position !== 'ED') return false;
                     } else if (marketPosFilter === 'MC') {
-                      if (p.position !== 'MC' && p.position !== 'MCO' && p.position !== 'MCD') return false;
+                      if (!['MC', 'MCO', 'MCD', 'MI', 'MD'].includes(p.position)) return false;
                     } else if (marketPosFilter === 'DFC') {
-                      if (p.position !== 'DFC' && p.position !== 'LI' && p.position !== 'LD') return false;
+                      if (!['DFC', 'LI', 'LD', 'CAI', 'CAD'].includes(p.position)) return false;
                     } else if (p.position !== marketPosFilter) {
                       return false;
                     }

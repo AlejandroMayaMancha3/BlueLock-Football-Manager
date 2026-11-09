@@ -14,11 +14,16 @@ function calculateOvr(pos: Position, stats: Player['stats']): number {
       return Math.round(stats.defense * 0.45 + stats.physical * 0.3 + stats.pace * 0.15 + stats.passing * 0.1);
     case 'LI':
     case 'LD':
+    case 'CAI':
+    case 'CAD':
       return Math.round(stats.pace * 0.35 + stats.defense * 0.25 + stats.dribbling * 0.2 + stats.passing * 0.2);
     case 'MCD':
       return Math.round(stats.defense * 0.35 + stats.passing * 0.3 + stats.physical * 0.25 + stats.dribbling * 0.1);
     case 'MC':
       return Math.round(stats.passing * 0.35 + stats.dribbling * 0.25 + stats.shooting * 0.15 + stats.defense * 0.15 + stats.physical * 0.1);
+    case 'MI':
+    case 'MD':
+      return Math.round(stats.pace * 0.3 + stats.passing * 0.3 + stats.dribbling * 0.25 + stats.defense * 0.15);
     case 'MCO':
       return Math.round(stats.passing * 0.35 + stats.dribbling * 0.3 + stats.shooting * 0.25 + stats.pace * 0.1);
     case 'EI':
@@ -26,6 +31,8 @@ function calculateOvr(pos: Position, stats: Player['stats']): number {
       return Math.round(stats.pace * 0.35 + stats.dribbling * 0.3 + stats.shooting * 0.2 + stats.passing * 0.15);
     case 'DC':
       return Math.round(stats.shooting * 0.4 + stats.pace * 0.2 + stats.physical * 0.2 + stats.dribbling * 0.1 + stats.passing * 0.1);
+    default:
+      return 70;
   }
 }
 

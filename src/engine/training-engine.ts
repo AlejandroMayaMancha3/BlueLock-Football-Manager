@@ -53,7 +53,22 @@ export const TRAINING_FOCUS_CATALOG: TrainingFocusDetail[] = [
   },
 ];
 
-export const ALL_POSITIONS: Position[] = ['POR', 'LI', 'DFC', 'LD', 'MCD', 'MC', 'MCO', 'EI', 'DC', 'ED'];
+export const ALL_POSITIONS: Position[] = [
+  'POR',
+  'LI',
+  'DFC',
+  'LD',
+  'CAI',
+  'CAD',
+  'MCD',
+  'MC',
+  'MI',
+  'MD',
+  'MCO',
+  'EI',
+  'ED',
+  'DC',
+];
 
 export function getPositionName(pos: Position): string {
   switch (pos) {
@@ -61,8 +76,12 @@ export function getPositionName(pos: Position): string {
     case 'LI': return 'Lateral Izquierdo';
     case 'DFC': return 'Defensa Central';
     case 'LD': return 'Lateral Derecho';
+    case 'CAI': return 'Carrilero Izquierdo';
+    case 'CAD': return 'Carrilero Derecho';
     case 'MCD': return 'Mediocentro Defensivo';
     case 'MC': return 'Mediocentro Organizador';
+    case 'MI': return 'Medio Izquierdo (MI)';
+    case 'MD': return 'Medio Derecho (MD)';
     case 'MCO': return 'Mediapunta Creativo';
     case 'EI': return 'Extremo Izquierdo';
     case 'ED': return 'Extremo Derecho';
@@ -73,8 +92,8 @@ export function getPositionName(pos: Position): string {
 
 export function getPositionCategory(pos: Position): 'POR' | 'DEF' | 'MED' | 'DEL' {
   if (pos === 'POR') return 'POR';
-  if (['DFC', 'LI', 'LD'].includes(pos)) return 'DEF';
-  if (['MCD', 'MC', 'MCO'].includes(pos)) return 'MED';
+  if (['DFC', 'LI', 'LD', 'CAI', 'CAD'].includes(pos)) return 'DEF';
+  if (['MCD', 'MC', 'MI', 'MD', 'MCO'].includes(pos)) return 'MED';
   return 'DEL';
 }
 
@@ -110,41 +129,55 @@ export function calculateConversionWeeks(
   // B) Si ya tiene la posición objetivo como secundaria
   const isAlreadySecondary = player.secondaryPosition === targetPosition;
 
-  // C) Inversión de bandas laterales o extremos
+  // C) Inversión de bandas laterales, carrileros o extremos
   const isWingInversion =
     (current === 'EI' && targetPosition === 'ED') ||
     (current === 'ED' && targetPosition === 'EI') ||
+    (current === 'MI' && targetPosition === 'MD') ||
+    (current === 'MD' && targetPosition === 'MI') ||
     (current === 'LI' && targetPosition === 'LD') ||
-    (current === 'LD' && targetPosition === 'LI');
+    (current === 'LD' && targetPosition === 'LI') ||
+    (current === 'CAI' && targetPosition === 'CAD') ||
+    (current === 'CAD' && targetPosition === 'CAI') ||
+    (current === 'EI' && targetPosition === 'MI') ||
+    (current === 'MI' && targetPosition === 'EI') ||
+    (current === 'ED' && targetPosition === 'MD') ||
+    (current === 'MD' && targetPosition === 'ED') ||
+    (current === 'LI' && targetPosition === 'CAI') ||
+    (current === 'CAI' && targetPosition === 'LI') ||
+    (current === 'LD' && targetPosition === 'CAD') ||
+    (current === 'CAD' && targetPosition === 'LD');
 
   // D) Continuidad natural de línea táctica
   const isLineExtension =
     (['DFC', 'MCD'].includes(current) && ['DFC', 'MCD'].includes(targetPosition)) ||
     (['MCD', 'MC'].includes(current) && ['MCD', 'MC'].includes(targetPosition)) ||
     (['MC', 'MCO'].includes(current) && ['MC', 'MCO'].includes(targetPosition)) ||
-    (['LI', 'EI'].includes(current) && ['LI', 'EI'].includes(targetPosition)) ||
-    (['LD', 'ED'].includes(current) && ['LD', 'ED'].includes(targetPosition)) ||
+    (['MC', 'MI', 'MD'].includes(current) && ['MC', 'MI', 'MD'].includes(targetPosition)) ||
+    (['MCO', 'MI', 'MD'].includes(current) && ['MCO', 'MI', 'MD'].includes(targetPosition)) ||
+    (['LI', 'CAI', 'MI', 'EI'].includes(current) && ['LI', 'CAI', 'MI', 'EI'].includes(targetPosition)) ||
+    (['LD', 'CAD', 'MD', 'ED'].includes(current) && ['LD', 'CAD', 'MD', 'ED'].includes(targetPosition)) ||
     (['DC', 'EI', 'ED', 'MCO'].includes(current) && ['DC', 'EI', 'ED', 'MCO'].includes(targetPosition));
 
   // E) Cruces de campo radicales opuestos
   const isRadicalCross =
     (['DC', 'EI', 'ED'].includes(current) && ['DFC'].includes(targetPosition)) ||
     (['DFC'].includes(current) && ['DC', 'EI', 'ED'].includes(targetPosition)) ||
-    (['LI', 'LD'].includes(current) && ['DC'].includes(targetPosition)) ||
-    (['DC'].includes(current) && ['LI', 'LD'].includes(targetPosition));
+    (['LI', 'LD', 'CAI', 'CAD'].includes(current) && ['DC'].includes(targetPosition)) ||
+    (['DC'].includes(current) && ['LI', 'LD', 'CAI', 'CAD'].includes(targetPosition));
 
   if (isGkTransition) {
     baseWeeks = 35; // Requiere una dedicación extrema (más de una temporada completa)
   } else if (isAlreadySecondary) {
     baseWeeks = 2; // Ya posee fundamentos de la posición
   } else if (isWingInversion) {
-    baseWeeks = 3; // Muy rápido: solo adaptación de perfil
+    baseWeeks = 3; // Muy rápido: solo adaptación de perfil o banda simétrica
   } else if (isLineExtension) {
-    baseWeeks = 4; // Rápido y asequible: misma franja longitudinal
+    baseWeeks = 4; // Rápido y asequible: misma franja longitudinal o medular adyacente
   } else if (isRadicalCross) {
     baseWeeks = 16; // Largo: reconversión de mentalidad total
   } else {
-    baseWeeks = 9; // Desplazamiento medio
+    baseWeeks = 8; // Desplazamiento medio
   }
 
   // 2. Modificador por edad (Jóvenes son esponjas tácticas; veteranos tienen automatismos fijos)
@@ -169,6 +202,14 @@ export function calculateConversionWeeks(
   } else if (targetPosition === 'MC' || targetPosition === 'MCO') {
     const avg = (s.passing + s.dribbling) / 2;
     if (avg >= 78) statBonus = -2;
+    else if (avg < 55) statBonus = 2;
+  } else if (targetPosition === 'MI' || targetPosition === 'MD') {
+    const avg = (s.pace + s.passing + s.dribbling) / 3;
+    if (avg >= 76) statBonus = -2;
+    else if (avg < 55) statBonus = 2;
+  } else if (targetPosition === 'CAI' || targetPosition === 'CAD') {
+    const avg = (s.pace + s.defense + s.passing) / 3;
+    if (avg >= 76) statBonus = -2;
     else if (avg < 55) statBonus = 2;
   } else if (targetPosition === 'EI' || targetPosition === 'ED') {
     const avg = (s.pace + s.dribbling) / 2;

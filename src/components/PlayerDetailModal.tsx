@@ -87,10 +87,14 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
       case 'MCO':
       case 'MC':
       case 'MCD':
+      case 'MI':
+      case 'MD':
         return 'bg-amber-950 text-amber-300 border-amber-800';
       case 'DFC':
       case 'LI':
       case 'LD':
+      case 'CAI':
+      case 'CAD':
         return 'bg-blue-950 text-blue-300 border-blue-800';
       case 'POR':
         return 'bg-yellow-950 text-yellow-300 border-yellow-800';

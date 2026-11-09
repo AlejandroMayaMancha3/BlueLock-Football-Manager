@@ -1,4 +1,18 @@
-export type Position = 'POR' | 'DFC' | 'LI' | 'LD' | 'MCD' | 'MC' | 'MCO' | 'EI' | 'ED' | 'DC';
+export type Position =
+  | 'POR'
+  | 'DFC'
+  | 'LI'
+  | 'LD'
+  | 'CAI'
+  | 'CAD'
+  | 'MCD'
+  | 'MC'
+  | 'MI'
+  | 'MD'
+  | 'MCO'
+  | 'EI'
+  | 'ED'
+  | 'DC';
 export type Currency = 'EUR' | 'USD' | 'JPY' | 'GBP';
 
 export type IndividualTrainingFocus =

@@ -62,9 +62,9 @@ export const SquadView: React.FC = () => {
         if (posFilter === 'EI') {
           if (p.position !== 'EI' && p.position !== 'ED') return false;
         } else if (posFilter === 'MC') {
-          if (p.position !== 'MC' && p.position !== 'MCO' && p.position !== 'MCD') return false;
+          if (!['MC', 'MCO', 'MCD', 'MI', 'MD'].includes(p.position)) return false;
         } else if (posFilter === 'DFC') {
-          if (p.position !== 'DFC' && p.position !== 'LI' && p.position !== 'LD') return false;
+          if (!['DFC', 'LI', 'LD', 'CAI', 'CAD'].includes(p.position)) return false;
         } else if (p.position !== posFilter) {
           return false;
         }
@@ -155,8 +155,8 @@ export const SquadView: React.FC = () => {
               <option value="ALL">Todas ({userPlayers.length})</option>
               <option value="DC">Delanteros (DC)</option>
               <option value="EI">Extremos (EI/ED)</option>
-              <option value="MC">Centrocampistas (MC/MCO/MCD)</option>
-              <option value="DFC">Defensas (DFC/LI/LD)</option>
+              <option value="MC">Centrocampistas (MC/MCO/MCD/MI/MD)</option>
+              <option value="DFC">Defensas (DFC/LI/LD/CAI/CAD)</option>
               <option value="POR">Porteros (POR)</option>
             </select>
           </div>
