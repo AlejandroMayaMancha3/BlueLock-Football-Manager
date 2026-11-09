@@ -1,7 +1,7 @@
 import { Club, Player, MatchEvent, Formation } from '@/types/football-manager';
 
 export interface SetPieceState {
-  type: 'kickoff' | 'corner' | 'dangerous_free_kick' | 'midfield_foul';
+  type: 'kickoff' | 'corner' | 'dangerous_free_kick' | 'free_kick_cross' | 'midfield_foul';
   teamId: string; // Equipo que ejecuta la acción a balón parado
   defendingTeamId: string; // Equipo que defiende
   x: number;
@@ -619,10 +619,15 @@ export function tickLiveMatch(
       return next;
     }
 
-    // C) FALTA PELIGROSA: TIRO LIBRE DIRECTO CON BARRERA DEFENSIVA FÍSICA
+    // C) FALTA PELIGROSA: TIRO LIBRE DIRECTO CON BARRERA DEFENSIVA FÍSICA (16m - 27m)
     if (pending.type === 'dangerous_free_kick') {
       const foulX = pending.x;
       const foulY = pending.y;
+
+      const targetGoalX = isHomeAction ? 95 : 5;
+      const distMeters = Math.max(16, Math.min(27, Math.round(
+        Math.hypot((targetGoalX - foulX) * 1.05, (50 - foulY) * 0.68)
+      )));
 
       const fkSpecialists = attPlayers.filter(
         (p) => p.weapons.some((w) => ['shot', 'curve', 'precision', 'vision'].includes(w.type)) || p.stats.shooting >= 80
@@ -675,8 +680,12 @@ export function tickLiveMatch(
       const shotQuality = (specialist?.stats.shooting || 78) + (weapon ? weapon.level * 0.18 : 0);
       const gkDefense = defGk?.stats.goalkeeping || 72;
 
+      // Probabilidad calibrada estrictamente por distancia (entre 16m y 27m)
+      // A 18m: distFactor ~0.95. A 23m: distFactor ~0.55. A 27m: distFactor ~0.20
+      const distFactor = Math.max(0.12, Math.pow(Math.max(0, 28 - distMeters) / 10, 1.4));
+      const goalProbability = 0.22 * distFactor * (shotQuality / (shotQuality + gkDefense));
+
       const fkRoll = Math.random();
-      const goalProbability = 0.26 * (shotQuality / (shotQuality + gkDefense));
 
       if (fkRoll < goalProbability) {
         // ¡GOLAZO DE FALTA DIRECTA!
@@ -701,9 +710,9 @@ export function tickLiveMatch(
 
         let desc = `⚽ ¡GOLAZO DE FALTA DIRECTA! (${currentMinute}') `;
         if (weapon) {
-          desc += `¡${specialist.name} supera la barrera ejecutando su ${weapon.name} e incrustando el balón en la escuadra!`;
+          desc += `¡${specialist.name} supera la barrera ejecutando su ${weapon.name} desde ${distMeters} metros e incrustando el balón en la escuadra!`;
         } else {
-          desc += `¡Golpeo magistral de ${specialist.name} con efecto endiablado por encima de la barrera directo a la red!`;
+          desc += `¡Golpeo magistral con rosca de ${specialist.name} desde ${distMeters} metros por encima de la barrera directo a la red!`;
         }
 
         next.events.unshift({
@@ -740,10 +749,10 @@ export function tickLiveMatch(
           teamId: defTeam.id,
           playerId: defGk?.id,
           playerName: defGk?.name,
-          description: `🧤 ¡PARADÓN a tiro libre directo! ${specialist.name} buscó la escuadra, pero ${defGk?.name} se estira felinamente y desvía a córner.`,
+          description: `🧤 ¡PARADÓN a tiro libre directo! ${specialist.name} buscó la escuadra desde ${distMeters}m, pero ${defGk?.name} se estira felinamente y desvía a córner.`,
           ballZone: next.ballPosition,
         });
-      } else if (fkRoll < 0.80) {
+      } else if (fkRoll < 0.82) {
         // DISPARO A LA BARRERA
         next.ballPosition = { x: isHomeAction ? foulX + 6 : foulX - 6, y: foulY };
         next.pendingSetPiece = null;
@@ -754,7 +763,7 @@ export function tickLiveMatch(
           teamId: attTeam.id,
           playerId: specialist?.id,
           playerName: specialist?.name,
-          description: `🎯 Falta directa ejecutada por ${specialist.name}: el lanzamiento potente impacta de lleno en la barrera de ${defTeam.name}.`,
+          description: `🎯 Falta directa ejecutada por ${specialist.name} desde ${distMeters}m: el lanzamiento potente impacta de lleno en la barrera de ${defTeam.name}.`,
           ballZone: { x: foulX, y: foulY },
         });
       } else {
@@ -768,7 +777,7 @@ export function tickLiveMatch(
           teamId: attTeam.id,
           playerId: specialist?.id,
           playerName: specialist?.name,
-          description: `🎯 Falta con rosca de ${specialist.name}: el balón supera la barrera pero sale rozando el travesaño.`,
+          description: `🎯 Falta con rosca de ${specialist.name} desde ${distMeters}m: el balón supera la barrera pero sale rozando el travesaño.`,
           ballZone: { x: foulX, y: foulY },
         });
       }
@@ -777,7 +786,115 @@ export function tickLiveMatch(
       return next;
     }
 
-    // D) FALTA EN MEDIOCAMPO (SAQUE EN CORTO PARA MANTENER LA POSESIÓN)
+    // D) FALTA COLGADA AL ÁREA (28m - 44m O FALTAS LATERALES EN CAMPO RIVAL)
+    if (pending.type === 'free_kick_cross') {
+      const foulX = pending.x;
+      const foulY = pending.y;
+      const targetGoalX = isHomeAction ? 95 : 5;
+      const distMeters = Math.max(28, Math.min(45, Math.round(
+        Math.hypot((targetGoalX - foulX) * 1.05, (50 - foulY) * 0.68)
+      )));
+
+      const taker = attPlayers.find((p) => p.id === pending.takerId) || attPlayers[0];
+      setPiecePositions[taker.id] = { x: foulX, y: foulY };
+
+      // Atacantes y defensores se acumulan en el área de penalti para disputar el centro
+      const boxAttackers = attPlayers.filter((p) => p.id !== taker.id && ['DC', 'DFC', 'MC'].includes(p.position)).slice(0, 4);
+      boxAttackers.forEach((p, idx) => {
+        const bX = isHomeAction ? 88 + (idx % 2) * 3 : 12 - (idx % 2) * 3;
+        setPiecePositions[p.id] = { x: bX, y: 38 + idx * 8 };
+      });
+
+      if (defGk) {
+        setPiecePositions[defGk.id] = { x: isHomeAction ? 95 : 5, y: 50 };
+      }
+      const defBox = defPlayers.filter((p) => p.id !== defGk?.id).slice(0, 5);
+      defBox.forEach((p, idx) => {
+        const dX = isHomeAction ? 90 + (idx % 2) * 2 : 10 - (idx % 2) * 2;
+        setPiecePositions[p.id] = { x: dX, y: 36 + idx * 7 };
+      });
+
+      next.playerPositions = setPiecePositions;
+      next.ballPosition = { x: foulX, y: foulY };
+      next.ballCarrierId = taker.id;
+      next.attackingTeamId = attTeam.id;
+
+      const headerTarget = boxAttackers[Math.floor(Math.random() * boxAttackers.length)] || attPlayers[attPlayers.length - 1];
+      const crossRoll = Math.random();
+
+      if (crossRoll < 0.14) {
+        // ¡GOL DE CABEZA TRAS FALTA COLGADA!
+        if (isHomeAction) next.homeScore += 1;
+        else next.awayScore += 1;
+        statsObj.shots += 1;
+        statsObj.shotsOnTarget += 1;
+        statsObj.chances += 1;
+
+        if (headerTarget) next.playerRatings[headerTarget.id] = Math.min(10, (next.playerRatings[headerTarget.id] || 6.0) + 1.2);
+        if (taker) next.playerRatings[taker.id] = Math.min(10, (next.playerRatings[taker.id] || 6.0) + 0.6);
+
+        next.ballPosition = { x: isHomeAction ? 97 : 3, y: 50 };
+        next.pendingSetPiece = {
+          type: 'kickoff',
+          teamId: defTeam.id,
+          defendingTeamId: attTeam.id,
+          x: 50,
+          y: 50,
+        };
+
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'goal',
+          teamId: attTeam.id,
+          playerId: headerTarget?.id,
+          playerName: headerTarget?.name,
+          assistPlayerId: taker?.id,
+          assistPlayerName: taker?.name,
+          description: `⚽ ¡GOL TRAS FALTA COLGADA! (${currentMinute}') ¡Balón medido de ${taker?.name} al área desde ${distMeters} metros e imperial cabezazo de ${headerTarget?.name} a las mallas!`,
+          ballZone: next.ballPosition,
+        });
+      } else if (crossRoll < 0.44) {
+        // PARADA O DESPEJE DE PUÑOS DEL PORTERO
+        statsObj.shots += 1;
+        statsObj.shotsOnTarget += 1;
+        next.ballPosition = { x: isHomeAction ? 94 : 6, y: 50 };
+        if (defGk) {
+          next.ballCarrierId = defGk.id;
+          next.playerRatings[defGk.id] = Math.min(10, (next.playerRatings[defGk.id] || 6.0) + 0.4);
+        }
+        next.pendingSetPiece = null;
+
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'save',
+          teamId: defTeam.id,
+          playerId: defGk?.id,
+          playerName: defGk?.name,
+          description: `🧤 ¡Intervención aérea del portero! ${defGk?.name} se anticipa con autoridad y atrapa el centro de falta botado por ${taker?.name} desde ${distMeters}m.`,
+          ballZone: next.ballPosition,
+        });
+      } else {
+        // DESPEJE DEFENSIVO
+        const clearer = defPlayers.find((p) => ['DFC', 'MCD'].includes(p.position)) || defPlayers[0];
+        next.ballPosition = { x: isHomeAction ? 75 : 25, y: 50 };
+        next.pendingSetPiece = null;
+
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'foul',
+          teamId: attTeam.id,
+          playerId: taker?.id,
+          playerName: taker?.name,
+          description: `🛡️ Balón colgado al área por ${taker?.name} desde ${distMeters}m: ${clearer?.name} se eleva y despeja de cabeza el peligro.`,
+          ballZone: { x: foulX, y: foulY },
+        });
+      }
+
+      if (currentMinute >= 90) next.isFinished = true;
+      return next;
+    }
+
+    // E) FALTA EN MEDIOCAMPO (SAQUE EN CORTO PARA MANTENER LA POSESIÓN)
     if (pending.type === 'midfield_foul') {
       const taker = attPlayers.find((p) => p.id === pending.takerId) || attPlayers[0];
       setPiecePositions[taker.id] = { x: pending.x, y: pending.y };
@@ -834,15 +951,15 @@ export function tickLiveMatch(
   // Clasificación de la acción del minuto en juego abierto
   const roll = Math.random();
   const isDangerPhase = roll < 0.22; // 22% ocasión de gol en área
-  const isCrossDeflected = !isDangerPhase && roll >= 0.22 && roll < 0.27; // 5% centro al área desviado a córner
-  const isFoulPlay = !isDangerPhase && !isCrossDeflected && roll >= 0.88; // 12% falta cometida en disputa
+  const isWingIncursion = !isDangerPhase && roll >= 0.22 && roll < 0.30; // 8% desborde por banda hacia línea de fondo
+  const isFoulPlay = !isDangerPhase && !isWingIncursion && roll >= 0.86; // 14% falta cometida en disputa de balón
 
   // Selección coherente del portador del balón
   let carrier: Player;
   if (isDangerPhase) {
     const dangerCandidates = attPlayers.filter((p) => ['DC', 'EI', 'ED', 'MCO'].includes(p.position));
     carrier = dangerCandidates[Math.floor(Math.random() * dangerCandidates.length)] || attPlayers[attPlayers.length - 1];
-  } else if (isCrossDeflected) {
+  } else if (isWingIncursion) {
     const wingCandidates = attPlayers.filter((p) => ['EI', 'ED', 'LI', 'LD'].includes(p.position));
     carrier = wingCandidates[Math.floor(Math.random() * wingCandidates.length)] || attPlayers[0];
   } else {
@@ -960,7 +1077,7 @@ export function tickLiveMatch(
 
   // 4. RESOLUCIÓN DE ACCIONES TÁCTICAS EN JUEGO ABIERTO
 
-  // A) FALTA COMETIDA DURANTE EL JUEGO (SE PROGRAMA EL SET PIECE REAL PARA EL SIGUIENTE MINUTO)
+  // A) FALTA COMETIDA DURANTE EL JUEGO (CALCULA DISTANCIA REAL EN METROS A META RIVAL)
   if (isFoulPlay) {
     defStats.fouls += 1;
     const defender = defPlayers[Math.floor(Math.random() * defPlayers.length)] || defPlayers[0];
@@ -969,19 +1086,33 @@ export function tickLiveMatch(
 
     next.ballPosition = { x: foulX, y: foulY };
 
-    // Determinar si es falta peligrosa cercana al área rival (a tiro directo de falta)
-    // Local ataca hacia X=95 (peligroso X >= 68), Visitante hacia X=5 (peligroso X <= 32)
-    const isCloseFoul = isHomeAttack
-      ? foulX >= 68 && foulY >= 20 && foulY <= 80
-      : foulX <= 32 && foulY >= 20 && foulY <= 80;
+    // Calcular distancia euclídea exacta en metros a la portería rival (105m de largo, 68m de ancho)
+    const targetGoalX = isHomeAttack ? 95 : 5;
+    const distMeters = Math.round(
+      Math.hypot((targetGoalX - foulX) * 1.05, (50 - foulY) * 0.68)
+    );
 
-    if (isCloseFoul) {
+    // 1. TIRO LIBRE DIRECTO A PUERTA (Solo si está entre 16m y 27m, en pasillo central Y en el último tercio)
+    const isDirectFkZone =
+      distMeters >= 16 &&
+      distMeters <= 27 &&
+      foulY >= 28 &&
+      foulY <= 72 &&
+      (isHomeAttack ? foulX >= 70 : foulX <= 30);
+
+    // 2. FALTA COLGADA AL ÁREA (Distancia intermedia de 28m a 44m, o faltas laterales en campo contrario)
+    const isCrossingFkZone =
+      !isDirectFkZone &&
+      distMeters <= 44 &&
+      (isHomeAttack ? foulX >= 52 : foulX <= 48);
+
+    if (isDirectFkZone) {
       const fkSpecialists = attPlayers.filter(
         (p) => p.weapons.some((w) => ['shot', 'curve', 'precision', 'vision'].includes(w.type)) || p.stats.shooting >= 80
       );
       const specialist = fkSpecialists[0] || carrier || attPlayers[attPlayers.length - 1];
 
-      // Se programa la falta con barrera para el siguiente minuto
+      // Se programa el tiro libre directo con barrera para el siguiente minuto
       next.pendingSetPiece = {
         type: 'dangerous_free_kick',
         teamId: attTeam.id,
@@ -1000,7 +1131,7 @@ export function tickLiveMatch(
           teamId: defTeam.id,
           playerId: defender.id,
           playerName: defender.name,
-          description: `🟨 Tarjeta amarilla para ${defender.name} por derribar a ${carrier.name} al borde del área. ¡FALTA MUY PELIGROSA!`,
+          description: `🟨 Tarjeta amarilla para ${defender.name} por derribar a ${carrier.name} al borde del área (${distMeters} metros). ¡FALTA MUY PELIGROSA!`,
           ballZone: { x: foulX, y: foulY },
         });
       } else {
@@ -1010,22 +1141,27 @@ export function tickLiveMatch(
           teamId: attTeam.id,
           playerId: specialist.id,
           playerName: specialist.name,
-          description: `⚠️ ¡FALTA PELIGROSA! ${defender.name} frena con falta a ${carrier.name} en el balcón del área (${Math.round(foulX)}m). Se prepara el lanzamiento directo con barrera.`,
+          description: `⚠️ ¡FALTA PELIGROSA! ${defender.name} frena con falta a ${carrier.name} en la frontal del área (${distMeters} metros). Se prepara tiro libre directo con barrera.`,
           ballZone: { x: foulX, y: foulY },
         });
       }
-    } else {
-      // Falta en mediocampo o zona defensiva
+    } else if (isCrossingFkZone) {
+      const crossers = attPlayers.filter(
+        (p) => ['EI', 'ED', 'MCO', 'MC'].includes(p.position) || p.stats.passing >= 78
+      );
+      const specialist = crossers[0] || carrier || attPlayers[0];
+
+      // Se programa la falta colgada al área para el siguiente minuto
       next.pendingSetPiece = {
-        type: 'midfield_foul',
+        type: 'free_kick_cross',
         teamId: attTeam.id,
         defendingTeamId: defTeam.id,
         x: foulX,
         y: foulY,
-        takerId: carrier.id,
+        takerId: specialist.id,
       };
 
-      const isYellow = Math.random() < 0.15;
+      const isYellow = Math.random() < 0.20;
       if (isYellow && defender) {
         next.playerRatings[defender.id] = Math.max(4.0, (next.playerRatings[defender.id] || 6.0) - 0.4);
         next.events.unshift({
@@ -1034,7 +1170,7 @@ export function tickLiveMatch(
           teamId: defTeam.id,
           playerId: defender.id,
           playerName: defender.name,
-          description: `🟨 Tarjeta amarilla para ${defender.name} por agarrar a ${carrier.name} cortando el contragolpe.`,
+          description: `🟨 Tarjeta amarilla para ${defender.name} por entrada dura sobre ${carrier.name} a ${distMeters} metros de portería.`,
           ballZone: { x: foulX, y: foulY },
         });
       } else {
@@ -1044,39 +1180,93 @@ export function tickLiveMatch(
           teamId: attTeam.id,
           playerId: carrier.id,
           playerName: carrier.name,
-          description: `⚠️ Falta táctica de ${defender.name} sobre ${carrier.name} para frenar la transición ofensiva.`,
+          description: `⚠️ Falta cometida por ${defender.name} sobre ${carrier.name} a ${distMeters} metros de la meta. Ocasión para colgar el balón al área.`,
+          ballZone: { x: foulX, y: foulY },
+        });
+      }
+    } else {
+      // Falta en mediocampo o zona defensiva (a más de 44 metros)
+      next.pendingSetPiece = {
+        type: 'midfield_foul',
+        teamId: attTeam.id,
+        defendingTeamId: defTeam.id,
+        x: foulX,
+        y: foulY,
+        takerId: carrier.id,
+      };
+
+      const isYellow = Math.random() < 0.12;
+      if (isYellow && defender) {
+        next.playerRatings[defender.id] = Math.max(4.0, (next.playerRatings[defender.id] || 6.0) - 0.4);
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'yellow_card',
+          teamId: defTeam.id,
+          playerId: defender.id,
+          playerName: defender.name,
+          description: `🟨 Tarjeta amarilla para ${defender.name} por cortar la transición ofensiva en mediocampo.`,
+          ballZone: { x: foulX, y: foulY },
+        });
+      } else {
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'foul',
+          teamId: attTeam.id,
+          playerId: carrier.id,
+          playerName: carrier.name,
+          description: `⚠️ Falta táctica de ${defender.name} sobre ${carrier.name} en el centro del campo.`,
           ballZone: { x: foulX, y: foulY },
         });
       }
     }
   }
 
-  // B) CENTRO AL ÁREA DESVIADO A CÓRNER POR UN DEFENSOR
-  else if (isCrossDeflected) {
-    statsObj.corners += 1;
-    // La línea de fondo es SIEMPRE la del equipo que defiende
-    const defEndlineX = isHomeAttack ? 98 : 2;
-    const cornerSideY = Math.random() > 0.5 ? 2 : 98;
+  // B) DESBORDE POR BANDA: SOLO HAY CÓRNER SI EL JUGADOR LLEGA DE VERDAD A LA LÍNEA DE FONDO RIVAL
+  else if (isWingIncursion) {
+    const carrierPosX = newPositions[carrier?.id]?.x || 50;
+    const carrierPosY = newPositions[carrier?.id]?.y || 50;
 
-    next.pendingSetPiece = {
-      type: 'corner',
-      teamId: attTeam.id,
-      defendingTeamId: defTeam.id,
-      x: defEndlineX,
-      y: cornerSideY,
-    };
+    // Solo se concede córner si el jugador llega al último tercio de línea de fondo (X >= 82 para Local, X <= 18 para Visitante)
+    const isDeepByline = isHomeAttack
+      ? carrierPosX >= 82 && (carrierPosY <= 26 || carrierPosY >= 74)
+      : carrierPosX <= 18 && (carrierPosY <= 26 || carrierPosY >= 74);
 
-    next.ballPosition = { x: defEndlineX, y: cornerSideY };
+    if (isDeepByline) {
+      statsObj.corners += 1;
+      const defEndlineX = isHomeAttack ? 98 : 2;
+      const cornerSideY = carrierPosY < 50 ? 2 : 98;
 
-    next.events.unshift({
-      minute: currentMinute,
-      type: 'corner',
-      teamId: attTeam.id,
-      playerId: carrier.id,
-      playerName: carrier.name,
-      description: `🚩 Internada por banda de ${carrier.name}: su centro raso es desviado por la zaga de ${defTeam.name} sobre su propia línea de fondo. ¡Córner para ${attTeam.name}!`,
-      ballZone: { x: defEndlineX, y: cornerSideY },
-    });
+      next.pendingSetPiece = {
+        type: 'corner',
+        teamId: attTeam.id,
+        defendingTeamId: defTeam.id,
+        x: defEndlineX,
+        y: cornerSideY,
+      };
+
+      next.ballPosition = { x: defEndlineX, y: cornerSideY };
+
+      next.events.unshift({
+        minute: currentMinute,
+        type: 'corner',
+        teamId: attTeam.id,
+        playerId: carrier.id,
+        playerName: carrier.name,
+        description: `🚩 Desborde por banda de ${carrier.name} hasta la línea de fondo rival: su centro raso es taponado por el lateral y sale por línea de meta. ¡Córner para ${attTeam.name}!`,
+        ballZone: { x: defEndlineX, y: cornerSideY },
+      });
+    } else {
+      // Si está en mediocampo o carril central, es un repliegue defensivo normal. NUNCA UN CÓRNER DESDE MEDIOCAMPO.
+      next.events.unshift({
+        minute: currentMinute,
+        type: 'commentary',
+        teamId: attTeam.id,
+        playerId: carrier.id,
+        playerName: carrier.name,
+        description: `🏃 ${carrier.name} intenta profundizar por el carril lateral en mediocampo, pero la zaga de ${defTeam.name} repliega y corta el avance.`,
+        ballZone: next.ballPosition,
+      });
+    }
   }
 
   // C) JUGADA DE PELIGRO EN EL ÁREA (DISPARO, GOL O PARADA CON DESVÍO A CÓRNER)
