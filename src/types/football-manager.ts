@@ -244,5 +244,6 @@ export interface MatchSummaryData {
   };
   playerPerformances: PlayerPerformanceSummary[];
   roundFixtures: MatchFixture[];
+  isSimulated?: boolean;
 }
 

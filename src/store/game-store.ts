@@ -557,6 +557,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       awayStats: { ...liveMatch.awayStats },
       playerPerformances,
       roundFixtures: finalFixtures.filter((f) => f.round === currentRound),
+      isSimulated: isSimulation,
     };
 
     set({
@@ -573,7 +574,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       activeTab: isSeasonCompleted ? 'table' : 'office',
       liveMatch: null,
       lastMatchSummary: summaryData,
-      simulatedMatchSummary: isSimulation ? summaryData : null,
+      simulatedMatchSummary: summaryData,
     });
 
     get().saveToStorage();

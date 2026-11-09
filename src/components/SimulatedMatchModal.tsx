@@ -86,15 +86,15 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md overflow-y-auto animate-fadeIn">
-      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md overflow-hidden animate-fadeIn">
+      <div className="relative w-full max-w-4xl bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl flex flex-col h-[86vh] max-h-[820px] overflow-hidden">
         
         {/* HEADER SUPERIOR CON BOTÓN DE CIERRE */}
-        <div className="relative bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div className="relative bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 px-6 py-4 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 font-mono text-[11px] font-bold tracking-wider uppercase">
               <Zap className="w-3.5 h-3.5 fill-cyan-400" />
-              Simulación Completa · 90 Minutos
+              {summary.isSimulated !== false ? 'Simulación Completa · 90 Minutos' : 'Partido Disputado (2D) · 90 Minutos'}
             </span>
             <span className="text-slate-400 text-xs font-semibold hidden sm:inline">
               Temporada {season} · Jornada {round}
@@ -112,7 +112,7 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
         </div>
 
         {/* HERO SCOREBOARD */}
-        <div className="bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 px-6 py-6 border-b border-slate-800">
+        <div className="bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 px-6 py-5 border-b border-slate-800 shrink-0">
           <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-6">
             
             {/* CLUB LOCAL */}
@@ -219,7 +219,7 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
         </div>
 
         {/* NAVEGACIÓN DE PESTAÑAS DENTRO DEL MODAL */}
-        <div className="bg-slate-950 px-6 py-2.5 border-b border-slate-800 flex gap-2 overflow-x-auto">
+        <div className="bg-slate-950 px-6 py-2.5 border-b border-slate-800 flex gap-2 overflow-x-auto shrink-0">
           {[
             {
               id: 'squad',
@@ -280,7 +280,7 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
         </div>
 
         {/* CONTENIDO SCROLLEABLE SEGÚN PESTAÑA */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6 pb-8">
 
           {/* TAB 1: RENDIMIENTO & PLANTILLA */}
           {activeTab === 'squad' && (
@@ -441,8 +441,8 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
           {/* TAB 2: MINUTO A MINUTO (CRONOLOGÍA) */}
           {activeTab === 'timeline' && (
             <div className="space-y-4">
-              {/* Filtros rápidos */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {/* Filtros rápidos (Sticky para no solaparse ni perderse al scrollear) */}
+              <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-md py-2 -mt-2 -mx-1 px-1 flex items-center gap-1.5 overflow-x-auto border-b border-slate-800/80">
                 {[
                   { id: 'all', label: 'Todos los Sucesos' },
                   { id: 'key', label: '⭐ Momentos Clave' },
@@ -554,20 +554,33 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
               {/* Barra de Posesión */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3">
                 <div className="flex justify-between items-center text-xs font-bold text-slate-400">
-                  <span className="text-white font-mono text-sm">{homeStats.possession}%</span>
-                  <span className="uppercase tracking-wider">Posesión de Balón</span>
-                  <span className="text-white font-mono text-sm">{awayStats.possession}%</span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full inline-block border border-white/20"
+                      style={{ backgroundColor: homeClub.primaryColor === '#ffffff' ? '#e2e8f0' : homeClub.primaryColor }}
+                    />
+                    <span className="text-white font-mono font-bold text-sm">{homeStats.possession}%</span>
+                  </div>
+                  <span className="uppercase tracking-wider font-semibold">Posesión de Balón</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-mono font-bold text-sm">{awayStats.possession}%</span>
+                    <span
+                      className="w-2.5 h-2.5 rounded-full inline-block border border-white/20"
+                      style={{ backgroundColor: awayClub.primaryColor }}
+                    />
+                  </div>
                 </div>
-                <div className="h-3 bg-slate-900 rounded-full overflow-hidden flex">
+                <div className="h-3.5 bg-slate-900 border border-slate-800 rounded-full overflow-hidden flex p-0.5 shadow-inner">
                   <div
-                    className="h-full transition-all"
+                    className="h-full rounded-l-full transition-all duration-300"
                     style={{
                       width: `${homeStats.possession}%`,
-                      backgroundColor: homeClub.primaryColor || '#06b6d4',
+                      backgroundColor: homeClub.primaryColor === '#ffffff' ? '#f1f5f9' : homeClub.primaryColor || '#06b6d4',
                     }}
                   />
+                  <div className="w-0.5 h-full bg-slate-950 shrink-0" />
                   <div
-                    className="h-full transition-all"
+                    className="h-full rounded-r-full transition-all duration-300"
                     style={{
                       width: `${awayStats.possession}%`,
                       backgroundColor: awayClub.primaryColor || '#f59e0b',
@@ -696,7 +709,7 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
         </div>
 
         {/* FOOTER CON BOTÓN DE CONTINUAR */}
-        <div className="bg-slate-950 px-6 py-4 border-t border-slate-800 flex items-center justify-between">
+        <div className="bg-slate-950 px-6 py-4 border-t border-slate-800 flex items-center justify-between shrink-0">
           <div className="text-xs text-slate-400 hidden sm:block">
             Pulsa continuar para volver al despacho y preparar la siguiente jornada.
           </div>
