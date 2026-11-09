@@ -1,79 +1,47 @@
 # Blue Lock: Egoist Career Mode ⚽🔥
 
-Simulador de gestión deportiva y modo carrera del anime **Blue Lock** con la profundidad táctica de *Football Manager*, optimizado para despliegue serverless de **Presupuesto 0€** en **Vercel** con base de datos en **Supabase Free Tier**.
-
-- 🌐 **Despliegue en Producción:** [https://blue-lock-career-mode.vercel.app](https://blue-lock-career-mode.vercel.app)
-- 🔗 **Mirror Alias Vercel:** [https://blue-lock-career-mode-ale-e704.vercel.app](https://blue-lock-career-mode-ale-e704.vercel.app)
-- 🗄️ **Supabase Project:** `wucthebjndvwyoabztib` (EU West - Frankfurt / Ireland)
+> **Proyecto sin ánimo de lucro**, creado por y para la comunidad de aficionados de *Blue Lock* y de los simuladores tácticos de fútbol.
 
 ---
 
-## ⚡ 1. Características del Dominio de Blue Lock
+## 💡 Sobre el Proyecto
 
-- **Arsenal de Armas Únicas (Weapons):**
-  - **Metavisión (Metavision):** Cartografía 360° del campo, anticipación de líneas de pase (+25% evasión en duelos y precisión de pase filtrado).
-  - **Direct Shot (Tiro Directo):** Golpeo al primer toque sin control previo (+35% conversión reduciendo el tiempo de reacción del portero).
-  - **Predator Eye (Ojo de Depredador):** Acecho y lectura del centro de gravedad del portero en el 1v1.
-  - **Kaiser Impact:** Velocidad de oscilación más rápida del mundo del fútbol (+45% velocidad de disparo).
-  - **Speed 44-Area / Speed Burst:** Desmarques al espacio y rotura de la trampa del fuera de juego.
-  - **Scorpion Saves & Primal Reflexes:** Paradas acrobáticas felinas estilo Gagamaru.
-- **Sistema de Flow y Reacciones Químicas:**
-  - El medidor de **Ego (0-100)** aumenta con cada duelo ganado.
-  - Al superar el 85% de Ego en momentos de alta tensión, se activa el **Estado Flow** (ojos encendidos, instinto desatado).
-  - Jugadores con perfiles complementarios (ej: Isagi Metavisión + Bachira Dribble) desatan **Reacciones Químicas** que multiplican la probabilidad de gol y asistencia.
-- **Subastas NEL (Neo Egoist League):**
-  - Valoración de mercado en **Yenes (¥)** según goles, asistencias, paradas, duelos y valoración del partido (Match Rating).
-  - Ofertas anuales emitidas por los gigantes europeos: *Bastard München, Paris X Gen, Manshine City, Ubers y FC Barcha*.
-- **Cantera Japonesa & Módulo Wild Card:**
-  - Ojeo de talentos en institutos japoneses (*Ichinan High, Matsukaze Kokuou*).
-  - Repesca experimental *Wild Card* (Kunigami) para reconstruir el físico al estándar de Noel Noa.
-- **Auditoría Táctica de Jinpachi Ego con Fallback Offline:**
-  - Conexión ultra-rápida a **Groq (Llama-3.3-70b-versatile)** para ruedas de prensa y críticas tácticas con voz auténtica de Ego.
-  - **Fallback procedural 100% offline:** Si no se suministra API key o se llega al límite de cuota (HTTP 429), se activa el generador procedural con vocabulario exacto de Ego (*"Diamantes en bruto", "Basura sin ego"*), garantizando coste 0€ y disponibilidad total.
+Este proyecto ha sido desarrollado con dos objetivos fundamentales:
+
+1. **Por y para la comunidad**: Ofrecer una experiencia interactiva y gratuita donde los fans puedan sumergirse en la Neo Egoist League (NEL), gestionar alineaciones, armas egoístas, tácticas y disputar partidos en tiempo real.
+2. **Aprendizaje y experimentación con Inteligencia Artificial**: Nació con la intención principal de explorar y aprender a utilizar herramientas de **Inteligencia Artificial de forma eficiente** en todas las etapas del desarrollo de software (arquitectura, lógica matemática de simulación deportiva, generación de contenido procedural y despliegue continuo).
+
+> [!NOTE]
+> **Aviso legal / Disclaimer:**  
+> Este es un proyecto **completamente gratuito y sin fines de lucro**. Todos los derechos de *Blue Lock*, nombres de personajes, conceptos visuales e historia pertenecen a **Muneyuki Kaneshiro, Yusuke Nomura, Kodansha Ltd.** y sus respectivos licenciatarios. Este proyecto no está afiliado ni respaldado por los titulares de los derechos de autor originales.
 
 ---
 
-## 🛠️ 2. Arquitectura de Despliegue (Presupuesto 0€ Estricto)
+## 🎮 ¿Cómo Jugar? (100% en la Web, Sin Descargas)
 
-| Componente | Proveedor | Nivel de Coste | Propósito |
-| :--- | :--- | :--- | :--- |
-| **Frontend & API** | Vercel | Hobby (0€) | Next.js 14 App Router, SSR, Turbopack |
-| **Base de Datos** | Supabase | Free Tier (0€) | PostgreSQL con RLS estricto e índices optimizados |
-| **Conexiones BD** | `@supabase/ssr` | Free Tier (0€) | Acceso stateless sin saturar el Connection Pool |
-| **IA Narrativa** | Groq Cloud | Free Tier (0€) | Inferencia gratuita con Llama-3.3-70b |
-| **Motor Fallback** | Local TS Engine | 0€ Local | Generación de diálogos procedurales sin red |
+**No necesitas descargar ningún archivo ni instalar nada en tu ordenador o móvil.** El juego está completamente alojado en la nube y optimizado para ejecutarse en tu navegador web.
+
+### 🌐 Enlace Directo para Jugar:
+👉 **[https://blue-lock-career-mode.vercel.app](https://blue-lock-career-mode.vercel.app)** 👈
 
 ---
 
-## 🚀 3. Puesta en Marcha Local
+### 🕹️ Guía Rápida para Empezar:
 
-### 1. Clonar e Instalar Dependencias
-```bash
-npm install
-```
-
-### 2. Configurar Variables de Entorno
-Copia el archivo `.env.example` a `.env.local`:
-```bash
-cp .env.example .env.local
-```
-*(Opcional: puedes dejar las credenciales por defecto; la aplicación incluye datos precargados y fallback procedural para jugar inmediatamente).*
-
-### 3. Ejecutar en Modo Desarrollo
-```bash
-npm run dev
-```
-Abre en tu navegador: [http://localhost:3000](http://localhost:3000)
-
-### 4. Compilación para Producción (Vercel)
-```bash
-npm run build
-```
+1. **Abre el enlace** en cualquier navegador moderno (Google Chrome, Firefox, Edge, Safari, tanto en PC como en móviles).
+2. **Selecciona tu Divisa**: Al comenzar un nuevo modo carrera, elige si prefieres gestionar tus presupuestos y subastas de la NEL en **Euros (€)**, **Dólares ($)** o **Yenes (¥)**.
+3. **Escoge tu Club**: Toma el mando de uno de los 5 equipos de las grandes ligas europeas (Bastard München, Paris X Gen, Ubers, Manshine City o FC Barcha).
+4. **Gestiona tu Plantilla**:
+   - Entrena a tus jugadores y potencia su **potencial máximo**.
+   - Desbloquea **Armas Únicas** (*Metavisión, Direct Shot, Predator Eye, Kaiser Impact*, etc.).
+   - Activa el **Estado Flow** y las **Reacciones Químicas** entre jugadores complementarios.
+5. **Juega Partidos en Vivo**:
+   - Visualiza la simulación táctica en 2D en tiempo real.
+   - Experimenta jugadas realistas: **saques de centro tras gol, córners reglamentarios, faltas directas con barrera y duelos 1v1 en los penaltis**.
+   - Realiza cambios y ajustes tácticos sobre la marcha o en el descanso.
 
 ---
 
-## 🗄️ 4. Base de Datos Supabase (Migración y Seed)
+## 🤝 Comunidad y Feedback
 
-En el panel de Supabase (**SQL Editor**), ejecuta en orden:
-1. `supabase/migrations/0001_initial_schema.sql` (Crea tablas con RLS e índices)
-2. `supabase/seed.sql` (Inserta los 5 clubes de la NEL, estrellas y promesas)
+Si encuentras algún fallo, tienes sugerencias tácticas o ideas para nuevas mecánicas, eres más que bienvenido a abrir un issue o compartir tus impresiones con la comunidad. ¡Que gane el mayor egoísta!
