@@ -4,9 +4,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/game-store';
 import { Pitch2D } from '@/components/Pitch2D';
 import { Formation, TacticalMentalidad, TacticalPresion, TacticalPase, Player } from '@/types/football-manager';
-import { Zap, AlertTriangle, Shield, Award, Users, ArrowRightLeft, X, CheckCircle2 } from 'lucide-react';
+import { Zap, AlertTriangle, Shield, Award, Users, ArrowRightLeft, X, CheckCircle2, Sparkles, Plus, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import { calculatePositionalAdaptation, getFormationRoles } from '@/engine/position-engine';
+import { getActiveTacticalChemicalReactions } from '@/engine/weapon-registry';
 
 export const TacticsView: React.FC = () => {
   const {
@@ -17,6 +18,10 @@ export const TacticsView: React.FC = () => {
     updateFormation,
     swapStartingPlayer,
     swapBenchPlayer,
+    addToBench,
+    removeFromBench,
+    autoOptimizeLineup,
+    autoSelectBestSquadLineup,
     setRole,
   } = useGameStore();
 
@@ -70,6 +75,9 @@ export const TacticsView: React.FC = () => {
     };
   });
   const outOfPositionStarters = startersAdaptations.filter((sa) => sa.adaptation.penaltyOvr > 0);
+
+  // Reacciones químicas Blue Lock activas entre los titulares del 11
+  const activeChemicals = getActiveTacticalChemicalReactions(starters);
 
   // Adaptación del titular actualmente seleccionado (si lo hay)
   const selectedStarterAdaptation = tacticsSelectedPlayer
@@ -185,62 +193,145 @@ export const TacticsView: React.FC = () => {
         </div>
       )}
 
+      {/* SECCIÓN DE REACCIONES QUÍMICAS BLUE LOCK EN EL 11 TITULAR */}
+      <div className="p-4 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/40 rounded-2xl space-y-2.5 shadow-lg">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-cyan-400" />
+            <span className="text-xs font-bold text-white tracking-wide uppercase">
+              Reacciones Químicas Blue Lock en el 11 Titular
+            </span>
+          </div>
+          <span
+            className={clsx(
+              'text-[10px] font-black px-2 py-0.5 rounded-full border',
+              activeChemicals.length > 0
+                ? 'bg-cyan-950 text-cyan-300 border-cyan-500/60 shadow-sm'
+                : 'bg-slate-800 text-slate-400 border-slate-700'
+            )}
+          >
+            {activeChemicals.length} {activeChemicals.length === 1 ? 'Reacción Activa' : 'Reacciones Activas'}
+          </span>
+        </div>
+
+        {activeChemicals.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+            {activeChemicals.map(({ reaction, p1, p2 }, idx) => (
+              <div
+                key={idx}
+                className="p-2.5 bg-slate-950/90 border border-cyan-500/40 rounded-xl space-y-1 shadow text-xs hover:border-cyan-400 transition-all"
+              >
+                <div className="flex items-center justify-between font-bold">
+                  <span className="text-cyan-300 flex items-center gap-1">
+                    ⚡ {reaction.name}
+                  </span>
+                  <span className="text-[10px] font-black text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40">
+                    +{reaction.boost}% Potencia
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-300 flex items-center gap-1.5">
+                  <span className="font-semibold text-white">{p1.name}</span>
+                  <span className="text-cyan-400 font-black">↔</span>
+                  <span className="font-semibold text-white">{p2.name}</span>
+                </div>
+                <p className="text-[10px] text-slate-400 line-clamp-2">
+                  {reaction.narrative.replace(/^⚡ ¡REACCIÓN QUÍMICA \[[^\]]+\]! /, '')}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[11px] text-slate-400">
+            Sin reacciones químicas activas en el 11. Junta en el campo futbolistas con armas compatibles (p. ej.: <b>Visión + Velocidad punta</b> para <i>Sincronía a Velocidad Luz</i>, <b>Físico + Cañón</b> para <i>Pivoteo Destructivo</i> o <b>Centro + Remate aéreo</b> para <i>Asalto Aéreo Coordinado</i>).
+          </p>
+        )}
+      </div>
+
       {/* Controles de Formación y Mentalidad */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div>
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Formación:</label>
-          <select
-            value={userClub.formation}
-            onChange={(e) => updateFormation(e.target.value as Formation)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold text-xs"
-          >
-            <option value="4-3-3">4-3-3 Ofensiva</option>
-            <option value="4-2-3-1">4-2-3-1 Equilibrada</option>
-            <option value="4-4-2">4-4-2 Clásica</option>
-            <option value="3-5-2">3-5-2 Posesión</option>
-            <option value="5-3-2">5-3-2 Contragolpe</option>
-          </select>
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-800">
+          <div className="text-xs font-bold text-white flex items-center gap-2">
+            <Shield className="w-4 h-4 text-cyan-400" />
+            <span>Pizarra Táctica y Estilo de Juego</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={autoOptimizeLineup}
+              title="Reordena a los 11 futbolistas titulares para que cada uno juegue en su rol idóneo sin penalizaciones"
+              className="px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500 hover:text-black text-cyan-300 border border-cyan-500/50 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>⚡ Optimizar Posiciones (0 Penalizaciones)</span>
+            </button>
+            <button
+              type="button"
+              onClick={autoSelectBestSquadLineup}
+              title="Selecciona automáticamente el mejor 11 de toda la plantilla y convoca a los 7 mejores suplentes"
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow"
+            >
+              <Award className="w-3.5 h-3.5" />
+              <span>🌟 Mejor 11 de la Plantilla</span>
+            </button>
+          </div>
         </div>
 
-        <div>
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Mentalidad:</label>
-          <select
-            value={userClub.mentalidad}
-            onChange={(e) => updateTactics(e.target.value as TacticalMentalidad, userClub.presion, userClub.estiloPase)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold text-xs"
-          >
-            <option value="muy_defensiva">Muy Defensiva</option>
-            <option value="defensiva">Defensiva</option>
-            <option value="equilibrada">Equilibrada</option>
-            <option value="ofensiva">Ofensiva</option>
-            <option value="ultra_ofensiva">Ultra Ofensiva (All-in)</option>
-          </select>
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Formación:</label>
+            <select
+              value={userClub.formation}
+              onChange={(e) => updateFormation(e.target.value as Formation)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold text-xs"
+            >
+              <option value="4-3-3">4-3-3 Ofensiva</option>
+              <option value="4-2-3-1">4-2-3-1 Equilibrada</option>
+              <option value="4-4-2">4-4-2 Clásica</option>
+              <option value="3-5-2">3-5-2 Posesión</option>
+              <option value="5-3-2">5-3-2 Contragolpe</option>
+            </select>
+          </div>
 
-        <div>
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Presión:</label>
-          <select
-            value={userClub.presion}
-            onChange={(e) => updateTactics(userClub.mentalidad, e.target.value as TacticalPresion, userClub.estiloPase)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold text-xs"
-          >
-            <option value="baja">Baja (Repliegue)</option>
-            <option value="media">Media (Zona media)</option>
-            <option value="alta">Alta (Gegenpressing)</option>
-          </select>
-        </div>
+          <div>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Mentalidad:</label>
+            <select
+              value={userClub.mentalidad}
+              onChange={(e) => updateTactics(e.target.value as TacticalMentalidad, userClub.presion, userClub.estiloPase)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold text-xs"
+            >
+              <option value="muy_defensiva">Muy Defensiva</option>
+              <option value="defensiva">Defensiva</option>
+              <option value="equilibrada">Equilibrada</option>
+              <option value="ofensiva">Ofensiva</option>
+              <option value="ultra_ofensiva">Ultra Ofensiva (All-in)</option>
+            </select>
+          </div>
 
-        <div>
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Estilo de Pase:</label>
-          <select
-            value={userClub.estiloPase}
-            onChange={(e) => updateTactics(userClub.mentalidad, userClub.presion, e.target.value as TacticalPase)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold text-xs"
-          >
-            <option value="posesion">Posesión Corta</option>
-            <option value="directo">Pase Directo / Al Hueco</option>
-            <option value="contraataque">Contraataque Veloz</option>
-          </select>
+          <div>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Presión:</label>
+            <select
+              value={userClub.presion}
+              onChange={(e) => updateTactics(userClub.mentalidad, e.target.value as TacticalPresion, userClub.estiloPase)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold text-xs"
+            >
+              <option value="baja">Baja (Repliegue)</option>
+              <option value="media">Media (Zona media)</option>
+              <option value="alta">Alta (Gegenpressing)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Estilo de Pase:</label>
+            <select
+              value={userClub.estiloPase}
+              onChange={(e) => updateTactics(userClub.mentalidad, userClub.presion, e.target.value as TacticalPase)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold text-xs"
+            >
+              <option value="posesion">Posesión Corta</option>
+              <option value="directo">Pase Directo / Al Hueco</option>
+              <option value="contraataque">Contraataque Veloz</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -513,33 +604,56 @@ export const TacticsView: React.FC = () => {
                             </button>
                           )}
 
-                          {/* 4. MODO NORMAL en Reservas: Botón para iniciar selección de a quién sustituir del banquillo */}
+                          {/* 4. MODO NORMAL en Reservas: Botón para convocar directamente o elegir a quién sustituir */}
                           {!tacticsSelectedPlayer && !selectedReserveForBench && !selectedBenchForReserve && panelTab === 'reserves' && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedReserveForBench(p);
-                                setPanelTab('bench');
-                              }}
-                              className="px-2.5 py-1 bg-slate-800 hover:bg-cyan-500 hover:text-black text-slate-300 font-bold rounded text-[10px] transition-all flex items-center gap-1"
-                            >
-                              <ArrowRightLeft className="w-3 h-3" />
-                              Subir al Banquillo...
-                            </button>
+                            <div className="flex items-center gap-1">
+                              {benchPlayers.length < 7 && (
+                                <button
+                                  type="button"
+                                  onClick={() => addToBench(p.id)}
+                                  className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500 hover:text-black text-emerald-300 font-bold rounded text-[10px] transition-all flex items-center gap-1 border border-emerald-500/40 shadow-sm"
+                                  title="Ocupar plaza vacante en el banquillo"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  Al Banquillo
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedReserveForBench(p);
+                                  setPanelTab('bench');
+                                }}
+                                className="px-2 py-0.5 bg-slate-800 hover:bg-cyan-500 hover:text-black text-slate-300 font-bold rounded text-[10px] transition-all flex items-center gap-1"
+                              >
+                                <ArrowRightLeft className="w-3 h-3" />
+                                {benchPlayers.length >= 7 ? 'Sustituir en Banquillo...' : 'Cambiar por...'}
+                              </button>
+                            </div>
                           )}
 
-                          {/* 5. MODO NORMAL en Banquillo: Botón para retirar a la reserva eligiendo sustituto */}
+                          {/* 5. MODO NORMAL en Banquillo: Botón directo para desconvocar o cambiar por reserva */}
                           {!tacticsSelectedPlayer && !selectedReserveForBench && !selectedBenchForReserve && panelTab === 'bench' && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedBenchForReserve(p);
-                                setPanelTab('reserves');
-                              }}
-                              className="px-2 py-0.5 bg-slate-800 hover:bg-amber-500 hover:text-black text-slate-400 font-medium rounded text-[10px] transition-all"
-                            >
-                              Bajar a Reservas...
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => removeFromBench(p.id)}
+                                className="px-2 py-0.5 bg-rose-950/40 hover:bg-rose-600 hover:text-white text-rose-300 font-bold rounded text-[10px] transition-all border border-rose-800/40"
+                                title="Desconvocar del banquillo y enviar a reservas"
+                              >
+                                Bajar a Reservas
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedBenchForReserve(p);
+                                  setPanelTab('reserves');
+                                }}
+                                className="px-2 py-0.5 bg-slate-800 hover:bg-amber-500 hover:text-black text-slate-400 font-medium rounded text-[10px] transition-all"
+                              >
+                                Cambiar por...
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>

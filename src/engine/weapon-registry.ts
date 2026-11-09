@@ -485,3 +485,38 @@ export function checkBalancedChemicalReaction(p1: Player, p2: Player): ChemicalR
 
   return null;
 }
+
+export interface ActiveTacticalChemicalReaction {
+  reaction: ChemicalReactionResult;
+  p1: Player;
+  p2: Player;
+}
+
+/**
+ * Analiza los 11 futbolistas titulares en la pizarra y devuelve todas las
+ * Reacciones Químicas activas y sincronizadas entre ellos.
+ */
+export function getActiveTacticalChemicalReactions(starters: Player[]): ActiveTacticalChemicalReaction[] {
+  const active: ActiveTacticalChemicalReaction[] = [];
+  const seenPairs = new Set<string>();
+
+  for (let i = 0; i < starters.length; i++) {
+    for (let j = 0; j < starters.length; j++) {
+      if (i === j) continue;
+      const p1 = starters[i];
+      const p2 = starters[j];
+      if (!p1 || !p2) continue;
+
+      const pairKey = [p1.id, p2.id].sort().join('_');
+      if (seenPairs.has(pairKey)) continue;
+
+      const reaction = checkBalancedChemicalReaction(p1, p2);
+      if (reaction && reaction.triggered && !reaction.name.includes('Colisión de Egos')) {
+        seenPairs.add(pairKey);
+        active.push({ reaction, p1, p2 });
+      }
+    }
+  }
+
+  return active;
+}

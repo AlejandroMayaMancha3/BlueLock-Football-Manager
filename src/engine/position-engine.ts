@@ -400,3 +400,145 @@ export function getFormationRoles(formation: Formation): string[] {
       return ['POR', 'LI', 'DFC', 'DFC', 'LD', 'MCD', 'MC', 'MC', 'EI', 'DC', 'ED'];
   }
 }
+
+/**
+ * Optimiza el orden de los 11 titulares actuales para la formación indicada,
+ * asignando a cada futbolista en la demarcación que minimiza penalizaciones
+ * y maximiza su media efectiva.
+ */
+export function optimizeLineupPositions(starters: Player[], formation: Formation): Player[] {
+  const roles = getFormationRoles(formation);
+  if (starters.length !== 11) return starters;
+
+  const unassigned = [...starters];
+  const assigned: Player[] = new Array(11).fill(null as any);
+
+  // 1. Asignar Slot 0 (POR): Priorizar portero natural o con mejores aptitudes
+  let bestGkIdx = 0;
+  let bestGkScore = -99999;
+  unassigned.forEach((p, idx) => {
+    let score = p.overall;
+    if (p.position === 'POR') score += 1000;
+    else score -= 50;
+    if (score > bestGkScore) {
+      bestGkScore = score;
+      bestGkIdx = idx;
+    }
+  });
+  assigned[0] = unassigned.splice(bestGkIdx, 1)[0];
+
+  // 2. Asignación voraz para las 10 plazas de campo restantes
+  const fieldRoleIndices = roles.slice(1).map((role, idx) => ({ role, slot: idx + 1 }));
+
+  fieldRoleIndices.forEach(({ role, slot }) => {
+    let bestPlayerIdx = 0;
+    let bestScore = -99999;
+    unassigned.forEach((p, idx) => {
+      const adaptation = calculatePositionalAdaptation(p, role);
+      // Puntuamos fuertemente que sea natural (sin penalización) y su media efectiva
+      const score = adaptation.effectiveOvr * 10 - adaptation.penaltyOvr * 25;
+      if (score > bestScore) {
+        bestScore = score;
+        bestPlayerIdx = idx;
+      }
+    });
+    assigned[slot] = unassigned.splice(bestPlayerIdx, 1)[0];
+  });
+
+  // 3. Optimización 2-opt (intercambio por parejas) para alcanzar el máximo global
+  let improved = true;
+  let passes = 0;
+  while (improved && passes < 12) {
+    improved = false;
+    passes++;
+    for (let i = 1; i < 11; i++) {
+      for (let j = i + 1; j < 11; j++) {
+        const p1 = assigned[i];
+        const p2 = assigned[j];
+        const r1 = roles[i];
+        const r2 = roles[j];
+
+        const currentScore =
+          calculatePositionalAdaptation(p1, r1).effectiveOvr +
+          calculatePositionalAdaptation(p2, r2).effectiveOvr;
+
+        const swappedScore =
+          calculatePositionalAdaptation(p2, r1).effectiveOvr +
+          calculatePositionalAdaptation(p1, r2).effectiveOvr;
+
+        if (swappedScore > currentScore) {
+          assigned[i] = p2;
+          assigned[j] = p1;
+          improved = true;
+        }
+      }
+    }
+  }
+
+  return assigned;
+}
+
+/**
+ * Selecciona automáticamente el mejor 11 de toda la plantilla del club para la formación dada,
+ * más hasta 7 suplentes para el banquillo y el resto a reservas.
+ */
+export function selectBest11FromSquad(
+  allClubPlayers: Player[],
+  formation: Formation
+): { startingXI: string[]; substitutes: string[] } {
+  const roles = getFormationRoles(formation);
+
+  // Separar jugadores disponibles (no sancionados y no lesionados)
+  const available = allClubPlayers.filter((p) => !p.isBanned && (p.injuryWeeks || 0) === 0);
+  const pool = available.length >= 11 ? [...available] : [...allClubPlayers];
+
+  // 1. Portero
+  const gks = pool.filter((p) => p.position === 'POR').sort((a, b) => b.overall - a.overall);
+  const chosenGk = gks[0] || [...pool].sort((a, b) => b.overall - a.overall)[0];
+  
+  const chosenStarters: Player[] = [chosenGk];
+  const remaining = pool.filter((p) => p.id !== chosenGk.id);
+
+  // 2. Jugadores de campo (slots 1 a 10)
+  for (let slot = 1; slot < 11; slot++) {
+    const role = roles[slot];
+    let bestIdx = 0;
+    let bestScore = -99999;
+
+    remaining.forEach((p, idx) => {
+      const adapt = calculatePositionalAdaptation(p, role);
+      const score = adapt.effectiveOvr * 10 - adapt.penaltyOvr * 20;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIdx = idx;
+      }
+    });
+
+    if (remaining.length > 0) {
+      chosenStarters.push(remaining.splice(bestIdx, 1)[0]);
+    }
+  }
+
+  // Refinar posiciones del 11 elegido
+  const optimizedStarters = optimizeLineupPositions(chosenStarters, formation);
+  const starterIds = optimizedStarters.map((p) => p.id);
+
+  // 3. Banquillo: los 7 mejores jugadores restantes de la plantilla
+  const nonStarters = allClubPlayers.filter((p) => !starterIds.includes(p.id));
+  const bench = nonStarters
+    .sort((a, b) => {
+      // Priorizar disponibles sobre lesionados/sancionados en el banquillo
+      const aUnavailable = a.isBanned || (a.injuryWeeks || 0) > 0 ? 1 : 0;
+      const bUnavailable = b.isBanned || (b.injuryWeeks || 0) > 0 ? 1 : 0;
+      if (aUnavailable !== bUnavailable) return aUnavailable - bUnavailable;
+      return b.overall - a.overall;
+    })
+    .slice(0, 7);
+
+  const substituteIds = bench.map((p) => p.id);
+
+  return {
+    startingXI: starterIds,
+    substitutes: substituteIds,
+  };
+}

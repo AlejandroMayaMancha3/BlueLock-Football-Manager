@@ -30,6 +30,7 @@ import {
   executeLiveSub,
 } from '@/engine/match-engine-2d';
 import { shouldAwakenWeapon, generateContextualWeapon } from '@/engine/weapon-registry';
+import { optimizeLineupPositions, selectBest11FromSquad } from '@/engine/position-engine';
 import { DECISION_EVENTS_POOL } from '@/engine/events-data';
 import { formatMoney } from '@/lib/currency';
 
@@ -78,6 +79,10 @@ export interface GameStoreState {
   updateFormation: (formation: Formation) => void;
   swapStartingPlayer: (playerOutId: string, playerInId: string) => void;
   swapBenchPlayer: (benchPlayerId: string, reservePlayerId: string) => void;
+  addToBench: (playerId: string) => void;
+  removeFromBench: (playerId: string) => void;
+  autoOptimizeLineup: () => void;
+  autoSelectBestSquadLineup: () => void;
   setRole: (role: 'captain' | 'penalty' | 'freekick', playerId: string) => void;
   setTrainingPlan: (plan: GameStoreState['trainingPlan']) => void;
   promoteYouthPlayer: () => { success: boolean; message: string };
@@ -709,15 +714,32 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   updateFormation: (formation) => {
-    const { clubs, userClubId, liveMatch } = get();
-    const updated = clubs.map((c) => (c.id === userClubId ? { ...c, formation } : c));
+    const { clubs, userClubId, players, liveMatch } = get();
+    const userClub = clubs.find((c) => c.id === userClubId);
+    let newStartingXI = userClub ? [...userClub.startingXI] : [];
+
+    // Al cambiar de formación, auto-alinear los 11 titulares actuales a los roles de la nueva formación
+    if (userClub && newStartingXI.length === 11) {
+      const allPlayersMap = players.reduce((acc, p) => {
+        acc[p.id] = p;
+        return acc;
+      }, {} as Record<string, Player>);
+      const currentStarters = newStartingXI.map((id) => allPlayersMap[id]).filter(Boolean);
+      if (currentStarters.length === 11) {
+        newStartingXI = optimizeLineupPositions(currentStarters, formation).map((p) => p.id);
+      }
+    }
+
+    const updated = clubs.map((c) =>
+      c.id === userClubId ? { ...c, formation, startingXI: newStartingXI } : c
+    );
     let updatedLiveMatch = liveMatch;
     if (liveMatch) {
       const isHome = liveMatch.homeClub.id === userClubId;
       updatedLiveMatch = {
         ...liveMatch,
-        homeClub: isHome ? { ...liveMatch.homeClub, formation } : liveMatch.homeClub,
-        awayClub: !isHome ? { ...liveMatch.awayClub, formation } : liveMatch.awayClub,
+        homeClub: isHome ? { ...liveMatch.homeClub, formation, startingXI: newStartingXI } : liveMatch.homeClub,
+        awayClub: !isHome ? { ...liveMatch.awayClub, formation, startingXI: newStartingXI } : liveMatch.awayClub,
       };
     }
     set({ clubs: updated, liveMatch: updatedLiveMatch });
@@ -763,8 +785,32 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     // Regla reglamentaria estricta: el banquillo nunca puede exceder los 7 jugadores
     bench = Array.from(new Set(bench)).filter((id) => !xi.includes(id)).slice(0, 7);
 
+    // Traspaso automático de roles si el jugador saliente era capitán, penaltis o faltas
+    let captainId = userClub.captainId;
+    let penaltyTakerId = userClub.penaltyTakerId;
+    let freeKickTakerId = userClub.freeKickTakerId;
+
+    if (captainId === playerOutId) {
+      captainId = xi.includes(playerInId) ? playerInId : xi[0];
+    }
+    if (penaltyTakerId === playerOutId) {
+      penaltyTakerId = xi.includes(playerInId) ? playerInId : xi[0];
+    }
+    if (freeKickTakerId === playerOutId) {
+      freeKickTakerId = xi.includes(playerInId) ? playerInId : xi[0];
+    }
+
     const updated = clubs.map((c) =>
-      c.id === userClubId ? { ...c, startingXI: xi, substitutes: bench } : c
+      c.id === userClubId
+        ? {
+            ...c,
+            startingXI: xi,
+            substitutes: bench,
+            captainId,
+            penaltyTakerId,
+            freeKickTakerId,
+          }
+        : c
     );
     set({ clubs: updated });
     get().saveToStorage();
@@ -785,6 +831,113 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       }
       return c;
     });
+    set({ clubs: updated });
+    get().saveToStorage();
+  },
+
+  addToBench: (playerId: string) => {
+    const { clubs, userClubId } = get();
+    const updated = clubs.map((c) => {
+      if (c.id === userClubId) {
+        if (c.startingXI.includes(playerId) || c.substitutes.includes(playerId)) return c;
+        if (c.substitutes.length >= 7) return c;
+        const newBench = [...c.substitutes, playerId].slice(0, 7);
+        return { ...c, substitutes: newBench };
+      }
+      return c;
+    });
+    set({ clubs: updated });
+    get().saveToStorage();
+  },
+
+  removeFromBench: (playerId: string) => {
+    const { clubs, userClubId } = get();
+    const updated = clubs.map((c) => {
+      if (c.id === userClubId) {
+        const newBench = c.substitutes.filter((id) => id !== playerId);
+        return { ...c, substitutes: newBench };
+      }
+      return c;
+    });
+    set({ clubs: updated });
+    get().saveToStorage();
+  },
+
+  autoOptimizeLineup: () => {
+    const { clubs, userClubId, players } = get();
+    const userClub = clubs.find((c) => c.id === userClubId);
+    if (!userClub) return;
+
+    const allPlayersMap = players.reduce((acc, p) => {
+      acc[p.id] = p;
+      return acc;
+    }, {} as Record<string, Player>);
+
+    const starters = userClub.startingXI.map((id) => allPlayersMap[id]).filter(Boolean);
+    if (starters.length !== 11) return;
+
+    const optimized = optimizeLineupPositions(starters, userClub.formation);
+    const newStartingXI = optimized.map((p) => p.id);
+
+    // Asegurar capitán y lanzadores válidos
+    const captainId = newStartingXI.includes(userClub.captainId) ? userClub.captainId : newStartingXI[0];
+    const penaltyTakerId = newStartingXI.includes(userClub.penaltyTakerId)
+      ? userClub.penaltyTakerId
+      : newStartingXI.find((id) => allPlayersMap[id]?.position === 'DC') || captainId;
+    const freeKickTakerId = newStartingXI.includes(userClub.freeKickTakerId)
+      ? userClub.freeKickTakerId
+      : newStartingXI.find((id) => ['MCO', 'MC', 'EI'].includes(allPlayersMap[id]?.position || '')) || captainId;
+
+    const updated = clubs.map((c) =>
+      c.id === userClubId
+        ? {
+            ...c,
+            startingXI: newStartingXI,
+            captainId,
+            penaltyTakerId,
+            freeKickTakerId,
+          }
+        : c
+    );
+
+    set({ clubs: updated });
+    get().saveToStorage();
+  },
+
+  autoSelectBestSquadLineup: () => {
+    const { clubs, userClubId, players } = get();
+    const userClub = clubs.find((c) => c.id === userClubId);
+    if (!userClub) return;
+
+    const clubPlayers = players.filter((p) => p.clubId === userClubId);
+    if (clubPlayers.length < 11) return;
+
+    const { startingXI, substitutes } = selectBest11FromSquad(clubPlayers, userClub.formation);
+
+    const allPlayersMap = players.reduce((acc, p) => {
+      acc[p.id] = p;
+      return acc;
+    }, {} as Record<string, Player>);
+
+    const captain = clubPlayers
+      .filter((p) => startingXI.includes(p.id))
+      .sort((a, b) => b.overall - a.overall)[0]?.id || startingXI[0];
+    const penalty = startingXI.find((id) => allPlayersMap[id]?.position === 'DC') || captain;
+    const freeKick = startingXI.find((id) => ['MCO', 'MC', 'EI'].includes(allPlayersMap[id]?.position || '')) || captain;
+
+    const updated = clubs.map((c) =>
+      c.id === userClubId
+        ? {
+            ...c,
+            startingXI,
+            substitutes,
+            captainId: captain,
+            penaltyTakerId: penalty,
+            freeKickTakerId: freeKick,
+          }
+        : c
+    );
+
     set({ clubs: updated });
     get().saveToStorage();
   },
@@ -888,7 +1041,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         ? {
             ...c,
             cashYen: c.cashYen - promotionCost,
-            substitutes: [...c.substitutes, newYouth.id],
+            substitutes: c.substitutes.length < 7 ? [...c.substitutes, newYouth.id] : c.substitutes,
           }
         : c
     );
@@ -983,16 +1136,32 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           ...c,
           cashYen: c.cashYen - feeYen,
           budgetYen: c.budgetYen - feeYen,
-          substitutes: [...c.substitutes, playerId],
+          substitutes: c.substitutes.length < 7 ? [...c.substitutes, playerId] : c.substitutes,
         };
       }
       if (c.id === player.clubId) {
+        let newXi = c.startingXI.filter((id) => id !== playerId);
+        let newSubs = c.substitutes.filter((id) => id !== playerId);
+        if (newXi.length < 11) {
+          const sellerPlayers = updatedPlayers.filter((p) => p.clubId === c.id && !newXi.includes(p.id));
+          const rep = sellerPlayers.sort((a, b) => b.overall - a.overall)[0];
+          if (rep) {
+            newXi.push(rep.id);
+            newSubs = newSubs.filter((id) => id !== rep.id);
+          }
+        }
+        const newCap = newXi.includes(c.captainId) ? c.captainId : newXi[0] || c.captainId;
+        const newPen = newXi.includes(c.penaltyTakerId) ? c.penaltyTakerId : newCap;
+        const newFk = newXi.includes(c.freeKickTakerId) ? c.freeKickTakerId : newCap;
         return {
           ...c,
           cashYen: c.cashYen + feeYen,
           budgetYen: c.budgetYen + feeYen,
-          startingXI: c.startingXI.filter((id) => id !== playerId),
-          substitutes: c.substitutes.filter((id) => id !== playerId),
+          startingXI: newXi,
+          substitutes: newSubs,
+          captainId: newCap,
+          penaltyTakerId: newPen,
+          freeKickTakerId: newFk,
         };
       }
       return c;
@@ -1071,7 +1240,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       if (c.id === offer.buyerClubId) {
         return {
           ...c,
-          substitutes: [...c.substitutes, offer.playerId],
+          substitutes: c.substitutes.length < 7 ? [...c.substitutes, offer.playerId] : c.substitutes,
         };
       }
       return c;

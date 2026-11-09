@@ -443,6 +443,11 @@ export function advanceToNextSeason(
       }
     }
 
+    // Asegurar que el banquillo contenga un máximo estricto de 7 suplentes sin solapar con el 11
+    substitutes = Array.from(new Set(substitutes))
+      .filter((id) => !startingXI.includes(id))
+      .slice(0, 7);
+
     // Asegurar capitán, lanzador de penaltis y de faltas válidos
     const validCaptain = clubMembers.some((m) => m.id === c.captainId)
       ? c.captainId

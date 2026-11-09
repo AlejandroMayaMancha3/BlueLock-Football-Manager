@@ -238,25 +238,34 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
                 </span>
               )}
 
-              {/* Insignia de Capitán */}
-              {isCaptain && (
-                <span className="absolute -top-1 -right-1 bg-yellow-500 text-black text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-white">
-                  C
-                </span>
-              )}
-
-              {/* Insignia de Penalti */}
-              {isPenalty && !isCaptain && (
-                <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-white">
-                  P
-                </span>
-              )}
-
-              {/* Insignia de Faltas */}
-              {isFreeKick && !isCaptain && !isPenalty && (
-                <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-white">
-                  F
-                </span>
+              {/* Insignias de Roles Tácticos (Capitán, Penaltis, Faltas) */}
+              {(isCaptain || isPenalty || isFreeKick) && (
+                <div className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 z-20">
+                  {isCaptain && (
+                    <span
+                      title="Capitán del equipo"
+                      className="bg-yellow-500 text-black text-[8px] font-black rounded-full w-3.5 h-3.5 flex items-center justify-center border border-white shadow"
+                    >
+                      C
+                    </span>
+                  )}
+                  {isPenalty && (
+                    <span
+                      title="Lanzador principal de penaltis"
+                      className="bg-blue-600 text-white text-[8px] font-black rounded-full w-3.5 h-3.5 flex items-center justify-center border border-white shadow"
+                    >
+                      P
+                    </span>
+                  )}
+                  {isFreeKick && (
+                    <span
+                      title="Lanzador de faltas directas"
+                      className="bg-emerald-600 text-white text-[8px] font-black rounded-full w-3.5 h-3.5 flex items-center justify-center border border-white shadow"
+                    >
+                      F
+                    </span>
+                  )}
+                </div>
               )}
 
               {/* Indicador de Arma de Blue Lock */}
