@@ -60,6 +60,7 @@ export const MarketView: React.FC = () => {
   const [onlyAffordable, setOnlyAffordable] = useState(false);
   const [onlyWithWeapons, setOnlyWithWeapons] = useState(false);
   const [onlyTransferListed, setOnlyTransferListed] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   // Ordenación y Paginación
   const [sortBy, setSortBy] = useState<SortOption>('ovr_desc');
@@ -75,6 +76,22 @@ export const MarketView: React.FC = () => {
   const [marketFeedback, setMarketFeedback] = useState<{ success: boolean; msg: string } | null>(null);
 
   const isWindowOpen = isSeasonCompleted || currentRound <= 6 || (currentRound >= 22 && currentRound <= 28);
+
+  // Cantidad de filtros avanzados activos
+  const activeAdvancedFiltersCount = useMemo(() => {
+    let count = 0;
+    if (exactPosition !== 'ALL') count++;
+    if (countryFilter !== 'ALL') count++;
+    if (divisionFilter !== 'ALL') count++;
+    if (clubFilter !== 'ALL') count++;
+    if (ovrRange !== 'ALL') count++;
+    if (potRange !== 'ALL') count++;
+    if (ageRange !== 'ALL') count++;
+    if (onlyAffordable) count++;
+    if (onlyWithWeapons) count++;
+    if (onlyTransferListed) count++;
+    return count;
+  }, [exactPosition, countryFilter, divisionFilter, clubFilter, ovrRange, potRange, ageRange, onlyAffordable, onlyWithWeapons, onlyTransferListed]);
 
   // Insignia de Potencial
   const getPotentialTier = (pot: number) => {
@@ -404,242 +421,269 @@ export const MarketView: React.FC = () => {
           </div>
         </div>
 
-        {/* Fila 2: Filtros Selectores (Demarcación exacta, País, Liga/División, Club) */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-          {/* Demarcación Exacta */}
-          <div>
-            <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
-              Posición Exacta:
-            </label>
-            <select
-              value={exactPosition}
-              onChange={(e) => {
-                setExactPosition(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
-            >
-              <option value="ALL">Cualquiera</option>
-              <option value="POR">POR · Portero</option>
-              <option value="DFC">DFC · Central</option>
-              <option value="LI">LI · Lateral Izquierdo</option>
-              <option value="LD">LD · Lateral Derecho</option>
-              <option value="CAI">CAI · Carrilero Izquierdo</option>
-              <option value="CAD">CAD · Carrilero Derecho</option>
-              <option value="MCD">MCD · Pivote Defensivo</option>
-              <option value="MC">MC · Centrocampista</option>
-              <option value="MI">MI · Medio Izquierdo</option>
-              <option value="MD">MD · Medio Derecho</option>
-              <option value="MCO">MCO · Mediapunta</option>
-              <option value="EI">EI · Extremo Izquierdo</option>
-              <option value="ED">ED · Extremo Derecho</option>
-              <option value="DC">DC · Delantero Centro</option>
-            </select>
-          </div>
-
-          {/* País */}
-          <div>
-            <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
-              País / Liga:
-            </label>
-            <select
-              value={countryFilter}
-              onChange={(e) => {
-                setCountryFilter(e.target.value);
-                setDivisionFilter('ALL');
-                setClubFilter('ALL');
-                setCurrentPage(1);
-              }}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
-            >
-              <option value="ALL">🌍 Todos los Países</option>
-              {COUNTRIES_CATALOG.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.flag} {c.nameEs}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* División Específica */}
-          <div>
-            <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
-              Categoría / División:
-            </label>
-            <select
-              value={divisionFilter}
-              onChange={(e) => {
-                setDivisionFilter(e.target.value);
-                setClubFilter('ALL');
-                setCurrentPage(1);
-              }}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
-            >
-              <option value="ALL">Todas las Categorías</option>
-              {DIVISIONS_CATALOG.filter(
-                (d) => countryFilter === 'ALL' || d.country === countryFilter
-              ).map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.flag} {d.name} ({d.shortName})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Club */}
-          <div>
-            <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
-              Club Específico:
-            </label>
-            <select
-              value={clubFilter}
-              onChange={(e) => {
-                setClubFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
-            >
-              <option value="ALL">Todos los Clubes ({availableClubsForFilter.length})</option>
-              {availableClubsForFilter.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Botón Móvil para Desplegar / Ocultar Filtros Avanzados */}
+        <div className="sm:hidden pt-2 border-t border-slate-800">
+          <button
+            type="button"
+            onClick={() => setShowMobileFilters(!showMobileFilters)}
+            className={clsx(
+              'w-full py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all',
+              showMobileFilters || activeAdvancedFiltersCount > 0
+                ? 'bg-cyan-950/80 border-cyan-500/60 text-cyan-300'
+                : 'bg-slate-950 border-slate-800 text-slate-300 hover:text-white'
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-cyan-400" />
+              <span>{showMobileFilters ? 'Ocultar Filtros Avanzados' : 'Desplegar Filtros Avanzados'}</span>
+            </div>
+            {activeAdvancedFiltersCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-cyan-500 text-black font-black text-[10px]">
+                {activeAdvancedFiltersCount} activos
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* Fila 3: Filtros de Rendimiento (Media, Potencial, Edad) y Toggles */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs pt-1">
-          {/* Rango de Media */}
-          <div>
-            <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
-              Nivel de Media (OVR):
-            </label>
-            <select
-              value={ovrRange}
-              onChange={(e) => {
-                setOvrRange(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
-            >
-              <option value="ALL">Cualquier Media</option>
-              <option value="88+">🔥 88+ Superestrellas Mundiales</option>
-              <option value="83-87">⭐ 83-87 Élite Europea</option>
-              <option value="78-82">🔷 78-82 Primera División</option>
-              <option value="70-77">🔸 70-77 Segunda / Tercera</option>
-              <option value="<70">🌱 Menor de 70 (Base/Cantera)</option>
-            </select>
+        {/* CONTENEDOR DE FILTROS AVANZADOS: SIEMPRE VISIBLE EN PC (sm:block), COLAPSABLE EN MÓVIL */}
+        <div className={clsx('space-y-4', !showMobileFilters && 'hidden sm:block')}>
+          {/* Fila 2: Filtros Selectores (Demarcación exacta, País, Liga/División, Club) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            {/* Demarcación Exacta */}
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                Posición Exacta:
+              </label>
+              <select
+                value={exactPosition}
+                onChange={(e) => {
+                  setExactPosition(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
+              >
+                <option value="ALL">Cualquiera</option>
+                <option value="POR">POR · Portero</option>
+                <option value="DFC">DFC · Central</option>
+                <option value="LI">LI · Lateral Izquierdo</option>
+                <option value="LD">LD · Lateral Derecho</option>
+                <option value="CAI">CAI · Carrilero Izquierdo</option>
+                <option value="CAD">CAD · Carrilero Derecho</option>
+                <option value="MCD">MCD · Pivote Defensivo</option>
+                <option value="MC">MC · Centrocampista</option>
+                <option value="MI">MI · Medio Izquierdo</option>
+                <option value="MD">MD · Medio Derecho</option>
+                <option value="MCO">MCO · Mediapunta</option>
+                <option value="EI">EI · Extremo Izquierdo</option>
+                <option value="ED">ED · Extremo Derecho</option>
+                <option value="DC">DC · Delantero Centro</option>
+              </select>
+            </div>
+
+            {/* País */}
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                País / Liga:
+              </label>
+              <select
+                value={countryFilter}
+                onChange={(e) => {
+                  setCountryFilter(e.target.value);
+                  setDivisionFilter('ALL');
+                  setClubFilter('ALL');
+                  setCurrentPage(1);
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
+              >
+                <option value="ALL">🌍 Todos los Países</option>
+                {COUNTRIES_CATALOG.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.flag} {c.nameEs}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* División Específica */}
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                Categoría / División:
+              </label>
+              <select
+                value={divisionFilter}
+                onChange={(e) => {
+                  setDivisionFilter(e.target.value);
+                  setClubFilter('ALL');
+                  setCurrentPage(1);
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
+              >
+                <option value="ALL">Todas las Categorías</option>
+                {DIVISIONS_CATALOG.filter(
+                  (d) => countryFilter === 'ALL' || d.country === countryFilter
+                ).map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.flag} {d.name} ({d.shortName})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Club */}
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                Club Específico:
+              </label>
+              <select
+                value={clubFilter}
+                onChange={(e) => {
+                  setClubFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
+              >
+                <option value="ALL">Todos los Clubes ({availableClubsForFilter.length})</option>
+                {availableClubsForFilter.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* Rango de Potencial */}
-          <div>
-            <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
-              Techo de Potencial (POT):
-            </label>
-            <select
-              value={potRange}
-              onChange={(e) => {
-                setPotRange(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
-            >
-              <option value="ALL">Cualquier Potencial</option>
-              <option value="90+">🌟 90+ Prodigio Mundial</option>
-              <option value="85+">💎 85+ Promesa Élite</option>
-              <option value="80+">⚡ 80+ Alto Desarrollo</option>
-              <option value="<80">🛡️ Menor de 80 Consolidado</option>
-            </select>
+          {/* Fila 3: Filtros de Rendimiento (Media, Potencial, Edad) y Toggles */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs pt-1">
+            {/* Rango de Media */}
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                Nivel de Media (OVR):
+              </label>
+              <select
+                value={ovrRange}
+                onChange={(e) => {
+                  setOvrRange(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
+              >
+                <option value="ALL">Cualquier Media</option>
+                <option value="88+">🔥 88+ Superestrellas Mundiales</option>
+                <option value="83-87">⭐ 83-87 Élite Europea</option>
+                <option value="78-82">🔷 78-82 Primera División</option>
+                <option value="70-77">🔸 70-77 Segunda / Tercera</option>
+                <option value="<70">🌱 Menor de 70 (Base/Cantera)</option>
+              </select>
+            </div>
+
+            {/* Rango de Potencial */}
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                Techo de Potencial (POT):
+              </label>
+              <select
+                value={potRange}
+                onChange={(e) => {
+                  setPotRange(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
+              >
+                <option value="ALL">Cualquier Potencial</option>
+                <option value="90+">🌟 90+ Prodigio Mundial</option>
+                <option value="85+">💎 85+ Promesa Élite</option>
+                <option value="80+">⚡ 80+ Alto Desarrollo</option>
+                <option value="<80">🛡️ Menor de 80 Consolidado</option>
+              </select>
+            </div>
+
+            {/* Rango de Edad */}
+            <div>
+              <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                Rango de Edad:
+              </label>
+              <select
+                value={ageRange}
+                onChange={(e) => {
+                  setAgeRange(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
+              >
+                <option value="ALL">Cualquier Edad</option>
+                <option value="u21">🌱 Sub-21 (Jóvenes Promesas)</option>
+                <option value="22-25">⚡ 22 a 25 años (En ascenso)</option>
+                <option value="26-29">👑 26 a 29 años (Prime absoluto)</option>
+                <option value="30+">🛡️ 30+ años (Veteranos con oficio)</option>
+              </select>
+            </div>
+
+            {/* Botón Restablecer */}
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="w-full bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Restablecer Filtros</span>
+              </button>
+            </div>
           </div>
 
-          {/* Rango de Edad */}
-          <div>
-            <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
-              Rango de Edad:
-            </label>
-            <select
-              value={ageRange}
-              onChange={(e) => {
-                setAgeRange(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-medium focus:border-cyan-500 focus:outline-none"
-            >
-              <option value="ALL">Cualquier Edad</option>
-              <option value="u21">🌱 Sub-21 (Jóvenes Promesas)</option>
-              <option value="22-25">⚡ 22 a 25 años (En ascenso)</option>
-              <option value="26-29">👑 26 a 29 años (Prime absoluto)</option>
-              <option value="30+">🛡️ 30+ años (Veteranos con oficio)</option>
-            </select>
-          </div>
-
-          {/* Botón Restablecer */}
-          <div className="flex items-end">
+          {/* Fila 4: Toggles y Checkboxes rápidos */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80 text-xs">
             <button
               type="button"
-              onClick={handleResetFilters}
-              className="w-full bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 font-bold py-2 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5"
+              onClick={() => {
+                setOnlyAffordable(!onlyAffordable);
+                setCurrentPage(1);
+              }}
+              className={clsx(
+                'px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5',
+                onlyAffordable
+                  ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+              )}
             >
-              <RotateCcw className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Restablecer Filtros</span>
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>Asequibles para mi presupuesto</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOnlyWithWeapons(!onlyWithWeapons);
+                setCurrentPage(1);
+              }}
+              className={clsx(
+                'px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5',
+                onlyWithWeapons
+                  ? 'bg-cyan-950 border-cyan-500 text-cyan-300'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+              )}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Solo con Armas Blue Lock</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOnlyTransferListed(!onlyTransferListed);
+                setCurrentPage(1);
+              }}
+              className={clsx(
+                'px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5',
+                onlyTransferListed
+                  ? 'bg-amber-950 border-amber-500 text-amber-300'
+                  : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+              )}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Solo Transferibles (Puestos en venta)</span>
             </button>
           </div>
-        </div>
-
-        {/* Fila 4: Toggles y Checkboxes rápidos */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80 text-xs">
-          <button
-            type="button"
-            onClick={() => {
-              setOnlyAffordable(!onlyAffordable);
-              setCurrentPage(1);
-            }}
-            className={clsx(
-              'px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5',
-              onlyAffordable
-                ? 'bg-emerald-950 border-emerald-500 text-emerald-300'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-            )}
-          >
-            <DollarSign className="w-3.5 h-3.5" />
-            <span>Asequibles para mi presupuesto</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setOnlyWithWeapons(!onlyWithWeapons);
-              setCurrentPage(1);
-            }}
-            className={clsx(
-              'px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5',
-              onlyWithWeapons
-                ? 'bg-cyan-950 border-cyan-500 text-cyan-300'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-            )}
-          >
-            <Zap className="w-3.5 h-3.5" />
-            <span>Solo con Armas Blue Lock</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setOnlyTransferListed(!onlyTransferListed);
-              setCurrentPage(1);
-            }}
-            className={clsx(
-              'px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5',
-              onlyTransferListed
-                ? 'bg-amber-950 border-amber-500 text-amber-300'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-            )}
-          >
-            <Building2 className="w-3.5 h-3.5" />
-            <span>Solo Transferibles (Puestos en venta)</span>
-          </button>
         </div>
       </div>
 
@@ -708,7 +752,8 @@ export const MarketView: React.FC = () => {
 
       {/* 4. TABLA DE JUGADORES EN EL MERCADO */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-        <div className="overflow-x-auto">
+        {/* VISTA ESCRITORIO (PC) - 100% INTACTA */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
               <tr>
@@ -855,21 +900,147 @@ export const MarketView: React.FC = () => {
           </table>
         </div>
 
+        {/* VISTA MÓVIL (PANTALLAS PEQUEÑAS) - TARJETAS DETALLADAS Y CÓMODAS */}
+        <div className="sm:hidden divide-y divide-slate-800/80">
+          {paginatedPlayers.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 text-xs">
+              No se han encontrado futbolistas que coincidan con los filtros seleccionados.
+            </div>
+          ) : (
+            paginatedPlayers.map((p) => {
+              const club = clubsMap.get(p.clubId);
+              const isMyPlayer = p.clubId === userClubId;
+              const tier = getPotentialTier(p.potential);
+              const canAfford = userClub ? userClub.budgetYen >= p.marketValueYen : true;
+
+              return (
+                <div key={p.id} className="p-3.5 space-y-3 bg-slate-900/60 hover:bg-slate-800/30 transition-colors">
+                  {/* Encabezado: Posición, Nombre completo sin truncar, Ficha */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <span className={clsx('px-2 py-0.5 rounded border font-bold text-[10px] shrink-0 mt-0.5', getPositionColor(p.position))}>
+                        {p.position}
+                      </span>
+                      <div className="min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => setInspectingPlayer(p)}
+                          className="font-bold text-white text-sm hover:text-cyan-400 text-left transition-colors break-words leading-snug"
+                        >
+                          {p.name}
+                        </button>
+                        <div className="text-[11px] text-slate-400 flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <span>{p.nationality}</span>
+                          <span className="text-slate-300 font-medium">· {club?.name || 'Agente Libre'}</span>
+                          <span className="text-slate-500 font-mono">· {p.age} años</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setInspectingPlayer(p)}
+                      className="text-[10px] text-cyan-400 bg-cyan-950/70 border border-cyan-500/40 px-2 py-1 rounded-lg shrink-0 font-bold hover:bg-cyan-900/60"
+                    >
+                      Ficha
+                    </button>
+                  </div>
+
+                  {/* Armas Blue Lock o En Venta si corresponde */}
+                  {((p.weapons && p.weapons.length > 0) || p.isTransferListed) && (
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                      {p.weapons && p.weapons.length > 0 && (
+                        <span className="text-[10px] text-cyan-400 bg-cyan-950 border border-cyan-500/40 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1">
+                          ⚡ {p.weapons[0].name}
+                        </span>
+                      )}
+                      {p.isTransferListed && (
+                        <span className="text-[9px] bg-amber-950 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-lg font-bold">
+                          🔥 En Venta
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Métricas clave: Media, Potencial, Crecimiento */}
+                  <div className="grid grid-cols-3 gap-2 bg-slate-950 p-2 rounded-xl border border-slate-800 text-center font-mono">
+                    <div>
+                      <span className="text-[9px] text-slate-400 block font-sans">Media</span>
+                      <span className="font-black text-white text-base">{p.overall}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-slate-400 block font-sans">Potencial</span>
+                      <span className={clsx('text-[11px] font-black px-1.5 py-0.5 rounded border inline-block mt-0.5', tier.color)}>
+                        {tier.icon} {p.potential}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-slate-400 block font-sans">Margen</span>
+                      <span className="font-bold text-xs text-emerald-400 block mt-0.5">
+                        +{p.potential - p.overall} pts
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Fila Financiera y Botón de Acción */}
+                  <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-3">
+                    <div>
+                      <span className="text-[9px] text-slate-400 uppercase font-bold block">Valor de Mercado</span>
+                      <span className="font-mono font-black text-emerald-400 text-sm">
+                        {formatMoney(p.marketValueYen, selectedCurrency)}
+                      </span>
+                      <span className="text-[10px] text-slate-500 block font-mono">
+                        {formatMoney(p.weeklyWageYen, selectedCurrency)}/sem
+                      </span>
+                    </div>
+
+                    {!isMyPlayer ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedMarketPlayer(p);
+                          const initialFee = convertFromYen(p.marketValueYen, selectedCurrency);
+                          const initialWage = convertFromYen(Math.round(p.weeklyWageYen * 1.15), selectedCurrency);
+                          setOfferFee(initialFee);
+                          setOfferWage(initialWage);
+                          setMarketFeedback(null);
+                        }}
+                        className={clsx(
+                          'px-4 py-2 font-black text-xs rounded-xl shadow-lg transition-all',
+                          canAfford
+                            ? 'bg-cyan-500 hover:bg-cyan-400 text-black shadow-cyan-500/20'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                        )}
+                      >
+                        Pujar / Ofertar
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-slate-500 font-bold bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
+                        En tu plantilla
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
         {/* 5. CONTROLES DE PAGINACIÓN */}
         {pageSize !== -1 && totalPages > 1 && (
-          <div className="p-4 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <span className="text-slate-400">
+          <div className="p-3 sm:p-4 bg-slate-950 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <span className="text-slate-400 text-center sm:text-left">
               Página <strong className="text-white">{validCurrentPage}</strong> de{' '}
               <strong className="text-white">{totalPages}</strong>
             </span>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center justify-center gap-1 flex-wrap">
               {/* Primera página */}
               <button
                 type="button"
                 onClick={() => setCurrentPage(1)}
                 disabled={validCurrentPage === 1}
-                className="p-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800"
+                className="p-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 hidden sm:inline-flex"
                 title="Primera Página"
               >
                 <ChevronsLeft className="w-4 h-4" />
@@ -880,10 +1051,10 @@ export const MarketView: React.FC = () => {
                 type="button"
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 disabled={validCurrentPage === 1}
-                className="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 font-bold flex items-center gap-1"
+                className="px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 font-bold flex items-center gap-1"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Anterior</span>
+                <span>Ant</span>
               </button>
 
               {/* Números de página */}
@@ -906,7 +1077,7 @@ export const MarketView: React.FC = () => {
                       type="button"
                       onClick={() => setCurrentPage(pageNum)}
                       className={clsx(
-                        'w-8 h-8 rounded-lg font-mono text-xs font-bold transition-all',
+                        'w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-mono text-xs font-bold transition-all',
                         validCurrentPage === pageNum
                           ? 'bg-cyan-500 text-black'
                           : 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800'
@@ -923,9 +1094,9 @@ export const MarketView: React.FC = () => {
                 type="button"
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                 disabled={validCurrentPage === totalPages}
-                className="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 font-bold flex items-center gap-1"
+                className="px-2.5 sm:px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 font-bold flex items-center gap-1"
               >
-                <span>Siguiente</span>
+                <span>Sig</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
 
@@ -934,7 +1105,7 @@ export const MarketView: React.FC = () => {
                 type="button"
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={validCurrentPage === totalPages}
-                className="p-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800"
+                className="p-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 hidden sm:inline-flex"
                 title="Última Página"
               >
                 <ChevronsRight className="w-4 h-4" />
@@ -946,8 +1117,8 @@ export const MarketView: React.FC = () => {
 
       {/* 6. MODAL DE PUJA Y FICHAJE */}
       {selectedMarketPlayer && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-fadeIn">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-4 sm:p-6 space-y-4 shadow-2xl animate-fadeIn max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
                 <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider block font-mono">

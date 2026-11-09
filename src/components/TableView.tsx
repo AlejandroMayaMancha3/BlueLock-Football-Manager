@@ -13,6 +13,8 @@ import {
   Sparkles,
   Layers,
   Globe2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { LeagueTableRow, CountryLeague } from '@/types/football-manager';
@@ -42,6 +44,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
   // Estados de navegación para explorar cualquier división del país o del continente
   const [selectedCountry, setSelectedCountry] = useState<CountryLeague>(userCountry);
   const [activeTabDivisionId, setActiveTabDivisionId] = useState<string>(userDivisionId);
+  const [expandedClubId, setExpandedClubId] = useState<string | null>(null);
 
   // Obtener las divisiones del país actualmente seleccionado
   const availableDivisions = useMemo(() => {
@@ -283,7 +286,8 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
 
       {/* TABLA OFICIAL DE POSICIONES */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-        <div className="overflow-x-auto">
+        {/* VISTA ESCRITORIO (PC) - 100% INTACTA */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
               <tr>
@@ -397,6 +401,162 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* VISTA MÓVIL (PANTALLAS PEQUEÑAS) - ULTRA LEGIBLE Y TÁCTIL */}
+        <div className="sm:hidden">
+          {/* Cabecera compacta móvil */}
+          <div className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800 px-3 py-2 flex items-center justify-between font-mono font-bold">
+            <div className="flex items-center gap-3">
+              <span className="w-6 text-center">Pos</span>
+              <span>Club</span>
+            </div>
+            <div className="flex items-center gap-4 text-right">
+              <span className="w-6 text-center">PJ</span>
+              <span className="w-8 text-center">DG</span>
+              <span className="w-9 text-center text-cyan-400">PTS</span>
+              <span className="w-4"></span>
+            </div>
+          </div>
+
+          {/* Lista de filas de la clasificación */}
+          <div className="divide-y divide-slate-800/60">
+            {displayedTable.map((row, idx) => {
+              const pos = idx + 1;
+              const isUser = row.clubId === userClubId;
+              const zone = getZoneBadge(pos);
+              const isExpanded = expandedClubId === row.clubId;
+              const lastFive = (row.formHistory || []).slice(-5);
+
+              return (
+                <div
+                  key={row.clubId}
+                  className={clsx(
+                    'transition-colors font-mono',
+                    isUser
+                      ? 'bg-cyan-950/40 hover:bg-cyan-950/60'
+                      : 'hover:bg-slate-800/30',
+                    zone.border
+                  )}
+                >
+                  {/* Fila principal táctil */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedClubId(isExpanded ? null : row.clubId)}
+                    className="w-full px-3 py-2.5 flex items-center justify-between text-left transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                      <span
+                        className={clsx(
+                          'w-6 h-6 rounded-lg shrink-0 inline-flex items-center justify-center font-bold text-[11px] shadow-sm',
+                          zone.bg
+                        )}
+                      >
+                        {pos}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={clsx(
+                              'font-bold text-xs truncate font-sans',
+                              isUser ? 'text-cyan-300' : 'text-white'
+                            )}
+                          >
+                            {row.clubName}
+                          </span>
+                          {isUser && (
+                            <span className="text-[8px] bg-cyan-500 text-black px-1 py-0.2 rounded font-black tracking-wider uppercase shrink-0">
+                              TÚ
+                            </span>
+                          )}
+                        </div>
+                        {zone.tag && zone.isSpecial && (
+                          <span className="text-[9px] text-slate-400 font-sans block">
+                            {zone.tag}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-xs font-mono shrink-0">
+                      <span className="w-6 text-center text-slate-400">{row.played}</span>
+                      <span
+                        className={clsx(
+                          'w-8 text-center font-bold',
+                          row.goalDifference > 0
+                            ? 'text-emerald-400'
+                            : row.goalDifference < 0
+                            ? 'text-rose-400'
+                            : 'text-slate-400'
+                        )}
+                      >
+                        {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
+                      </span>
+                      <span className="w-9 text-center font-black text-sm text-cyan-400 bg-slate-950 px-1 py-0.5 rounded-lg border border-slate-800">
+                        {row.points}
+                      </span>
+                      <span className="w-4 text-slate-400">
+                        {isExpanded ? <ChevronUp className="w-4 h-4 text-cyan-400" /> : <ChevronDown className="w-4 h-4" />}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Panel expandido con detalles completos (PG, PE, PP, GF, GC y Forma) */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-1 bg-slate-950/70 border-t border-slate-800/80 space-y-2.5 text-xs animate-fadeIn">
+                      <div className="grid grid-cols-5 gap-1.5 text-center font-mono">
+                        <div className="bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                          <span className="text-[9px] text-slate-400 block font-sans">Victorias</span>
+                          <span className="font-bold text-emerald-400">{row.won} PG</span>
+                        </div>
+                        <div className="bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                          <span className="text-[9px] text-slate-400 block font-sans">Empates</span>
+                          <span className="font-bold text-amber-400">{row.drawn} PE</span>
+                        </div>
+                        <div className="bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                          <span className="text-[9px] text-slate-400 block font-sans">Derrotas</span>
+                          <span className="font-bold text-rose-400">{row.lost} PP</span>
+                        </div>
+                        <div className="bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                          <span className="text-[9px] text-slate-400 block font-sans">Goles +</span>
+                          <span className="font-bold text-cyan-400">{row.goalsFor} GF</span>
+                        </div>
+                        <div className="bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+                          <span className="text-[9px] text-slate-400 block font-sans">Goles -</span>
+                          <span className="font-bold text-slate-300">{row.goalsAgainst} GC</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-400 font-sans font-bold uppercase">
+                          Racha últimos 5 partidos:
+                        </span>
+                        <div className="flex items-center gap-1.5 font-mono">
+                          {lastFive.length > 0 ? (
+                            lastFive.map((res, fIdx) => (
+                              <span
+                                key={fIdx}
+                                className={clsx(
+                                  'w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center shadow-xs',
+                                  res === 'W' && 'bg-emerald-500 text-black',
+                                  res === 'D' && 'bg-amber-500 text-black',
+                                  res === 'L' && 'bg-rose-500 text-white'
+                                )}
+                              >
+                                {res}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[10px] text-slate-600 font-sans">Sin partidos disputados</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* LEYENDA DINÁMICA DE ZONAS SEGÚN EL TIER */}

@@ -29,6 +29,13 @@ export const TacticsView: React.FC = () => {
   const [panelTab, setPanelTab] = useState<'bench' | 'reserves'>('bench');
   const [showChemicalModal, setShowChemicalModal] = useState<boolean>(false);
 
+  // Estados dedicados exclusivamente a la experiencia móvil
+  const [mobileTacticsTab, setMobileTacticsTab] = useState<'lineup' | 'pitch' | 'bench'>('lineup');
+  const [mobileSubModalPlayer, setMobileSubModalPlayer] = useState<Player | null>(null);
+  const [mobileSubTab, setMobileSubTab] = useState<'bench' | 'reserves' | 'starters'>('bench');
+  const [mobileBenchSwapPlayer, setMobileBenchSwapPlayer] = useState<Player | null>(null);
+  const [tacticsFeedback, setTacticsFeedback] = useState<string | null>(null);
+
   const tacticsContainerRef = useRef<HTMLDivElement>(null);
 
   const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
@@ -283,8 +290,587 @@ export const TacticsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Pizarra 2D y Banquillo / Reservas */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* FEEDBACK DE CAMBIO TÁCTICO */}
+      {tacticsFeedback && (
+        <div className="p-3 bg-emerald-950/80 border border-emerald-500/60 rounded-xl text-xs text-emerald-300 font-bold flex items-center justify-between shadow-lg animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{tacticsFeedback}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setTacticsFeedback(null)}
+            className="text-slate-400 hover:text-white"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 1. VISTA MÓVIL EXCLUSIVA (< lg): TÁCTICA RÁPIDA Y CÓMODA */}
+      {/* ======================================================== */}
+      <div className="lg:hidden space-y-3">
+        {/* Selector de Pestañas Móviles */}
+        <div className="flex bg-slate-950 p-1 rounded-2xl border border-slate-800 text-xs font-bold gap-1">
+          <button
+            type="button"
+            onClick={() => setMobileTacticsTab('lineup')}
+            className={clsx(
+              'flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5',
+              mobileTacticsTab === 'lineup'
+                ? 'bg-cyan-500 text-black font-black shadow-md'
+                : 'text-slate-400 hover:text-white'
+            )}
+          >
+            <Users className="w-3.5 h-3.5 shrink-0" />
+            <span>11 Titular ({starters.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTacticsTab('pitch')}
+            className={clsx(
+              'flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5',
+              mobileTacticsTab === 'pitch'
+                ? 'bg-cyan-500 text-black font-black shadow-md'
+                : 'text-slate-400 hover:text-white'
+            )}
+          >
+            <Shield className="w-3.5 h-3.5 shrink-0" />
+            <span>Pizarra 2D</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTacticsTab('bench')}
+            className={clsx(
+              'flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5',
+              mobileTacticsTab === 'bench'
+                ? 'bg-cyan-500 text-black font-black shadow-md'
+                : 'text-slate-400 hover:text-white'
+            )}
+          >
+            <ArrowRightLeft className="w-3.5 h-3.5 shrink-0" />
+            <span>Banquillo ({benchPlayers.length}/7)</span>
+          </button>
+        </div>
+
+        {/* SUBVISTA 1 EN MÓVIL: LISTA DEL 11 TITULAR CON CAMBIOS EN 1 TOQUE */}
+        {mobileTacticsTab === 'lineup' && (
+          <div className="space-y-2">
+            <div className="p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-slate-300 flex items-center justify-between">
+              <span>Formación activa: <b className="text-cyan-400 font-mono">{userClub.formation}</b></span>
+              <span className="text-[11px] text-slate-400">Toca <b>&quot;Cambiar&quot;</b> para sustituir</span>
+            </div>
+
+            <div className="space-y-2">
+              {startersAdaptations.map(({ player, assignedRole, adaptation }) => {
+                const isCaptain = userClub.captainId === player.id;
+                const isPenalty = userClub.penaltyTakerId === player.id;
+                const isFreeKick = userClub.freeKickTakerId === player.id;
+                const hasPenalty = adaptation.penaltyOvr > 0;
+
+                return (
+                  <div
+                    key={player.id}
+                    className={clsx(
+                      'p-3 rounded-2xl border transition-all flex items-center justify-between gap-2.5 shadow-md',
+                      player.isBanned
+                        ? 'bg-rose-950/40 border-rose-800'
+                        : (player.injuryWeeks || 0) > 0
+                        ? 'bg-amber-950/40 border-amber-800'
+                        : hasPenalty
+                        ? 'bg-slate-900 border-amber-500/40'
+                        : 'bg-slate-900 border-slate-800'
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="text-center shrink-0 w-12">
+                        <span className={clsx(
+                          'px-2 py-0.5 rounded font-mono font-black text-xs block text-center',
+                          hasPenalty ? 'bg-amber-950 text-amber-300 border border-amber-500/50' : 'bg-slate-800 text-cyan-300'
+                        )}>
+                          {assignedRole}
+                        </span>
+                        {player.position !== assignedRole && (
+                          <span className="text-[9px] text-slate-500 block mt-0.5">Nat: {player.position}</span>
+                        )}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-black text-white text-sm truncate">{player.name}</span>
+                          {isCaptain && <span className="bg-yellow-500 text-black text-[9px] px-1 font-black rounded">C</span>}
+                          {isPenalty && <span className="bg-blue-600 text-white text-[9px] px-1 font-black rounded">P</span>}
+                          {isFreeKick && <span className="bg-emerald-600 text-white text-[9px] px-1 font-black rounded">F</span>}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-white font-bold">MED {adaptation.effectiveOvr}</span>
+                          {hasPenalty && (
+                            <span className="text-amber-400 font-bold text-[10px]">(-{adaptation.penaltyOvr} OVR fuera de posición)</span>
+                          )}
+                          <span>·</span>
+                          <span>Fit {player.fitness}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMobileSubModalPlayer(player);
+                        setMobileSubTab('bench');
+                      }}
+                      className="px-3 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 shrink-0"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5" />
+                      <span>Cambiar</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* SUBVISTA 2 EN MÓVIL: PIZARRA 2D TÁCTIL */}
+        {mobileTacticsTab === 'pitch' && (
+          <div className="space-y-2">
+            <div className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400 text-center">
+              💡 Toca a cualquier jugador de la pizarra para abrir su menú de cambio instantáneo.
+            </div>
+            <Pitch2D
+              club={userClub}
+              allPlayersMap={allPlayersMap}
+              selectedPlayerId={mobileSubModalPlayer?.id}
+              onPlayerClick={(p) => {
+                setMobileSubModalPlayer(p);
+                setMobileSubTab('bench');
+              }}
+              onPitchClick={() => setMobileSubModalPlayer(null)}
+            />
+          </div>
+        )}
+
+        {/* SUBVISTA 3 EN MÓVIL: BANQUILLO Y RESERVAS */}
+        {mobileTacticsTab === 'bench' && (
+          <div className="space-y-4">
+            {/* Convocados en Banquillo */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Banquillo Convocado ({benchPlayers.length}/7)</span>
+                </h4>
+                <span className="text-[11px] text-slate-400">Listos para jugar</span>
+              </div>
+
+              {benchPlayers.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                  No hay suplentes convocados. Añade jugadores desde la lista de Reservas.
+                </div>
+              ) : (
+                benchPlayers.map((p) => (
+                  <div
+                    key={p.id}
+                    className="p-3 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between gap-2 shadow"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="px-2 py-1 rounded-lg bg-slate-800 text-cyan-300 font-mono font-bold text-xs shrink-0">
+                        {p.position}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="font-bold text-white text-xs sm:text-sm truncate">{p.name}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">
+                          MED {p.overall} · POT {p.potential} · Fit {p.fitness}%
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setMobileBenchSwapPlayer(p)}
+                        className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold border border-slate-700 transition-all flex items-center gap-1"
+                      >
+                        <ArrowRightLeft className="w-3 h-3 text-cyan-400" />
+                        <span>Reemplazar</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Lista de Reservas en Móvil */}
+            <div className="space-y-2 pt-2 border-t border-slate-800/80">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-white text-xs uppercase tracking-wider">
+                  Reservas ({reservePlayers.length})
+                </h4>
+                <span className="text-[11px] text-slate-400">Resto de plantilla</span>
+              </div>
+
+              <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                {reservePlayers.map((p) => (
+                  <div
+                    key={p.id}
+                    className="p-2.5 bg-slate-950 border border-slate-800/80 rounded-xl flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="px-1.5 py-0.5 rounded bg-slate-850 text-slate-300 font-mono font-bold text-[10px] shrink-0">
+                        {p.position}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="font-bold text-white text-xs truncate">{p.name}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          MED {p.overall} · Fit {p.fitness}%
+                        </div>
+                      </div>
+                    </div>
+
+                    {benchPlayers.length < 7 ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          addToBench(p.id);
+                          setTacticsFeedback(`${p.name} añadido al banquillo.`);
+                        }}
+                        className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500 hover:text-black text-emerald-300 text-xs font-bold rounded-lg border border-emerald-500/40 transition-all flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Al Banquillo</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedReserveForBench(p);
+                          setMobileTacticsTab('bench');
+                        }}
+                        className="px-2 py-1 bg-slate-800 text-slate-300 text-xs font-bold rounded-lg border border-slate-700 hover:text-white"
+                      >
+                        Cambiar por...
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL EMERGENTE EN MÓVIL: SUSTITUCIÓN RÁPIDA DE UN TITULAR */}
+      {mobileSubModalPlayer && (
+        <div
+          onClick={() => setMobileSubModalPlayer(null)}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-cyan-500/60 rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 shadow-2xl space-y-4 max-h-[85vh] flex flex-col animate-slideUp"
+          >
+            {/* Cabecera del modal */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-400 font-mono font-black text-xs flex items-center justify-center shrink-0">
+                  {mobileSubModalPlayer.position}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="font-black text-white text-sm truncate">
+                    Sustituir a {mobileSubModalPlayer.name}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-mono">
+                    Media Actual: {mobileSubModalPlayer.overall} · Fitness: {mobileSubModalPlayer.fitness}%
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setMobileSubModalPlayer(null)}
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Pestañas de origen de sustitución */}
+            <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-bold gap-1">
+              <button
+                type="button"
+                onClick={() => setMobileSubTab('bench')}
+                className={clsx(
+                  'flex-1 py-1.5 rounded-lg transition-all',
+                  mobileSubTab === 'bench' ? 'bg-cyan-500 text-black font-black' : 'text-slate-400'
+                )}
+              >
+                Banquillo ({benchPlayers.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileSubTab('reserves')}
+                className={clsx(
+                  'flex-1 py-1.5 rounded-lg transition-all',
+                  mobileSubTab === 'reserves' ? 'bg-cyan-500 text-black font-black' : 'text-slate-400'
+                )}
+              >
+                Reservas ({reservePlayers.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileSubTab('starters')}
+                className={clsx(
+                  'flex-1 py-1.5 rounded-lg transition-all',
+                  mobileSubTab === 'starters' ? 'bg-cyan-500 text-black font-black' : 'text-slate-400'
+                )}
+              >
+                Titulares
+              </button>
+            </div>
+
+            {/* Lista de candidatos para sustituir */}
+            <div className="flex-1 overflow-y-auto space-y-2 max-h-[380px] pr-1">
+              {mobileSubTab === 'bench' && (
+                benchPlayers.length === 0 ? (
+                  <p className="p-4 text-center text-xs text-slate-500">No hay jugadores en el banquillo.</p>
+                ) : (
+                  benchPlayers.map((bp) => {
+                    const adaptation = calculatePositionalAdaptation(bp, mobileSubModalPlayer.position);
+                    return (
+                      <div
+                        key={bp.id}
+                        className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="px-2 py-1 rounded bg-slate-800 text-cyan-300 font-mono font-bold text-xs shrink-0">
+                            {bp.position}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="font-bold text-white text-xs sm:text-sm truncate">{bp.name}</div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              Rinde al {Math.round(adaptation.performanceRatio * 100)}% ({adaptation.effectiveOvr} OVR)
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            swapStartingPlayer(mobileSubModalPlayer.id, bp.id);
+                            setTacticsFeedback(`${bp.name} entra de titular por ${mobileSubModalPlayer.name}.`);
+                            setMobileSubModalPlayer(null);
+                          }}
+                          className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl shadow transition-all flex items-center gap-1 shrink-0"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Poner Titular</span>
+                        </button>
+                      </div>
+                    );
+                  })
+                )
+              )}
+
+              {mobileSubTab === 'reserves' && (
+                reservePlayers.length === 0 ? (
+                  <p className="p-4 text-center text-xs text-slate-500">No hay jugadores en la reserva.</p>
+                ) : (
+                  reservePlayers.map((rp) => {
+                    const adaptation = calculatePositionalAdaptation(rp, mobileSubModalPlayer.position);
+                    return (
+                      <div
+                        key={rp.id}
+                        className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="px-2 py-1 rounded bg-slate-800 text-slate-300 font-mono font-bold text-xs shrink-0">
+                            {rp.position}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="font-bold text-white text-xs truncate">{rp.name}</div>
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              MED {adaptation.effectiveOvr} ({Math.round(adaptation.performanceRatio * 100)}%)
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            swapStartingPlayer(mobileSubModalPlayer.id, rp.id);
+                            setTacticsFeedback(`${rp.name} sube al 11 titular por ${mobileSubModalPlayer.name}.`);
+                            setMobileSubModalPlayer(null);
+                          }}
+                          className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-xl shadow transition-all flex items-center gap-1 shrink-0"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Poner Titular</span>
+                        </button>
+                      </div>
+                    );
+                  })
+                )
+              )}
+
+              {mobileSubTab === 'starters' && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] text-slate-400 pb-1">
+                    Intercambiar posiciones sobre el campo con otro titular:
+                  </p>
+                  {starters
+                    .filter((s) => s.id !== mobileSubModalPlayer.id)
+                    .map((otherStarter) => (
+                      <button
+                        key={otherStarter.id}
+                        type="button"
+                        onClick={() => {
+                          swapStartingPlayer(mobileSubModalPlayer.id, otherStarter.id);
+                          setTacticsFeedback(`Intercambiada la posición entre ${mobileSubModalPlayer.name} y ${otherStarter.name}.`);
+                          setMobileSubModalPlayer(null);
+                        }}
+                        className="w-full p-2.5 rounded-xl bg-slate-950 hover:bg-cyan-950/60 border border-slate-800 hover:border-cyan-500/50 flex items-center justify-between text-left transition-all"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-mono text-xs font-bold">
+                            {otherStarter.position}
+                          </span>
+                          <span className="font-bold text-white text-xs">{otherStarter.name}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">({otherStarter.overall})</span>
+                        </div>
+                        <span className="text-cyan-400 text-xs font-bold flex items-center gap-1">
+                          <ArrowRightLeft className="w-3 h-3" />
+                          <span>Intercambiar</span>
+                        </span>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* Asignación rápida de Roles de Capitán, Penaltis y Faltas */}
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Asignar Roles:</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('captain', mobileSubModalPlayer.id);
+                    setTacticsFeedback(`${mobileSubModalPlayer.name} es el nuevo Capitán.`);
+                  }}
+                  className={clsx(
+                    'px-2 py-1 rounded text-[10px] font-bold border transition-all',
+                    userClub.captainId === mobileSubModalPlayer.id
+                      ? 'bg-yellow-500 text-black border-yellow-400 font-black'
+                      : 'bg-slate-800 text-yellow-400 border-slate-700'
+                  )}
+                >
+                  Capitán
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('penalty', mobileSubModalPlayer.id);
+                    setTacticsFeedback(`${mobileSubModalPlayer.name} lanzará los Penaltis.`);
+                  }}
+                  className={clsx(
+                    'px-2 py-1 rounded text-[10px] font-bold border transition-all',
+                    userClub.penaltyTakerId === mobileSubModalPlayer.id
+                      ? 'bg-blue-600 text-white border-blue-400 font-black'
+                      : 'bg-slate-800 text-blue-400 border-slate-700'
+                  )}
+                >
+                  Penaltis
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole('freekick', mobileSubModalPlayer.id);
+                    setTacticsFeedback(`${mobileSubModalPlayer.name} lanzará las Faltas.`);
+                  }}
+                  className={clsx(
+                    'px-2 py-1 rounded text-[10px] font-bold border transition-all',
+                    userClub.freeKickTakerId === mobileSubModalPlayer.id
+                      ? 'bg-emerald-600 text-white border-emerald-400 font-black'
+                      : 'bg-slate-800 text-emerald-400 border-slate-700'
+                  )}
+                >
+                  Faltas
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EMERGENTE EN MÓVIL: REEMPLAZAR EN BANQUILLO */}
+      {mobileBenchSwapPlayer && (
+        <div
+          onClick={() => setMobileBenchSwapPlayer(null)}
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-slate-900 border border-cyan-500/60 rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl space-y-4 max-h-[80vh] flex flex-col"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="font-black text-white text-sm">
+                Reemplazar en Banquillo a {mobileBenchSwapPlayer.name}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setMobileBenchSwapPlayer(null)}
+                className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Elige qué jugador de la reserva ocupará su plaza en el banquillo:
+            </p>
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[350px]">
+              {reservePlayers.map((rp) => (
+                <div
+                  key={rp.id}
+                  className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between gap-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="px-2 py-1 rounded bg-slate-800 text-slate-300 font-mono font-bold text-xs shrink-0">
+                      {rp.position}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="font-bold text-white text-xs truncate">{rp.name}</div>
+                      <div className="text-[10px] text-slate-500 font-mono">
+                        MED {rp.overall} · POT {rp.potential}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      swapBenchPlayer(mobileBenchSwapPlayer.id, rp.id);
+                      setTacticsFeedback(`${rp.name} entra al banquillo por ${mobileBenchSwapPlayer.name}.`);
+                      setMobileBenchSwapPlayer(null);
+                    }}
+                    className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs rounded-xl shadow transition-all flex items-center gap-1 shrink-0"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Subir</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 2. VISTA DE ESCRITORIO (PC): PIZARRA Y BANQUILLO LATERAL (SIN TOCAR) */}
+      {/* ======================================================== */}
+      <div className="hidden lg:grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-3">
           <Pitch2D
             club={userClub}

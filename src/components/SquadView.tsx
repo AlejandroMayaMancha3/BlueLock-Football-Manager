@@ -179,22 +179,175 @@ export const SquadView: React.FC = () => {
         </div>
       </div>
 
-      {/* TABLA DE JUGADORES */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      {/* 1. VISTA MÓVIL: TARJETAS DE JUGADOR DEDICADAS (TODO EL TEXTO CABE PERFECTAMENTE SIN CORTARSE) */}
+      <div className="sm:hidden space-y-2.5">
+        {filteredAndSortedPlayers.map((player) => {
+          const isStarter = userClub.startingXI.includes(player.id);
+          const isBench = userClub.substitutes.includes(player.id);
+          const isCaptain = userClub.captainId === player.id;
+          const isPenalty = userClub.penaltyTakerId === player.id;
+          const isFreeKick = userClub.freeKickTakerId === player.id;
+          const tier = getPotentialTier(player.potential);
+          const isStagnating = (player.consecutiveMatchesWithoutPlaying || 0) >= 3;
+          const isWasted = (player.consecutiveMatchesWithoutPlaying || 0) >= 6;
+          const isExpiring = player.contractYears <= 1;
+
+          return (
+            <div
+              key={player.id}
+              onClick={() => setSelectedPlayer(player)}
+              className={clsx(
+                'p-3.5 rounded-2xl border transition-all active:scale-[0.99] cursor-pointer space-y-2.5 shadow-md',
+                isStarter
+                  ? 'bg-slate-900/95 border-cyan-500/50 ring-1 ring-cyan-500/20'
+                  : isBench
+                  ? 'bg-slate-900/90 border-slate-800 hover:border-slate-700'
+                  : 'bg-slate-950 border-slate-850 opacity-90'
+              )}
+            >
+              {/* FILA 1: POSICIÓN + NOMBRE + OVR / POT */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <span className="px-2 py-1 rounded-lg font-mono font-bold text-xs bg-slate-800 text-cyan-300 shrink-0">
+                    {player.position}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-black text-white text-sm break-words leading-tight">
+                        {player.name}
+                      </span>
+                      {isCaptain && <span className="bg-yellow-500 text-black text-[9px] px-1 font-black rounded">C</span>}
+                      {isPenalty && <span className="bg-blue-600 text-white text-[9px] px-1 font-black rounded">P</span>}
+                      {isFreeKick && <span className="bg-emerald-600 text-white text-[9px] px-1 font-black rounded">F</span>}
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span>{player.age} años</span>
+                      <span>·</span>
+                      <span>{player.nationality}</span>
+                      {player.secondaryPosition && (
+                        <span>· 2ª: <b className="text-slate-300">{player.secondaryPosition}</b></span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* OVR & POT (CAJA DESTACADA) */}
+                <div className="flex items-center gap-1.5 shrink-0 bg-slate-950 p-1.5 rounded-xl border border-slate-800 text-center">
+                  <div className="px-1.5">
+                    <span className="text-[8px] uppercase text-slate-500 font-bold block">MED</span>
+                    <span className="font-mono font-black text-sm text-white">{player.overall}</span>
+                  </div>
+                  <div className="h-6 w-px bg-slate-800" />
+                  <div className="px-1.5">
+                    <span className="text-[8px] uppercase text-slate-500 font-bold block">POT</span>
+                    <span className={clsx('font-mono font-black text-xs', tier.color.split(' ')[0])}>
+                      {player.potential}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* FILA 2: BADGES DE ESTATUS (SI LOS TIENE) */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {isStarter ? (
+                  <span className="text-[9px] bg-cyan-950 text-cyan-300 border border-cyan-500/40 px-2 py-0.5 rounded-md font-bold">
+                    11 Titular
+                  </span>
+                ) : isBench ? (
+                  <span className="text-[9px] bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-md font-semibold">
+                    Suplente Convocado
+                  </span>
+                ) : (
+                  <span className="text-[9px] bg-slate-950 text-slate-500 border border-slate-850 px-2 py-0.5 rounded-md">
+                    Reserva
+                  </span>
+                )}
+
+                {player.isBanned && (
+                  <span className="text-[9px] bg-rose-950 text-rose-300 border border-rose-500/50 px-2 py-0.5 rounded-md font-bold animate-pulse">
+                    🟥 Sancionado
+                  </span>
+                )}
+
+                {(player.injuryWeeks || 0) > 0 && (
+                  <span className="text-[9px] bg-amber-950 text-amber-300 border border-amber-500/50 px-2 py-0.5 rounded-md font-bold animate-pulse">
+                    🏥 {player.injuryWeeks} sem lesión
+                  </span>
+                )}
+
+                {checkIsProdigy(player) && (
+                  <span className="text-[9px] bg-purple-950 text-purple-300 border border-purple-500/50 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                    <span>🔮</span> Prodigio
+                  </span>
+                )}
+
+                {player.isTransferListed && (
+                  <span className="text-[9px] bg-amber-950/80 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-md font-bold">
+                    🏷️ En Venta
+                  </span>
+                )}
+
+                {isExpiring && (
+                  <span className="text-[9px] bg-rose-950/80 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-md font-bold">
+                    ⚠️ Expira Contrato
+                  </span>
+                )}
+
+                {player.weapons && player.weapons.length > 0 && (
+                  <span className="text-[9px] bg-purple-950/80 text-purple-300 border border-purple-800 px-2 py-0.5 rounded-md font-bold">
+                    ⚡ {player.weapons[0].name}
+                  </span>
+                )}
+              </div>
+
+              {/* FILA 3: VALOR, SALARIO Y ACCIÓN */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <span className="text-[9px] text-slate-500 uppercase font-bold block">Valor</span>
+                    <span className="font-mono font-black text-cyan-400 text-xs">
+                      {formatMoney(player.marketValueYen, selectedCurrency)}
+                    </span>
+                  </div>
+                  <div className="h-5 w-px bg-slate-800" />
+                  <div>
+                    <span className="text-[9px] text-slate-500 uppercase font-bold block">Salario</span>
+                    <span className="font-mono text-slate-300 text-xs">
+                      {formatMoney(player.weeklyWageYen, selectedCurrency)}/sem
+                    </span>
+                  </div>
+                  <div className="h-5 w-px bg-slate-800" />
+                  <div>
+                    <span className="text-[9px] text-slate-500 uppercase font-bold block">Físico</span>
+                    <span className="text-emerald-400 font-bold text-xs">{player.fitness}%</span>
+                  </div>
+                </div>
+
+                <span className="text-cyan-400 font-bold text-[11px] hover:underline flex items-center gap-1">
+                  Ver Ficha →
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 2. VISTA DE ESCRITORIO (PC): TABLA COMPLETA CON TODAS LAS COLUMNAS SIN TOCAR */}
+      <div className="hidden sm:block bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
               <tr>
-                <th className="p-2.5 sm:p-3 w-10 sm:w-12">Pos</th>
-                <th className="p-2.5 sm:p-3 min-w-[130px] sm:min-w-[180px]">Jugador</th>
-                <th className="p-3 hidden sm:table-cell text-center">Edad</th>
-                <th className="p-2.5 sm:p-3 text-center">Media</th>
-                <th className="p-2.5 sm:p-3 text-center">Potencial</th>
-                <th className="p-3 hidden md:table-cell">Estado / Minutos</th>
-                <th className="p-3 hidden lg:table-cell">Armas</th>
-                <th className="p-3 hidden md:table-cell text-center">Físico</th>
-                <th className="p-3 hidden sm:table-cell">Salario</th>
-                <th className="p-2.5 sm:p-3">Valor Mercado</th>
+                <th className="p-3">Pos</th>
+                <th className="p-3">Jugador (Click en nombre para expediente)</th>
+                <th className="p-3">Edad</th>
+                <th className="p-3">Media Actual</th>
+                <th className="p-3 text-center">Potencial Máx</th>
+                <th className="p-3">Estado y Minutos</th>
+                <th className="p-3">Armas / Habilidades</th>
+                <th className="p-3">Físico</th>
+                <th className="p-3">Salario</th>
+                <th className="p-3">Valor de Mercado</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -214,14 +367,14 @@ export const SquadView: React.FC = () => {
                     key={player.id}
                     className={clsx('hover:bg-slate-800/40 transition-colors', isStarter && 'bg-cyan-950/20')}
                   >
-                    <td className="p-2.5 sm:p-3">
+                    <td className="p-3">
                       <div className="flex items-center gap-1">
-                        <span className="px-1.5 sm:px-2 py-0.5 rounded font-bold text-[9px] sm:text-[10px] bg-slate-800 text-cyan-300">
+                        <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-800 text-cyan-300">
                           {player.position}
                         </span>
                         {player.secondaryPosition && (
                           <span
-                            className="hidden sm:inline px-1 py-0.5 rounded font-bold text-[9px] bg-slate-900 border border-slate-700 text-slate-400"
+                            className="px-1 py-0.5 rounded font-bold text-[9px] bg-slate-900 border border-slate-700 text-slate-400"
                             title={`Posición secundaria dominada: ${player.secondaryPosition}`}
                           >
                             2ª:{player.secondaryPosition}
@@ -229,103 +382,109 @@ export const SquadView: React.FC = () => {
                         )}
                       </div>
                     </td>
-                    <td className="p-2.5 sm:p-3">
-                      <div className="font-bold text-white text-xs sm:text-sm flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                    <td className="p-3">
+                      <div className="font-bold text-white text-sm flex items-center gap-1.5 flex-wrap">
                         {/* CLICK SOLO EN EL NOMBRE */}
                         <button
                           type="button"
                           onClick={() => setSelectedPlayer(player)}
-                          className="font-bold text-white hover:text-cyan-400 cursor-pointer underline-offset-2 hover:underline transition-colors text-left truncate max-w-[140px] sm:max-w-none"
+                          className="font-bold text-white hover:text-cyan-400 cursor-pointer underline-offset-2 hover:underline transition-colors text-left"
                           title={`Abrir expediente completo de ${player.name}`}
                         >
                           {player.name}
                         </button>
 
-                        {/* BADGES DE ESTATUS COMPACTOS EN MÓVIL */}
+                        {/* BADGES DE ESTATUS */}
                         {player.isBanned && (
-                          <span className="text-[8px] sm:text-[9px] bg-rose-950/90 text-rose-300 border border-rose-500/60 px-1 sm:px-1.5 py-0.2 rounded font-bold animate-pulse">
+                          <span className="text-[9px] bg-rose-950/90 text-rose-300 border border-rose-500/60 px-1.5 py-0.2 rounded font-bold animate-pulse">
                             🟥 Sancionado
                           </span>
                         )}
 
                         {(player.injuryWeeks || 0) > 0 && (
-                          <span className="text-[8px] sm:text-[9px] bg-amber-950/90 text-amber-300 border border-amber-500/60 px-1 sm:px-1.5 py-0.2 rounded font-bold animate-pulse">
-                            🏥 {player.injuryWeeks} sem
+                          <span className="text-[9px] bg-amber-950/90 text-amber-300 border border-amber-500/60 px-1.5 py-0.2 rounded font-bold animate-pulse">
+                            🏥 Lesión ({player.injuryWeeks} sem)
                           </span>
                         )}
 
                         {checkIsProdigy(player) && (
                           <span
-                            className="text-[8px] sm:text-[9px] bg-purple-950/80 text-purple-300 border border-purple-500/50 px-1 sm:px-1.5 py-0.2 rounded font-bold flex items-center gap-0.5 shadow-sm"
-                            title="Prodigio de Blue Lock: Talento precoz con potencial de élite (≤ 20 años y Potencial ≥ 90)."
+                            className="text-[9px] bg-purple-950/80 text-purple-300 border border-purple-500/50 px-1.5 py-0.2 rounded font-bold flex items-center gap-0.5 shadow-sm"
+                            title="Prodigio de Blue Lock: Talento precoz con potencial de élite (≤ 20 años y Potencial ≥ 90). Despierta armas tempranamente."
                           >
-                            <span>🔮</span> <span className="hidden sm:inline">Prodigio</span>
+                            <span>🔮</span> Prodigio
+                          </span>
+                        )}
+
+                        {player.positionConversion && (
+                          <span
+                            className="text-[9px] bg-cyan-950/80 text-cyan-300 border border-cyan-500/50 px-1.5 py-0.2 rounded font-bold flex items-center gap-0.5 shadow-sm"
+                            title={`Plan de reconversión de posición activo: ${player.position} → ${player.positionConversion.targetPosition} (Semana ${player.positionConversion.weeksElapsed}/${player.positionConversion.totalWeeks})`}
+                          >
+                            🔄 → {player.positionConversion.targetPosition} ({Math.round((player.positionConversion.weeksElapsed / player.positionConversion.totalWeeks) * 100)}%)
                           </span>
                         )}
 
                         {player.isTransferListed && (
-                          <span className="text-[8px] sm:text-[9px] bg-amber-950/80 text-amber-300 border border-amber-500/50 px-1 py-0.2 rounded font-bold">
-                            🏷️ Venta
+                          <span className="text-[9px] bg-amber-950/80 text-amber-300 border border-amber-500/50 px-1.5 py-0.2 rounded font-bold">
+                            🏷️ En Venta
                           </span>
                         )}
 
                         {isExpiring && (
-                          <span className="text-[8px] sm:text-[9px] bg-rose-950/80 text-rose-300 border border-rose-500/50 px-1 py-0.2 rounded font-bold animate-pulse">
-                            ⚠️ 1a
+                          <span className="text-[9px] bg-rose-950/80 text-rose-300 border border-rose-500/50 px-1.5 py-0.2 rounded font-bold animate-pulse">
+                            ⚠️ 1 año
                           </span>
                         )}
 
                         {isCaptain && (
-                          <span className="text-[8px] sm:text-[9px] bg-yellow-500 text-black px-1 rounded font-black" title="Capitán del equipo">
+                          <span className="text-[9px] bg-yellow-500 text-black px-1 rounded font-black" title="Capitán del equipo">
                             C
                           </span>
                         )}
                         {isPenalty && (
-                          <span className="text-[8px] sm:text-[9px] bg-blue-600 text-white px-1 rounded font-black" title="Tirador de penaltis">
-                            P
+                          <span className="text-[9px] bg-blue-600 text-white px-1 rounded font-black" title="Tirador de penaltis">
+                            Pen
                           </span>
                         )}
                         {isFreeKick && (
-                          <span className="text-[8px] sm:text-[9px] bg-emerald-600 text-white px-1 rounded font-black" title="Tirador de faltas">
-                            F
+                          <span className="text-[9px] bg-emerald-600 text-white px-1 rounded font-black" title="Tirador de faltas">
+                            Falta
                           </span>
                         )}
 
                         {isStarter ? (
-                          <span className="text-[8px] sm:text-[9px] bg-cyan-900/60 text-cyan-300 border border-cyan-700/50 px-1 rounded font-bold">
-                            Titular
+                          <span className="text-[9px] bg-cyan-900/60 text-cyan-300 border border-cyan-700/50 px-1 rounded font-bold">
+                            11 Titular
                           </span>
                         ) : isBench ? (
-                          <span className="text-[8px] sm:text-[9px] bg-slate-800 text-slate-300 border border-slate-700 px-1 rounded font-bold">
-                            Supl
+                          <span className="text-[9px] bg-slate-800 text-slate-300 border border-slate-700 px-1 rounded font-bold">
+                            Banquillo
                           </span>
                         ) : (
-                          <span className="hidden sm:inline text-[8px] sm:text-[9px] bg-slate-900 text-slate-500 border border-slate-800 px-1 rounded">
-                            Res
+                          <span className="text-[9px] bg-slate-900 text-slate-500 border border-slate-800 px-1 rounded">
+                            Reserva
                           </span>
                         )}
                       </div>
-                      <div className="text-[10px] text-slate-400 sm:hidden">
-                        {player.age} años · {player.nationality}
-                      </div>
-                      <div className="text-[10px] text-slate-400 hidden sm:block">{player.nationality}</div>
+                      <div className="text-[10px] text-slate-400">{player.nationality}</div>
                     </td>
-                    <td className="p-3 text-slate-300 text-center hidden sm:table-cell">{player.age} años</td>
-                    <td className="p-2.5 sm:p-3 text-center">
-                      <span className="font-black text-sm sm:text-base text-white">{player.overall}</span>
+                    <td className="p-3 text-slate-300">{player.age} años</td>
+                    <td className="p-3">
+                      <span className="font-black text-base text-white">{player.overall}</span>
                     </td>
                     {/* COLUMNA POTENCIAL DEDICADA */}
-                    <td className="p-2.5 sm:p-3 text-center">
-                      <div className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border text-xs font-mono font-black shadow-sm">
-                        <span className={clsx('px-1.5 sm:px-2 py-0.5 rounded-md border font-black text-xs flex items-center gap-1', tier.color)}>
+                    <td className="p-3 text-center">
+                      <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-mono font-black shadow-sm">
+                        <span className={clsx('px-2 py-0.5 rounded-md border font-black text-xs flex items-center gap-1', tier.color)}>
                           <span>{tier.icon}</span>
                           <span>{player.potential}</span>
-                          <span className="hidden sm:inline text-[9px] font-normal opacity-80 uppercase ml-0.5">{tier.label}</span>
+                          <span className="text-[9px] font-normal opacity-80 uppercase ml-0.5">{tier.label}</span>
                         </span>
                       </div>
                     </td>
-                    {/* ESTADO DE MINUTOS Y PROGRESIÓN (DESKTOP) */}
-                    <td className="p-3 hidden md:table-cell">
+                    {/* ESTADO DE MINUTOS Y PROGRESIÓN */}
+                    <td className="p-3">
                       {isWasted ? (
                         <span className="inline-flex items-center gap-1 text-[10px] text-rose-400 font-bold bg-rose-950/40 border border-rose-800/60 px-2 py-0.5 rounded">
                           <AlertTriangle className="w-3 h-3" />
@@ -348,7 +507,7 @@ export const SquadView: React.FC = () => {
                         PJ: {player.seasonMatches} ({player.seasonMinutes || 0}&apos;) · Goles: {player.seasonGoals} · Asist: {player.seasonAssists}
                       </div>
                     </td>
-                    <td className="p-3 hidden lg:table-cell">
+                    <td className="p-3">
                       {player.weapons && player.weapons.length > 0 ? (
                         <div className="space-y-0.5">
                           {player.weapons.map((w, idx) => (
@@ -364,18 +523,18 @@ export const SquadView: React.FC = () => {
                         <span className="text-slate-600">-</span>
                       )}
                     </td>
-                    <td className="p-3 hidden md:table-cell text-center">
-                      <div className="flex items-center justify-center gap-1.5">
+                    <td className="p-3">
+                      <div className="flex items-center gap-1.5">
                         <div className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                           <div className="bg-emerald-400 h-full" style={{ width: `${player.fitness}%` }} />
                         </div>
                         <span className="text-[10px] text-slate-300">{player.fitness}%</span>
                       </div>
                     </td>
-                    <td className="p-3 font-mono text-slate-400 hidden sm:table-cell">
+                    <td className="p-3 font-mono text-slate-400">
                       {formatMoney(player.weeklyWageYen, selectedCurrency)}/sem
                     </td>
-                    <td className="p-2.5 sm:p-3 font-mono text-cyan-400 font-bold text-xs sm:text-sm">
+                    <td className="p-3 font-mono text-cyan-400 font-bold">
                       {formatMoney(player.marketValueYen, selectedCurrency)}
                     </td>
                   </tr>
