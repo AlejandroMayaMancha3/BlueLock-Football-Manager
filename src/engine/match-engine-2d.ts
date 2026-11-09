@@ -51,6 +51,7 @@ export interface LiveMatchState {
   homeBench: string[];
   awayBench: string[];
   playerRatings: Record<string, number>; // playerId -> 6.0 to 10.0
+  playerMinutes: Record<string, number>; // playerId -> minutos disputados en el encuentro
 }
 
 // Coordenadas base en escala 0-100 para el campo completo (11v11 reglamentario)
@@ -287,10 +288,12 @@ export function initLiveMatch(
 ): LiveMatchState {
   const ratings: Record<string, number> = {};
   const initialPositions: Record<string, { x: number; y: number }> = {};
+  const initialMinutes: Record<string, number> = {};
 
   const homeCoords = getBaseFormationCoords(homeClub.formation, true);
   homeClub.startingXI.forEach((id, idx) => {
     ratings[id] = 6.0;
+    initialMinutes[id] = 0;
     initialPositions[id] = {
       x: homeCoords[idx]?.x || 20,
       y: homeCoords[idx]?.y || 50,
@@ -300,6 +303,7 @@ export function initLiveMatch(
   const awayCoords = getBaseFormationCoords(awayClub.formation, false);
   awayClub.startingXI.forEach((id, idx) => {
     ratings[id] = 6.0;
+    initialMinutes[id] = 0;
     initialPositions[id] = {
       x: awayCoords[idx]?.x || 80,
       y: awayCoords[idx]?.y || 50,
@@ -362,22 +366,100 @@ export function initLiveMatch(
     homeBench: [...homeClub.substitutes],
     awayBench: [...awayClub.substitutes],
     playerRatings: ratings,
+    playerMinutes: initialMinutes,
   };
+}
+
+/**
+ * Realiza una sustitución táctica inteligente respetando el reglamento de 5 cambios máximos.
+ * Reemplaza jugadores cansados o con menor nota por jóvenes con alto potencial o revulsivos del banquillo.
+ */
+export function tryPerformAiSub(
+  match: LiveMatchState,
+  isHome: boolean,
+  allPlayersMap: Record<string, Player>
+): LiveMatchState {
+  const subsRemaining = isHome ? match.homeSubsRemaining : match.awaySubsRemaining;
+  if (subsRemaining <= 0) return match;
+
+  const lineup = isHome ? match.homeLineup : match.awayLineup;
+  const bench = isHome ? match.homeBench : match.awayBench;
+  if (lineup.length === 0 || bench.length === 0) return match;
+
+  // Jugadores en campo excepto el portero
+  const outfield = lineup.map((id) => allPlayersMap[id]).filter((p) => p && p.position !== 'POR');
+  if (outfield.length === 0) return match;
+
+  // Priorizar salida: peor rendimiento en el partido, mayor desgaste o delanteros/medios fatigados
+  outfield.sort((a, b) => {
+    const ratingA = match.playerRatings[a.id] || 6.0;
+    const ratingB = match.playerRatings[b.id] || 6.0;
+    return ratingA - ratingB;
+  });
+
+  const playerOut = outfield[0];
+  if (!playerOut) return match;
+
+  // Suplentes que aún no han ingresado en este encuentro
+  const availableBench = bench
+    .map((id) => allPlayersMap[id])
+    .filter((p) => p && match.playerRatings[p.id] === undefined);
+  if (availableBench.length === 0) return match;
+
+  // Buscar misma posición o afín; si no hay, tomar al de mayor potencial
+  const samePos = availableBench.filter((p) => p.position === playerOut.position);
+  const candidates = samePos.length > 0 ? samePos : availableBench;
+
+  // Priorizar jugadores con alto potencial para impulsar su desarrollo y minutos
+  candidates.sort((a, b) => (b.potential * 1.2 + b.overall) - (a.potential * 1.2 + a.overall));
+  const playerIn = candidates[0];
+  if (!playerIn) return match;
+
+  return executeLiveSub(match, isHome, playerOut.id, playerIn.id, allPlayersMap);
 }
 
 // Simula 1 minuto de partido con movimiento 2D fluido, saque de centro tras gol y mecánicas de faltas y córners
 export function tickLiveMatch(
   match: LiveMatchState,
-  allPlayersMap: Record<string, Player>
+  allPlayersMap: Record<string, Player>,
+  autoManageSubsForHome: boolean = false
 ): LiveMatchState {
   if (match.isFinished) return match;
 
-  const currentMinute = match.minute + 1;
-  const next = { ...match, minute: currentMinute };
+  // 1. Gestionar sustituciones tácticas autónomas durante la segunda mitad (minutos 58, 66, 73, 80, 85)
+  let currentMatch = match;
+  const nextMin = match.minute + 1;
+  const subWindows = [58, 66, 73, 80, 85];
+
+  if (subWindows.includes(nextMin)) {
+    // La IA rival siempre gestiona sus sustituciones
+    if (currentMatch.awaySubsRemaining > 0) {
+      currentMatch = tryPerformAiSub(currentMatch, false, allPlayersMap);
+    }
+    // Si se activa autoManageSubsForHome (ej. Simulación Completa o Saltar al Final), el equipo local también hace cambios
+    if (autoManageSubsForHome && currentMatch.homeSubsRemaining > 0) {
+      currentMatch = tryPerformAiSub(currentMatch, true, allPlayersMap);
+    }
+  }
+
+  const currentMinute = nextMin;
+  const next = {
+    ...currentMatch,
+    minute: currentMinute,
+    playerMinutes: { ...(currentMatch.playerMinutes || {}) },
+  };
+
+  // Computar minutos disputados para todos los que están sobre el césped
+  next.homeLineup.forEach((id) => {
+    next.playerMinutes[id] = (next.playerMinutes[id] || 0) + 1;
+  });
+  next.awayLineup.forEach((id) => {
+    next.playerMinutes[id] = (next.playerMinutes[id] || 0) + 1;
+  });
 
   // Jugadores disponibles sobre el césped
-  const homePlayers = match.homeLineup.map((id) => allPlayersMap[id]).filter(Boolean);
-  const awayPlayers = match.awayLineup.map((id) => allPlayersMap[id]).filter(Boolean);
+  const homePlayers = next.homeLineup.map((id) => allPlayersMap[id]).filter(Boolean);
+  const awayPlayers = next.awayLineup.map((id) => allPlayersMap[id]).filter(Boolean);
 
   const homeGk = homePlayers.find((p) => p.position === 'POR') || homePlayers[0];
   const awayGk = awayPlayers.find((p) => p.position === 'POR') || awayPlayers[0];

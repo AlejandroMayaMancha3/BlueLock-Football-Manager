@@ -49,6 +49,7 @@ export interface Player {
   consecutiveMatchesWithoutPlaying: number; // Partidos consecutivos sin jugar (para estancamiento/caída de potencial)
   // Season cumulative stats
   seasonMatches: number;
+  seasonMinutes?: number;
   seasonGoals: number;
   seasonAssists: number;
   seasonYellowCards: number;

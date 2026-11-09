@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useGameStore } from '@/store/game-store';
-import { Calendar, Play, Sparkles, ArrowRight, Shield } from 'lucide-react';
+import { Calendar, Play, Sparkles, ArrowRight, Shield, FastForward } from 'lucide-react';
 import clsx from 'clsx';
 import { LeagueTableRow } from '@/types/football-manager';
 import { formatTextWithCurrency } from '@/lib/currency';
@@ -24,6 +24,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
     selectedCurrency,
     fixtures,
     startMatchDay,
+    simulateFullMatchDay,
     answerDecisionEvent,
     proceedToNextSeason,
     setActiveTab,
@@ -100,14 +101,25 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
             {/* VS y Acción de Partido */}
             <div className="flex flex-col items-center gap-3">
               <span className="text-xs font-bold text-slate-500 font-mono">VS</span>
-              <button
-                type="button"
-                onClick={startMatchDay}
-                className="px-8 py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-black text-sm rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center gap-2 animate-pulse"
-              >
-                <Play className="w-4 h-4 fill-black" />
-                Disputar Partido (Jornada {currentRound})
-              </button>
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  type="button"
+                  onClick={startMatchDay}
+                  className="px-6 py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-black text-xs md:text-sm rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center gap-2 animate-pulse"
+                >
+                  <Play className="w-4 h-4 fill-black" />
+                  Disputar en Vivo (2D)
+                </button>
+                <button
+                  type="button"
+                  onClick={simulateFullMatchDay}
+                  className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-yellow-400 text-slate-200 font-bold text-xs md:text-sm rounded-xl shadow-md transition-all flex items-center gap-2"
+                  title="Simular instantáneamente los 90 minutos con sustituciones tácticas, minutos de juego y evolución de potencial y media"
+                >
+                  <FastForward className="w-4 h-4 text-yellow-400" />
+                  Simular Partido Completo
+                </button>
+              </div>
             </div>
 
             {/* Rival */}

@@ -154,7 +154,7 @@ export const SquadView: React.FC = () => {
                           <span className="text-[10px] text-slate-500">Pendiente de debut</span>
                         )}
                         <div className="text-[9px] text-slate-500 mt-0.5">
-                          PJ: {player.seasonMatches} · Goles: {player.seasonGoals} · Asist: {player.seasonAssists}
+                          PJ: {player.seasonMatches} ({player.seasonMinutes || 0}&apos;) · Goles: {player.seasonGoals} · Asist: {player.seasonAssists}
                         </div>
                       </td>
                       <td className="p-3">

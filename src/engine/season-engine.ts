@@ -109,22 +109,79 @@ export function simulateAiMatchesForRound(
     fix.awayScore = aScore;
     fix.isPlayed = true;
 
-    // Attribute goals and assists to top forwards/midfielders of AI clubs
-    const hStrikers = playersCopy.filter((p) => p.clubId === hClub.id && ['DC', 'EI', 'ED'].includes(p.position));
-    const aStrikers = playersCopy.filter((p) => p.clubId === aClub.id && ['DC', 'EI', 'ED'].includes(p.position));
+    // Asignar goles a delanteros y centrocampistas ofensivos
+    const hStrikers = playersCopy.filter((p) => p.clubId === hClub.id && ['DC', 'EI', 'ED', 'MCO'].includes(p.position));
+    const aStrikers = playersCopy.filter((p) => p.clubId === aClub.id && ['DC', 'EI', 'ED', 'MCO'].includes(p.position));
 
     for (let i = 0; i < hScore; i++) {
-      const scorer = hStrikers[Math.floor(Math.random() * hStrikers.length)];
+      const scorer = hStrikers[Math.floor(Math.random() * hStrikers.length)] || hStrikers[0];
       if (scorer) scorer.seasonGoals += 1;
     }
     for (let i = 0; i < aScore; i++) {
-      const scorer = aStrikers[Math.floor(Math.random() * aStrikers.length)];
+      const scorer = aStrikers[Math.floor(Math.random() * aStrikers.length)] || aStrikers[0];
       if (scorer) scorer.seasonGoals += 1;
     }
 
-    // Update match count
-    playersCopy.filter((p) => p.clubId === hClub.id || p.clubId === aClub.id).forEach((p) => {
+    // Gestión realista de 11 titulares y hasta 4 sustituciones para cada club AI
+    const hClubPlayers = playersCopy.filter((p) => p.clubId === hClub.id);
+    const aClubPlayers = playersCopy.filter((p) => p.clubId === aClub.id);
+
+    const hStarters = hClub.startingXI.map((id) => hClubPlayers.find((p) => p.id === id)).filter(Boolean) as Player[];
+    const hBench = hClub.substitutes.map((id) => hClubPlayers.find((p) => p.id === id)).filter(Boolean) as Player[];
+    const hSubsIn = hBench.slice(0, 4);
+
+    const aStarters = aClub.startingXI.map((id) => aClubPlayers.find((p) => p.id === id)).filter(Boolean) as Player[];
+    const aBench = aClub.substitutes.map((id) => aClubPlayers.find((p) => p.id === id)).filter(Boolean) as Player[];
+    const aSubsIn = aBench.slice(0, 4);
+
+    // Titulares y suplentes que disputaron minutos en Local
+    hStarters.forEach((p) => {
       p.seasonMatches += 1;
+      p.seasonMinutes = (p.seasonMinutes || 0) + (hSubsIn.some((s) => s.position === p.position) ? 65 : 90);
+      p.consecutiveMatchesWithoutPlaying = 0;
+      if (p.age <= 22 && p.overall < p.potential && p.seasonMatches % 3 === 0) {
+        p.overall = Math.min(p.potential, p.overall + 1);
+      }
+    });
+    hSubsIn.forEach((p) => {
+      p.seasonMatches += 1;
+      p.seasonMinutes = (p.seasonMinutes || 0) + 25;
+      p.consecutiveMatchesWithoutPlaying = 0;
+      if (p.age <= 22 && p.overall < p.potential && p.seasonMatches % 4 === 0) {
+        p.overall = Math.min(p.potential, p.overall + 1);
+      }
+    });
+    hClubPlayers.filter((p) => !hStarters.some((s) => s.id === p.id) && !hSubsIn.some((s) => s.id === p.id)).forEach((p) => {
+      p.consecutiveMatchesWithoutPlaying = (p.consecutiveMatchesWithoutPlaying || 0) + 1;
+      if (p.consecutiveMatchesWithoutPlaying >= 6 && p.consecutiveMatchesWithoutPlaying % 3 === 0) {
+        p.overall = Math.max(50, p.overall - 1);
+        p.potential = Math.max(p.overall, p.potential - 1);
+      }
+    });
+
+    // Titulares y suplentes que disputaron minutos en Visitante
+    aStarters.forEach((p) => {
+      p.seasonMatches += 1;
+      p.seasonMinutes = (p.seasonMinutes || 0) + (aSubsIn.some((s) => s.position === p.position) ? 65 : 90);
+      p.consecutiveMatchesWithoutPlaying = 0;
+      if (p.age <= 22 && p.overall < p.potential && p.seasonMatches % 3 === 0) {
+        p.overall = Math.min(p.potential, p.overall + 1);
+      }
+    });
+    aSubsIn.forEach((p) => {
+      p.seasonMatches += 1;
+      p.seasonMinutes = (p.seasonMinutes || 0) + 25;
+      p.consecutiveMatchesWithoutPlaying = 0;
+      if (p.age <= 22 && p.overall < p.potential && p.seasonMatches % 4 === 0) {
+        p.overall = Math.min(p.potential, p.overall + 1);
+      }
+    });
+    aClubPlayers.filter((p) => !aStarters.some((s) => s.id === p.id) && !aSubsIn.some((s) => s.id === p.id)).forEach((p) => {
+      p.consecutiveMatchesWithoutPlaying = (p.consecutiveMatchesWithoutPlaying || 0) + 1;
+      if (p.consecutiveMatchesWithoutPlaying >= 6 && p.consecutiveMatchesWithoutPlaying % 3 === 0) {
+        p.overall = Math.max(50, p.overall - 1);
+        p.potential = Math.max(p.overall, p.potential - 1);
+      }
     });
   });
 

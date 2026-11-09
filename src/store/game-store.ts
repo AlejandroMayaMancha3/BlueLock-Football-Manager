@@ -62,6 +62,7 @@ export interface GameStoreState {
   saveToStorage: () => void;
   setActiveTab: (tab: GameStoreState['activeTab']) => void;
   startMatchDay: () => void;
+  simulateFullMatchDay: () => void;
   tickMatchMinute: () => void;
   fastForwardMatch: () => void;
   executeMatchSub: (outId: string, inId: string) => void;
@@ -205,6 +206,34 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     set({ liveMatch, activeTab: 'live_match' });
   },
 
+  simulateFullMatchDay: () => {
+    const { fixtures, currentSeason, currentRound, userClubId, clubs, players } = get();
+    const userFixture = fixtures.find(
+      (f) => f.round === currentRound && (f.homeClubId === userClubId || f.awayClubId === userClubId)
+    );
+    if (!userFixture) return;
+
+    const homeClub = clubs.find((c) => c.id === userFixture.homeClubId);
+    const awayClub = clubs.find((c) => c.id === userFixture.awayClubId);
+    if (!homeClub || !awayClub) return;
+
+    const playersMap = players.reduce((acc, p) => {
+      acc[p.id] = p;
+      return acc;
+    }, {} as Record<string, Player>);
+
+    // Iniciar partido y simular los 90 minutos con cambios tácticos automáticos para ambos equipos
+    let match = initLiveMatch(currentSeason, currentRound, homeClub, awayClub);
+    let safetyCounter = 0;
+    while (!match.isFinished && safetyCounter < 120) {
+      match = tickLiveMatch(match, playersMap, true);
+      safetyCounter++;
+    }
+
+    set({ liveMatch: match });
+    get().finishMatchDay();
+  },
+
   tickMatchMinute: () => {
     const { liveMatch, players } = get();
     if (!liveMatch || liveMatch.isFinished) return;
@@ -230,7 +259,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     let current = liveMatch;
     let safetyCounter = 0;
     while (!current.isFinished && safetyCounter < 120) {
-      current = tickLiveMatch(current, playersMap);
+      // autoManageSubsForHome = true para que el equipo local también complete sus sustituciones
+      current = tickLiveMatch(current, playersMap, true);
       safetyCounter++;
     }
     set({ liveMatch: current });
@@ -308,29 +338,62 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       const userPlayed = p.clubId === userClubId && liveMatch.playerRatings[p.id] !== undefined;
       if (userPlayed) {
         const rating = liveMatch.playerRatings[p.id] || 6.5;
-        // Goals scored by this player
+
+        // Minutos exactos disputados en el encuentro
+        const minutesPlayed = liveMatch.playerMinutes?.[p.id] !== undefined
+          ? liveMatch.playerMinutes[p.id]
+          : (liveMatch.homeLineup.includes(p.id) || liveMatch.awayLineup.includes(p.id) ? 90 : 25);
+
+        // Goles, asistencias y tarjetas de este jugador en el partido
         const playerGoals = liveMatch.events.filter(
           (e) => e.type === 'goal' && e.playerId === p.id && e.teamId === userClubId
         ).length;
         const playerAssists = liveMatch.events.filter(
           (e) => e.type === 'goal' && e.assistPlayerId === p.id && e.teamId === userClubId
         ).length;
+        const playerYellows = liveMatch.events.filter(
+          (e) => e.type === 'yellow_card' && e.playerId === p.id && e.teamId === userClubId
+        ).length;
+        const playerReds = liveMatch.events.filter(
+          (e) => e.type === 'red_card' && e.playerId === p.id && e.teamId === userClubId
+        ).length;
 
-        // Apply training recovery and growth
+        // Desgaste físico proporcional a los minutos jugados (90 mins -> 20 fatiga; 25 mins -> 6 fatiga)
         let staminaRecovery = 25;
         let moraleBonus = userWon ? 4 : userDrew ? 0 : -3;
         if (trainingPlan === 'descanso') staminaRecovery = 35;
         else if (trainingPlan === 'fisico') staminaRecovery = 15;
 
-        // Crecimiento dinámico por rendimiento y minutos
+        const fatigueLoss = Math.round(20 * (Math.min(90, Math.max(10, minutesPlayed)) / 90));
+
+        // Crecimiento dinámico de MEDIA y POTENCIAL según edad, minutos y rendimiento
         let currentOvr = p.overall;
         let currentPot = p.potential;
         const newSeasonMatches = p.seasonMatches + 1;
+        const newSeasonMinutes = (p.seasonMinutes || 0) + minutesPlayed;
 
-        // Si es joven con margen respecto a su potencial y ha jugado con buena nota, sube de media
-        if (p.age <= 22 && currentOvr < currentPot && rating >= 7.0 && newSeasonMatches % 4 === 0) {
+        // 1. Jóvenes promesas (edad <= 23):
+        // Acumulan minutos y rinden bien -> subida de media hacia su potencial
+        if (p.age <= 23 && currentOvr < currentPot) {
+          if ((rating >= 7.0 && newSeasonMatches % 3 === 0) || (rating >= 8.5 && minutesPlayed >= 45)) {
+            currentOvr = Math.min(currentPot, currentOvr + 1);
+          }
+          // Actuación estelar (nota >= 9.0 o doblete en Flow): despierta su ego y eleva su potencial máximo (+1)
+          if ((rating >= 9.0 || (playerGoals >= 2 && p.flowState)) && currentPot < 99 && Math.random() < 0.45) {
+            currentPot = Math.min(99, currentPot + 1);
+          }
+        }
+        // 2. Jugadores en plenitud (24 a 28 años):
+        else if (p.age <= 28 && currentOvr < currentPot && rating >= 7.6 && newSeasonMatches % 5 === 0) {
           currentOvr = Math.min(currentPot, currentOvr + 1);
         }
+
+        // Valoración media acumulada de la temporada
+        const oldMatches = p.seasonMatches || 0;
+        const newAvgRating = Math.round(((p.seasonAverageRating * oldMatches + rating) / newSeasonMatches) * 10) / 10;
+
+        // Portería a cero si es arquero o zaguero
+        const cleanSheet = (p.position === 'POR' || p.position === 'DFC') && (userIsHome ? liveMatch.awayScore === 0 : liveMatch.homeScore === 0) ? 1 : 0;
 
         return {
           ...p,
@@ -338,11 +401,16 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           potential: currentPot,
           consecutiveMatchesWithoutPlaying: 0,
           seasonMatches: newSeasonMatches,
+          seasonMinutes: newSeasonMinutes,
           seasonGoals: p.seasonGoals + playerGoals,
           seasonAssists: p.seasonAssists + playerAssists,
-          fitness: Math.min(100, Math.max(50, p.fitness - 15 + staminaRecovery)),
-          morale: Math.min(100, Math.max(30, p.morale + moraleBonus)),
-          form: Math.min(100, Math.max(40, Math.round(p.form * 0.7 + rating * 3.5))),
+          seasonYellowCards: (p.seasonYellowCards || 0) + playerYellows,
+          seasonRedCards: (p.seasonRedCards || 0) + playerReds,
+          seasonCleanSheets: (p.seasonCleanSheets || 0) + cleanSheet,
+          seasonAverageRating: newAvgRating,
+          fitness: Math.min(100, Math.max(40, p.fitness - fatigueLoss + staminaRecovery)),
+          morale: Math.min(100, Math.max(25, p.morale + moraleBonus + (rating >= 8.0 ? 3 : 0))),
+          form: Math.min(100, Math.max(35, Math.round(p.form * 0.65 + rating * 3.8))),
           marketValueYen: Math.round(p.marketValueYen * (1 + (playerGoals * 0.08) + (userWon ? 0.02 : 0))),
         };
       }
