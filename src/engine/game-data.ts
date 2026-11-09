@@ -6,7 +6,7 @@ function rnd(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function calculateOvr(pos: Position, stats: Player['stats']): number {
+export function calculateOvr(pos: Position, stats: Player['stats']): number {
   switch (pos) {
     case 'POR':
       return Math.round(stats.goalkeeping * 0.75 + stats.physical * 0.15 + stats.pace * 0.1);

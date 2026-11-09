@@ -18,7 +18,7 @@ import {
   Position,
   IndividualTrainingFocus,
 } from '@/types/football-manager';
-import { generateInitialClubsAndPlayers } from '@/engine/game-data';
+import { generateInitialClubsAndPlayers, calculateOvr } from '@/engine/game-data';
 import {
   generateSeasonFixtures,
   simulateAiMatchesForRound,
@@ -394,18 +394,43 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       }
 
       if (p.clubId === userClubId && p.trainingFocus) {
-        if (p.trainingFocus === 'finishing' && Math.random() < 0.35) {
-          updatedStats.shooting = Math.min(99, updatedStats.shooting + 1);
-        } else if (p.trainingFocus === 'playmaking' && Math.random() < 0.35) {
-          updatedStats.passing = Math.min(99, updatedStats.passing + 1);
-        } else if (p.trainingFocus === 'dribbling_pace' && Math.random() < 0.35) {
-          updatedStats.pace = Math.min(99, updatedStats.pace + 1);
-        } else if (p.trainingFocus === 'defending_physical' && Math.random() < 0.35) {
-          updatedStats.defense = Math.min(99, updatedStats.defense + 1);
-        } else if (p.trainingFocus === 'goalkeeping_reflexes' && Math.random() < 0.35) {
-          updatedStats.goalkeeping = Math.min(99, updatedStats.goalkeeping + 1);
+        if (p.trainingFocus === 'finishing') {
+          if (Math.random() < 0.35) updatedStats.shooting = Math.min(99, updatedStats.shooting + 1);
+          if (Math.random() < 0.20) updatedStats.physical = Math.min(99, updatedStats.physical + 1);
+        } else if (p.trainingFocus === 'playmaking') {
+          if (Math.random() < 0.35) updatedStats.passing = Math.min(99, updatedStats.passing + 1);
+          if (Math.random() < 0.20) updatedStats.dribbling = Math.min(99, updatedStats.dribbling + 1);
+        } else if (p.trainingFocus === 'dribbling_pace') {
+          if (Math.random() < 0.35) updatedStats.pace = Math.min(99, updatedStats.pace + 1);
+          if (Math.random() < 0.20) updatedStats.dribbling = Math.min(99, updatedStats.dribbling + 1);
+        } else if (p.trainingFocus === 'defending_physical') {
+          if (Math.random() < 0.35) updatedStats.defense = Math.min(99, updatedStats.defense + 1);
+          if (Math.random() < 0.20) updatedStats.physical = Math.min(99, updatedStats.physical + 1);
+        } else if (p.trainingFocus === 'goalkeeping_reflexes') {
+          if (Math.random() < 0.35) updatedStats.goalkeeping = Math.min(99, updatedStats.goalkeeping + 1);
+          if (Math.random() < 0.20) updatedStats.physical = Math.min(99, updatedStats.physical + 1);
+        } else if (p.trainingFocus === 'balanced' && Math.random() < 0.20) {
+          const keys: (keyof typeof updatedStats)[] = ['pace', 'shooting', 'passing', 'dribbling', 'defense', 'physical'];
+          const randKey = keys[Math.floor(Math.random() * keys.length)];
+          updatedStats[randKey] = Math.min(99, updatedStats[randKey] + 1);
         }
       }
+
+      // Efecto colectivo semanal según el plan general del plantel
+      if (p.clubId === userClubId) {
+        if (trainingPlan === 'fisico' && Math.random() < 0.25) {
+          if (Math.random() < 0.5) updatedStats.pace = Math.min(99, updatedStats.pace + 1);
+          else updatedStats.physical = Math.min(99, updatedStats.physical + 1);
+        } else if (trainingPlan === 'ofensivo' && Math.random() < 0.25) {
+          if (Math.random() < 0.5) updatedStats.shooting = Math.min(99, updatedStats.shooting + 1);
+          else updatedStats.dribbling = Math.min(99, updatedStats.dribbling + 1);
+        } else if (trainingPlan === 'defensivo' && Math.random() < 0.25) {
+          if (Math.random() < 0.5) updatedStats.defense = Math.min(99, updatedStats.defense + 1);
+          else updatedStats.passing = Math.min(99, updatedStats.passing + 1);
+        }
+      }
+
+      const statDerivedOvr = calculateOvr(updatedPos, updatedStats);
 
       // Un jugador participó si fue titular o entró como suplente (tiene valoración en playerRatings)
       const userPlayed = p.clubId === userClubId && liveMatch.playerRatings[p.id] !== undefined;
@@ -434,13 +459,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         // Desgaste físico proporcional a los minutos jugados (90 mins -> 20 fatiga; 25 mins -> 6 fatiga)
         let staminaRecovery = 25;
         let moraleBonus = userWon ? 4 : userDrew ? 0 : -3;
-        if (trainingPlan === 'descanso') staminaRecovery = 35;
-        else if (trainingPlan === 'fisico') staminaRecovery = 15;
+        if (trainingPlan === 'descanso') {
+          staminaRecovery = 35;
+          moraleBonus += 4;
+        } else if (trainingPlan === 'fisico') {
+          staminaRecovery = 15;
+        }
 
         const fatigueLoss = Math.round(20 * (Math.min(90, Math.max(10, minutesPlayed)) / 90));
 
-        // Crecimiento dinámico de MEDIA y POTENCIAL según edad, minutos y rendimiento
-        let currentOvr = p.overall;
+        // Crecimiento dinámico de MEDIA y POTENCIAL según edad, minutos, entrenamiento y rendimiento
+        let currentOvr = Math.max(p.overall, statDerivedOvr);
         let currentPot = p.potential;
         const newSeasonMatches = p.seasonMatches + 1;
         const newSeasonMinutes = (p.seasonMinutes || 0) + minutesPlayed;
@@ -469,6 +498,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         const cleanSheet = (p.position === 'POR' || p.position === 'DFC') && (userIsHome ? liveMatch.awayScore === 0 : liveMatch.homeScore === 0) ? 1 : 0;
 
         const calculatedFitness = Math.min(100, Math.max(40, p.fitness - fatigueLoss + staminaRecovery));
+        const fisicoStrain = trainingPlan === 'fisico' && (p.injuryWeeks || 0) === 0 && Math.random() < 0.03 ? 1 : 0;
         const isStarter = userIsHome
           ? liveMatch.homeLineup.includes(p.id)
           : liveMatch.awayLineup.includes(p.id);
@@ -568,17 +598,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           marketValueYen: Math.round(p.marketValueYen * (1 + (playerGoals * 0.08) + (userWon ? 0.02 : 0))),
           isBanned: playerReds > 0 || ((p.yellowCardsCount || 0) + playerYellows >= 5),
           yellowCardsCount: ((p.yellowCardsCount || 0) + playerYellows >= 5) ? 0 : ((p.yellowCardsCount || 0) + playerYellows),
-          injuryWeeks: Math.max(0, (p.injuryWeeks || 0) - 1),
+          injuryWeeks: Math.max(fisicoStrain, Math.max(0, (p.injuryWeeks || 0) - 1)),
         };
       }
 
       // Jugadores de mi club que NO han jugado este partido
       if (p.clubId === userClubId) {
         const unplayed = (p.consecutiveMatchesWithoutPlaying || 0) + 1;
-        let newOvr = p.overall;
+        let newOvr = Math.max(p.overall, statDerivedOvr);
         let newPot = p.potential;
         let newForm = Math.max(30, p.form - 3);
-        let newMorale = Math.max(25, p.morale - 2);
+        let newMorale = Math.max(25, p.morale - 2 + (trainingPlan === 'descanso' ? 4 : 0));
 
         // Si lleva 4+ jornadas sin jugar: pérdida de ritmo y moral
         if (unplayed >= 4) {
@@ -588,9 +618,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
         // Si lleva 6+ jornadas sin jugar: estancamiento severo, baja de media y caída de potencial
         if (unplayed >= 6 && unplayed % 3 === 0) {
-          newOvr = Math.max(50, p.overall - 1);
+          newOvr = Math.max(50, newOvr - 1);
           newPot = Math.max(newOvr, p.potential - 1);
         }
+
+        const unplayedStaminaRecovery = trainingPlan === 'descanso' ? 30 : 15;
 
         return {
           ...p,
@@ -603,7 +635,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           potential: newPot,
           form: newForm,
           morale: newMorale,
-          fitness: Math.min(100, p.fitness + 15), // Descansado físicamente
+          fitness: Math.min(100, p.fitness + unplayedStaminaRecovery), // Descansado físicamente
           isBanned: false, // Si descansó, cumple su partido de sanción
           injuryWeeks: Math.max(0, (p.injuryWeeks || 0) - 1),
         };
@@ -1072,9 +1104,21 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const lastNames = ['Nakamura', 'Fujiwara', 'Matsuda', 'Onda', 'Shibata', 'Hayashi'];
     const name = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
 
-    const positions: Player['position'][] = ['DC', 'EI', 'ED', 'MCO', 'MC', 'DFC'];
+    const positions: Player['position'][] = ['POR', 'LI', 'DFC', 'LD', 'MCD', 'MC', 'MI', 'MD', 'MCO', 'EI', 'ED', 'DC'];
     const pos = positions[Math.floor(Math.random() * positions.length)];
     const baseStat = userClub.level - 4;
+
+    const stats = {
+      pace: pos === 'POR' ? baseStat - 10 : baseStat + Math.floor(Math.random() * 8),
+      shooting: pos === 'POR' ? 20 : pos === 'DC' ? baseStat + 5 : baseStat - 5,
+      passing: pos === 'POR' ? baseStat - 12 : baseStat + 2,
+      dribbling: pos === 'POR' ? baseStat - 15 : baseStat + 4,
+      defense: pos === 'POR' ? 20 : ['DFC', 'CAI', 'CAD', 'LI', 'LD'].includes(pos) ? baseStat + 6 : baseStat - 10,
+      physical: baseStat + 3,
+      goalkeeping: pos === 'POR' ? baseStat + 6 : 15,
+    };
+
+    const calculatedOvr = calculateOvr(pos, stats);
 
     const newYouth: Player = {
       id: `youth-promoted-${Date.now()}`,
@@ -1083,17 +1127,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       age: 16,
       nationality: 'Japón',
       position: pos,
-      overall: baseStat,
-      potential: Math.min(99, baseStat + 15),
-      stats: {
-        pace: baseStat + Math.floor(Math.random() * 8),
-        shooting: pos === 'DC' ? baseStat + 5 : baseStat - 5,
-        passing: baseStat + 2,
-        dribbling: baseStat + 4,
-        defense: pos === 'DFC' ? baseStat + 6 : baseStat - 10,
-        physical: baseStat + 3,
-        goalkeeping: 15,
-      },
+      overall: calculatedOvr,
+      potential: Math.min(99, Math.max(calculatedOvr + 12, 90)),
+      trainingFocus: 'balanced',
+      positionConversion: null,
+      stats,
       weapons: [
         {
           name: 'Despertar de Cantera',
@@ -1154,7 +1192,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     });
 
     get().saveToStorage();
-    return { success: true, message: `¡${newYouth.name} se une al primer equipo con 16 años y 88 de potencial!` };
+    return { success: true, message: `¡${newYouth.name} se une al primer equipo con 16 años y ${newYouth.potential} de potencial!` };
   },
 
   makeBuyOffer: (playerId, feeYen, wageYen, years) => {
@@ -1282,7 +1320,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (!player) return;
 
     const updatedPlayers = players.map((p) =>
-      p.id === offer.playerId ? { ...p, clubId: offer.buyerClubId, isTransferListed: false } : p
+      p.id === offer.playerId
+        ? { ...p, clubId: offer.buyerClubId, isTransferListed: false, positionConversion: null, trainingFocus: undefined }
+        : p
     );
 
     const updatedClubs = clubs.map((c) => {

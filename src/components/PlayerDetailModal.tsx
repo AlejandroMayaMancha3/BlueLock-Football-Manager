@@ -830,11 +830,11 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
                   <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/50 space-y-3 shadow-lg">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-lg bg-cyan-500 text-black font-black text-xs flex items-center justify-center">
+                        <span className={clsx('w-8 h-8 rounded-lg border font-black text-xs flex items-center justify-center', getPositionColor(player.position))}>
                           {player.position}
                         </span>
                         <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
-                        <span className="w-8 h-8 rounded-lg bg-emerald-500 text-black font-black text-xs flex items-center justify-center">
+                        <span className={clsx('w-8 h-8 rounded-lg border font-black text-xs flex items-center justify-center', getPositionColor(player.positionConversion.targetPosition))}>
                           {player.positionConversion.targetPosition}
                         </span>
                         <div className="ml-2">
@@ -906,7 +906,7 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
                             className="p-3 bg-slate-900 border border-slate-800 hover:border-cyan-500/50 rounded-xl flex items-center justify-between gap-2 transition-all"
                           >
                             <div className="flex items-center gap-2">
-                              <span className="w-8 h-7 rounded bg-slate-950 border border-slate-700 flex items-center justify-center text-[11px] font-black text-cyan-300">
+                              <span className={clsx('w-8 h-7 rounded border flex items-center justify-center text-[11px] font-black', getPositionColor(targetPos))}>
                                 {targetPos}
                               </span>
                               <div>

@@ -215,9 +215,19 @@ export const SquadView: React.FC = () => {
                     className={clsx('hover:bg-slate-800/40 transition-colors', isStarter && 'bg-cyan-950/20')}
                   >
                     <td className="p-3">
-                      <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-800 text-cyan-300">
-                        {player.position}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-800 text-cyan-300">
+                          {player.position}
+                        </span>
+                        {player.secondaryPosition && (
+                          <span
+                            className="px-1 py-0.5 rounded font-bold text-[9px] bg-slate-900 border border-slate-700 text-slate-400"
+                            title={`Posición secundaria dominada: ${player.secondaryPosition}`}
+                          >
+                            2ª:{player.secondaryPosition}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3">
                       <div className="font-bold text-white text-sm flex items-center gap-1.5 flex-wrap">

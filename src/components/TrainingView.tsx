@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGameStore } from '@/store/game-store';
 import {
   UserPlus,
@@ -30,7 +30,9 @@ export const TrainingView: React.FC = () => {
     trainingPlan,
     selectedCurrency,
     players,
+    clubs,
     userClubId,
+    youthPromotedThisSeason,
     setTrainingPlan,
     promoteYouthPlayer,
     setPlayerTrainingFocus,
@@ -44,19 +46,60 @@ export const TrainingView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [modalPlayer, setModalPlayer] = useState<Player | null>(null);
 
+  // Cerrar modal con tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setModalPlayer(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
+  const canAffordYouth = (userClub?.cashYen || 0) >= 60000000;
+
   // Filtrar exclusivamente futbolistas del club del usuario
   const clubPlayers = players.filter((p) => p.clubId === userClubId);
   const activeConversionsCount = clubPlayers.filter((p) => p.positionConversion).length;
 
-  const filteredPlayers = clubPlayers.filter((p) => {
-    const matchesCategory =
-      selectedCategory === 'all' || getPositionCategory(p.position) === selectedCategory;
-    const matchesSearch =
-      !searchTerm ||
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.position.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const getPositionColor = (pos: Position) => {
+    switch (pos) {
+      case 'DC':
+      case 'EI':
+      case 'ED':
+        return 'bg-rose-950 text-rose-300 border-rose-800';
+      case 'MCO':
+      case 'MC':
+      case 'MCD':
+      case 'MI':
+      case 'MD':
+        return 'bg-amber-950 text-amber-300 border-amber-800';
+      case 'DFC':
+      case 'LI':
+      case 'LD':
+      case 'CAI':
+      case 'CAD':
+        return 'bg-blue-950 text-blue-300 border-blue-800';
+      case 'POR':
+        return 'bg-yellow-950 text-yellow-300 border-yellow-800';
+      default:
+        return 'bg-slate-800 text-slate-300 border-slate-700';
+    }
+  };
+
+  const filteredPlayers = clubPlayers
+    .filter((p) => {
+      const matchesCategory =
+        selectedCategory === 'all' || getPositionCategory(p.position) === selectedCategory;
+      const matchesSearch =
+        !searchTerm ||
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.position.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesCategory && matchesSearch;
+    })
+    .sort((a, b) => b.overall - a.overall);
 
   return (
     <div className="space-y-6">
@@ -140,7 +183,13 @@ export const TrainingView: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => setTrainingPlan(plan.id as any)}
+                  onClick={() => {
+                    setTrainingPlan(plan.id as any);
+                    setConversionFeedback({
+                      success: true,
+                      msg: `Plan colectivo semanal actualizado: [${plan.title}].`,
+                    });
+                  }}
                   disabled={isCurrent}
                   className={clsx(
                     'w-full py-1.5 rounded-xl text-xs font-bold transition-all',
@@ -259,12 +308,12 @@ export const TrainingView: React.FC = () => {
 
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 font-bold text-[10px]">
+                        <span className={clsx('px-1.5 py-0.5 rounded border font-bold text-[10px]', getPositionColor(player.position))}>
                           {player.position}
                         </span>
                         {player.secondaryPosition && (
                           <span
-                            className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-bold text-[9px]"
+                            className={clsx('px-1.5 py-0.5 rounded border font-bold text-[9px] opacity-80', getPositionColor(player.secondaryPosition))}
                             title="Posición secundaria"
                           >
                             2ª: {player.secondaryPosition}
@@ -430,7 +479,7 @@ export const TrainingView: React.FC = () => {
                     className="p-3 bg-slate-950 border border-slate-800 hover:border-cyan-500/60 rounded-xl flex items-center justify-between gap-3 transition-all group"
                   >
                     <div className="flex items-center gap-2.5">
-                      <span className="w-10 h-8 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-xs font-black text-cyan-300">
+                      <span className={clsx('w-10 h-8 rounded-lg border flex items-center justify-center text-xs font-black', getPositionColor(targetPos))}>
                         {targetPos}
                       </span>
                       <div>
@@ -446,6 +495,16 @@ export const TrainingView: React.FC = () => {
                           <span className="text-slate-400">Dificultad:</span>
                           <span className={clsx('font-bold', calculation.difficultyColor)}>
                             {calculation.difficultyLabel}
+                          </span>
+                          <span className="text-slate-600">·</span>
+                          <span className="text-slate-500">
+                            {targetPos === 'POR'
+                              ? 'Portería & Reflejos'
+                              : ['DFC', 'LI', 'LD', 'CAI', 'CAD'].includes(targetPos)
+                              ? 'Defensa & Físico'
+                              : ['MCD', 'MC', 'MI', 'MD', 'MCO'].includes(targetPos)
+                              ? 'Pase & Visión'
+                              : 'Tiro & Desborde'}
                           </span>
                         </div>
                       </div>
@@ -513,22 +572,41 @@ export const TrainingView: React.FC = () => {
               const res = promoteYouthPlayer();
               setCanteraFeedback({ success: res.success, msg: res.message });
             }}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-black text-xs rounded-xl shadow-lg transition-all"
+            disabled={youthPromotedThisSeason || !canAffordYouth}
+            className={clsx(
+              'px-6 py-3 font-black text-xs rounded-xl shadow-lg transition-all',
+              youthPromotedThisSeason
+                ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                : !canAffordYouth
+                ? 'bg-rose-950/80 text-rose-300 border border-rose-700/60 cursor-not-allowed'
+                : 'bg-purple-600 hover:bg-purple-500 text-white'
+            )}
           >
-            Promocionar Canterano ({formatMoney(60000000, selectedCurrency)})
+            {youthPromotedThisSeason
+              ? '✓ Cupo Agotado esta Temporada (1/1)'
+              : !canAffordYouth
+              ? `Fondos Insuficientes (${formatMoney(60000000, selectedCurrency)})`
+              : `Promocionar Canterano (${formatMoney(60000000, selectedCurrency)})`}
           </button>
         </div>
 
         {canteraFeedback && (
           <div
             className={clsx(
-              'p-3 rounded-xl text-xs font-bold border mt-3',
+              'p-3 rounded-xl text-xs font-bold border mt-3 flex items-center justify-between gap-3 animate-fadeIn',
               canteraFeedback.success
                 ? 'bg-emerald-950/60 border-emerald-500 text-emerald-200'
                 : 'bg-rose-950/60 border-rose-500 text-rose-200'
             )}
           >
-            {canteraFeedback.msg}
+            <span>{canteraFeedback.msg}</span>
+            <button
+              type="button"
+              onClick={() => setCanteraFeedback(null)}
+              className="text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
       </div>
