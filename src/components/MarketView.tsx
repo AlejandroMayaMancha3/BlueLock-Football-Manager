@@ -712,15 +712,15 @@ export const MarketView: React.FC = () => {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
               <tr>
-                <th className="p-3.5">Pos</th>
-                <th className="p-3.5">Futbolista</th>
-                <th className="p-3.5">Club / Liga</th>
-                <th className="p-3.5 text-center">Edad</th>
-                <th className="p-3.5 text-center">Media</th>
-                <th className="p-3.5 text-center">Potencial</th>
-                <th className="p-3.5">Valor de Mercado</th>
-                <th className="p-3.5">Salario Estimado</th>
-                <th className="p-3.5 text-right">Acción</th>
+                <th className="p-2.5 sm:p-3.5 w-10 sm:w-12">Pos</th>
+                <th className="p-2.5 sm:p-3.5 min-w-[130px] sm:min-w-[180px]">Futbolista</th>
+                <th className="p-3.5 hidden sm:table-cell">Club / Liga</th>
+                <th className="p-3.5 hidden sm:table-cell text-center">Edad</th>
+                <th className="p-2.5 sm:p-3.5 text-center">Media</th>
+                <th className="p-2.5 sm:p-3.5 text-center">Potencial</th>
+                <th className="p-2.5 sm:p-3.5">Valor Mercado</th>
+                <th className="p-3.5 hidden md:table-cell">Salario Est.</th>
+                <th className="p-2.5 sm:p-3.5 text-right">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -740,47 +740,48 @@ export const MarketView: React.FC = () => {
                   return (
                     <tr key={p.id} className="hover:bg-slate-800/40 transition-colors">
                       {/* Posición */}
-                      <td className="p-3.5">
-                        <span className={clsx('px-2 py-0.5 rounded border font-bold text-[10px]', getPositionColor(p.position))}>
+                      <td className="p-2.5 sm:p-3.5">
+                        <span className={clsx('px-1.5 sm:px-2 py-0.5 rounded border font-bold text-[9px] sm:text-[10px]', getPositionColor(p.position))}>
                           {p.position}
                         </span>
                       </td>
 
                       {/* Nombre y Nacionalidad */}
-                      <td className="p-3.5">
-                        <div className="flex items-center gap-2">
+                      <td className="p-2.5 sm:p-3.5">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                           <button
                             type="button"
                             onClick={() => setInspectingPlayer(p)}
-                            className="font-bold text-white text-sm hover:text-cyan-400 cursor-pointer text-left transition-colors hover:underline"
+                            className="font-bold text-white text-xs sm:text-sm hover:text-cyan-400 cursor-pointer text-left transition-colors hover:underline truncate max-w-[130px] sm:max-w-none"
                             title={`Abrir expediente de ${p.name}`}
                           >
                             {p.name}
                           </button>
                           {p.weapons && p.weapons.length > 0 && (
                             <span
-                              className="text-[10px] text-cyan-400 bg-cyan-950 border border-cyan-500/40 px-1.5 py-0.2 rounded font-bold inline-flex items-center gap-0.5"
+                              className="text-[9px] sm:text-[10px] text-cyan-400 bg-cyan-950 border border-cyan-500/40 px-1.5 py-0.2 rounded font-bold inline-flex items-center gap-0.5"
                               title={`Arma: ${p.weapons[0].name}`}
                             >
-                              ⚡ {p.weapons[0].name}
+                              ⚡ <span className="hidden sm:inline">{p.weapons[0].name}</span>
                             </span>
                           )}
                           {p.isTransferListed && (
-                            <span className="text-[9px] bg-amber-950 text-amber-300 border border-amber-500/40 px-1 py-0.2 rounded font-bold">
+                            <span className="text-[8px] sm:text-[9px] bg-amber-950 text-amber-300 border border-amber-500/40 px-1 py-0.2 rounded font-bold">
                               En Venta
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5">
+                        <div className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                           <span>{p.nationality}</span>
+                          <span className="sm:hidden text-slate-300 font-semibold">· {club?.shortName || club?.name || 'Libre'}</span>
                           {p.secondaryPosition && (
-                            <span>· 2ª Pos: {p.secondaryPosition}</span>
+                            <span className="hidden sm:inline">· 2ª: {p.secondaryPosition}</span>
                           )}
                         </div>
                       </td>
 
                       {/* Club y División */}
-                      <td className="p-3.5">
+                      <td className="p-3.5 hidden sm:table-cell">
                         <div className="font-bold text-slate-200">{club?.name || 'Agente Libre'}</div>
                         <div className="text-[10px] text-slate-400">
                           {club?.country ? `${club.country} · T${club.tier || 1}` : 'Sin equipo'}
@@ -788,37 +789,37 @@ export const MarketView: React.FC = () => {
                       </td>
 
                       {/* Edad */}
-                      <td className="p-3.5 text-center font-mono text-slate-300">
+                      <td className="p-3.5 text-center font-mono text-slate-300 hidden sm:table-cell">
                         {p.age} <span className="text-[10px] text-slate-500">años</span>
                       </td>
 
                       {/* Media (OVR) */}
-                      <td className="p-3.5 text-center">
-                        <span className="font-mono font-black text-white text-sm bg-slate-950 px-2 py-1 rounded-xl border border-slate-800">
+                      <td className="p-2.5 sm:p-3.5 text-center">
+                        <span className="font-mono font-black text-white text-xs sm:text-sm bg-slate-950 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-xl border border-slate-800">
                           {p.overall}
                         </span>
                       </td>
 
                       {/* Potencial (POT) */}
-                      <td className="p-3.5 text-center">
-                        <span className={clsx('px-2.5 py-1 rounded-xl border text-xs font-black inline-flex items-center gap-1', tier.color)}>
+                      <td className="p-2.5 sm:p-3.5 text-center">
+                        <span className={clsx('px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-xl border text-[11px] sm:text-xs font-black inline-flex items-center gap-1', tier.color)}>
                           <span>{tier.icon}</span>
                           <span>{p.potential}</span>
                         </span>
                       </td>
 
                       {/* Valor de Mercado */}
-                      <td className="p-3.5 font-mono font-black text-emerald-400 text-sm">
+                      <td className="p-2.5 sm:p-3.5 font-mono font-black text-emerald-400 text-xs sm:text-sm">
                         {formatMoney(p.marketValueYen, selectedCurrency)}
                       </td>
 
                       {/* Salario */}
-                      <td className="p-3.5 font-mono text-slate-400 text-xs">
+                      <td className="p-3.5 font-mono text-slate-400 text-xs hidden md:table-cell">
                         {formatMoney(p.weeklyWageYen, selectedCurrency)}/sem
                       </td>
 
                       {/* Acción */}
-                      <td className="p-3.5 text-right">
+                      <td className="p-2.5 sm:p-3.5 text-right">
                         {!isMyPlayer ? (
                           <button
                             type="button"
@@ -831,17 +832,18 @@ export const MarketView: React.FC = () => {
                               setMarketFeedback(null);
                             }}
                             className={clsx(
-                              'px-3.5 py-1.5 font-bold text-xs rounded-xl shadow transition-all',
+                              'px-2.5 sm:px-3.5 py-1.5 font-bold text-xs rounded-xl shadow transition-all',
                               canAfford
                                 ? 'bg-cyan-500 hover:bg-cyan-400 text-black'
                                 : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
                             )}
                           >
-                            Pujar / Ofertar
+                            <span className="hidden sm:inline">Pujar / Ofertar</span>
+                            <span className="sm:hidden">Pujar</span>
                           </button>
                         ) : (
-                          <span className="text-[10px] text-slate-500 font-bold bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
-                            En tu plantilla
+                          <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold bg-slate-950 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-lg border border-slate-800">
+                            En plantilla
                           </span>
                         )}
                       </td>

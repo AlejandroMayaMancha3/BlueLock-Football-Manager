@@ -235,54 +235,54 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
               return (
                 <div
                   key={offer.id}
-                  className="p-4 bg-slate-950/90 border border-amber-500/40 hover:border-amber-400/80 rounded-xl flex flex-col justify-between gap-3 shadow-lg transition-all"
+                  className="p-3.5 sm:p-4 bg-slate-950/90 border border-amber-500/40 hover:border-amber-400/80 rounded-xl flex flex-col justify-between gap-3 shadow-lg transition-all"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                       {buyer && (
                         <div
-                          className="w-11 h-11 rounded-xl flex items-center justify-center font-black text-sm shadow border border-white/20 shrink-0"
+                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center font-black text-xs sm:text-sm shadow border border-white/20 shrink-0"
                           style={{ backgroundColor: buyer.primaryColor, color: buyer.secondaryColor }}
                         >
                           {buyer.shortName}
                         </div>
                       )}
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <button
                             type="button"
                             onClick={() => player && setInspectingPlayer(player)}
-                            className="text-white font-black text-sm hover:text-cyan-400 underline-offset-2 hover:underline transition-colors text-left"
+                            className="text-white font-black text-xs sm:text-sm hover:text-cyan-400 underline-offset-2 hover:underline transition-colors text-left truncate"
                             title="Ver expediente del jugador"
                           >
                             {offer.playerName}
                           </button>
                           {player && (
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300 border border-slate-700">
+                            <span className="text-[9px] sm:text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300 border border-slate-700">
                               {player.position} · OVR {player.overall}
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-slate-400 mt-0.5">
+                        <div className="text-[11px] text-slate-400 mt-0.5 truncate">
                           Interés formal de <span className="text-slate-200 font-semibold">{offer.buyerClubName}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className="text-[10px] text-slate-400 font-bold uppercase">Oferta</div>
-                      <div className="text-base font-black font-mono text-emerald-400">
+                      <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase">Oferta</div>
+                      <div className="text-sm sm:text-base font-black font-mono text-emerald-400">
                         {formatMoney(offer.offeredFeeYen, selectedCurrency)}
                       </div>
                       {player && (
-                        <div className="text-[10px] text-slate-500 font-mono">
+                        <div className="text-[9px] sm:text-[10px] text-slate-500 font-mono">
                           Val: {formatMoney(player.marketValueYen, selectedCurrency)}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80">
                     {player && (
                       <button
                         type="button"
@@ -290,22 +290,22 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
                         className="text-xs text-cyan-400 hover:text-cyan-300 font-bold hover:underline flex items-center gap-1"
                       >
                         <UserCheck className="w-3.5 h-3.5" />
-                        Ver Expediente
+                        <span>Ver Expediente</span>
                       </button>
                     )}
-                    <div className="flex items-center gap-2 ml-auto">
+                    <div className="flex items-center gap-2 ml-auto w-full sm:w-auto justify-end">
                       <button
                         type="button"
                         onClick={() => acceptSellOffer(offer.id)}
-                        className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-lg shadow transition-all flex items-center gap-1"
+                        className="flex-1 sm:flex-initial px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs rounded-lg shadow transition-all flex items-center justify-center gap-1"
                       >
                         <Check className="w-3.5 h-3.5" />
-                        Aceptar Venta
+                        <span>Aceptar</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => rejectSellOffer(offer.id)}
-                        className="px-3 py-1.5 bg-slate-800 hover:bg-rose-950 hover:text-rose-300 text-slate-300 font-bold text-xs rounded-lg border border-slate-700 transition-all"
+                        className="flex-1 sm:flex-initial px-3 py-1.5 bg-slate-800 hover:bg-rose-950 hover:text-rose-300 text-slate-300 font-bold text-xs rounded-lg border border-slate-700 transition-all text-center"
                       >
                         Rechazar
                       </button>
@@ -320,12 +320,12 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
 
       {/* 2. DILEMA NARRATIVO ACTIVO */}
       {activeDecisionEvent && (
-        <div className="bg-gradient-to-r from-purple-950/60 via-slate-900 to-slate-900 border-2 border-purple-500/50 rounded-2xl p-6 shadow-2xl space-y-4">
+        <div className="bg-gradient-to-r from-purple-950/60 via-slate-900 to-slate-900 border-2 border-purple-500/50 rounded-2xl p-4 sm:p-6 shadow-2xl space-y-4">
           <div className="flex items-center gap-2 text-purple-400 font-mono text-xs font-bold uppercase tracking-wider">
             <Sparkles className="w-4 h-4" /> Dilema de Vestuario / Consecuencias
           </div>
-          <h3 className="text-xl font-black text-white">{formatTextWithCurrency(activeDecisionEvent.title, selectedCurrency)}</h3>
-          <p className="text-sm text-slate-300 leading-relaxed">{formatTextWithCurrency(activeDecisionEvent.narrative, selectedCurrency)}</p>
+          <h3 className="text-lg sm:text-xl font-black text-white">{formatTextWithCurrency(activeDecisionEvent.title, selectedCurrency)}</h3>
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">{formatTextWithCurrency(activeDecisionEvent.narrative, selectedCurrency)}</p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
             {activeDecisionEvent.options.map((opt, idx) => (
@@ -333,10 +333,10 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
                 key={idx}
                 type="button"
                 onClick={() => answerDecisionEvent(idx)}
-                className="p-4 rounded-xl bg-slate-950/80 border border-purple-800/40 hover:border-purple-400 text-left transition-all hover:scale-[1.02] space-y-1"
+                className="p-3.5 sm:p-4 rounded-xl bg-slate-950/80 border border-purple-800/40 hover:border-purple-400 text-left transition-all hover:scale-[1.02] space-y-1"
               >
-                <div className="font-bold text-white text-sm">{formatTextWithCurrency(opt.label, selectedCurrency)}</div>
-                <div className="text-xs text-slate-400">{formatTextWithCurrency(opt.description, selectedCurrency)}</div>
+                <div className="font-bold text-white text-xs sm:text-sm">{formatTextWithCurrency(opt.label, selectedCurrency)}</div>
+                <div className="text-[11px] sm:text-xs text-slate-400">{formatTextWithCurrency(opt.description, selectedCurrency)}</div>
               </button>
             ))}
           </div>
@@ -344,52 +344,75 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
       )}
 
       {/* 3. TARJETA DEL PRÓXIMO ENCUENTRO */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-5 sm:space-y-6">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
             <Calendar className="w-4 h-4 text-cyan-400" /> Próximo Partido · Jornada {currentRound} de {totalRounds}
           </h3>
-          <span className="text-xs text-cyan-400 font-bold font-mono">{divisionName}</span>
+          <span className="text-[11px] sm:text-xs text-cyan-400 font-bold font-mono">{divisionName}</span>
         </div>
 
         {rivalClub ? (
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            {/* Mi Club */}
-            <div className="flex items-center gap-4">
-              <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl shadow-xl border-2 border-white/20"
-                style={{ backgroundColor: userClub.primaryColor, color: userClub.secondaryColor }}
-              >
-                {userClub.shortName}
+          <div className="flex flex-col gap-5 sm:gap-6">
+            {/* Enfrentamiento de Clubes */}
+            <div className="flex items-center justify-between gap-2 sm:gap-6">
+              {/* Mi Club */}
+              <div className="flex items-center gap-2.5 sm:gap-4 flex-1 min-w-0">
+                <div
+                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center font-black text-base sm:text-2xl shadow-xl border-2 border-white/20 shrink-0"
+                  style={{ backgroundColor: userClub.primaryColor, color: userClub.secondaryColor }}
+                >
+                  {userClub.shortName}
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-sm sm:text-xl md:text-2xl font-black text-white truncate">{userClub.name}</h4>
+                  <p className="text-[10px] sm:text-xs text-slate-400 truncate">
+                    Nivel {userClub.level} · Moral {squadMorale}%
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-2xl font-black text-white">{userClub.name}</h4>
-                <p className="text-xs text-slate-400">
-                  Nivel de Fuerza: {userClub.level} · Moral {squadMorale}%
-                </p>
+
+              {/* VS Central */}
+              <div className="px-2 text-center shrink-0">
+                <span className="text-xs sm:text-base font-black text-slate-500 font-mono">VS</span>
+              </div>
+
+              {/* Rival */}
+              <div className="flex items-center justify-end gap-2.5 sm:gap-4 text-right flex-1 min-w-0">
+                <div className="min-w-0">
+                  <h4 className="text-sm sm:text-xl md:text-2xl font-black text-white truncate">{rivalClub.name}</h4>
+                  <p className="text-[10px] sm:text-xs text-slate-400 truncate">
+                    Nivel {rivalClub.level} · {rivalClub.country}
+                  </p>
+                </div>
+                <div
+                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center font-black text-base sm:text-2xl shadow-xl border-2 border-white/20 shrink-0"
+                  style={{ backgroundColor: rivalClub.primaryColor, color: rivalClub.secondaryColor }}
+                >
+                  {rivalClub.shortName}
+                </div>
               </div>
             </div>
 
-            {/* VS y Acción de Partido */}
-            <div className="flex flex-col items-center gap-3">
-              <span className="text-xs font-bold text-slate-500 font-mono">VS</span>
-              <div className="flex flex-col sm:flex-row items-center gap-3">
+            {/* Acciones de Partido */}
+            <div className="flex flex-col items-center gap-2 sm:gap-3 pt-2 border-t border-slate-800/60">
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 w-full sm:w-auto justify-center">
                 <button
                   type="button"
                   onClick={startMatchDay}
-                  className="px-6 py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-black text-xs md:text-sm rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center gap-2 animate-pulse"
+                  className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-black text-xs md:text-sm rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center justify-center gap-2 animate-pulse"
                 >
                   <Play className="w-4 h-4 fill-black" />
-                  Disputar en Vivo (2D)
+                  <span>Disputar en Vivo (2D)</span>
                 </button>
                 <button
                   type="button"
                   onClick={simulateFullMatchDay}
-                  className="px-5 py-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-yellow-400 text-slate-200 font-bold text-xs md:text-sm rounded-xl shadow-md transition-all flex items-center gap-2"
+                  className="w-full sm:w-auto px-5 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-yellow-400 text-slate-200 font-bold text-xs md:text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
                   title="Simular instantáneamente los 90 minutos con sustituciones tácticas, minutos de juego y evolución de potencial y media"
                 >
                   <FastForward className="w-4 h-4 text-yellow-400" />
-                  Simular Partido Completo
+                  <span>Simular Partido Completo</span>
                 </button>
               </div>
 
@@ -397,29 +420,13 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
                 <button
                   type="button"
                   onClick={openLastMatchSummary}
-                  className="px-4 py-2 bg-slate-900/90 hover:bg-slate-800 border border-slate-750 hover:border-cyan-500/50 text-cyan-300 font-bold text-xs rounded-xl shadow transition-all flex items-center gap-2"
+                  className="w-full sm:w-auto px-4 py-2 bg-slate-900/90 hover:bg-slate-800 border border-slate-750 hover:border-cyan-500/50 text-cyan-300 font-bold text-xs rounded-xl shadow transition-all flex items-center justify-center gap-2"
                   title="Volver a abrir el informe y resumen completo del último partido disputado o simulado"
                 >
                   <FileText className="w-3.5 h-3.5 text-cyan-400" />
-                  Ver Acta de la Jornada {lastMatchSummary.round}
+                  <span>Ver Acta de la Jornada {lastMatchSummary.round}</span>
                 </button>
               )}
-            </div>
-
-            {/* Rival */}
-            <div className="flex items-center gap-4 text-right">
-              <div>
-                <h4 className="text-2xl font-black text-white">{rivalClub.name}</h4>
-                <p className="text-xs text-slate-400">
-                  Nivel de Fuerza: {rivalClub.level} · {rivalClub.country}
-                </p>
-              </div>
-              <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl shadow-xl border-2 border-white/20"
-                style={{ backgroundColor: rivalClub.primaryColor, color: rivalClub.secondaryColor }}
-              >
-                {rivalClub.shortName}
-              </div>
             </div>
           </div>
         ) : (

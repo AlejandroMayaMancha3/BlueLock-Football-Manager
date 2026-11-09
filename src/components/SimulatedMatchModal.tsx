@@ -112,14 +112,14 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
         </div>
 
         {/* HERO SCOREBOARD */}
-        <div className="bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 px-6 py-5 border-b border-slate-800 shrink-0">
-          <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-6">
+        <div className="bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-800 shrink-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 sm:gap-6">
             
             {/* CLUB LOCAL */}
             <div className="flex items-center justify-start md:justify-end gap-3.5 order-1 md:order-1">
               <div className="text-left md:text-right">
                 <div className="flex items-center gap-1.5 md:justify-end">
-                  <h3 className="text-lg md:text-xl font-black text-white">{homeClub.name}</h3>
+                  <h3 className="text-base sm:text-lg md:text-xl font-black text-white">{homeClub.name}</h3>
                   {homeClub.id === userClubId && (
                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                       TÚ
@@ -129,7 +129,7 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
                 <p className="text-xs text-slate-400">Local · Nivel {homeClub.level}</p>
               </div>
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg border-2 border-white/20 shrink-0"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-black text-lg sm:text-xl shadow-lg border-2 border-white/20 shrink-0"
                 style={{ backgroundColor: homeClub.primaryColor, color: homeClub.secondaryColor }}
               >
                 {homeClub.shortName}
@@ -137,19 +137,19 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
             </div>
 
             {/* MARCADOR CENTRAL */}
-            <div className="flex flex-col items-center justify-center text-center order-3 md:order-2">
+            <div className="flex flex-col items-center justify-center text-center order-2 md:order-2">
               <div className="flex items-center gap-3">
-                <span className="text-4xl md:text-5xl font-black font-mono text-white tracking-tight">
+                <span className="text-3xl sm:text-4xl md:text-5xl font-black font-mono text-white tracking-tight">
                   {homeScore}
                 </span>
-                <span className="text-2xl font-black text-slate-600">-</span>
-                <span className="text-4xl md:text-5xl font-black font-mono text-white tracking-tight">
+                <span className="text-xl sm:text-2xl font-black text-slate-600">-</span>
+                <span className="text-3xl sm:text-4xl md:text-5xl font-black font-mono text-white tracking-tight">
                   {awayScore}
                 </span>
               </div>
 
               {/* Insignia de resultado para el usuario */}
-              <div className="mt-2">
+              <div className="mt-1.5 sm:mt-2">
                 {userWon && (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
                     <CheckCircle className="w-3.5 h-3.5" />
@@ -170,16 +170,16 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
             </div>
 
             {/* CLUB VISITANTE */}
-            <div className="flex items-center justify-start gap-3.5 order-2 md:order-3">
+            <div className="flex items-center justify-start gap-3.5 order-3 md:order-3">
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg border-2 border-white/20 shrink-0"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-black text-lg sm:text-xl shadow-lg border-2 border-white/20 shrink-0"
                 style={{ backgroundColor: awayClub.primaryColor, color: awayClub.secondaryColor }}
               >
                 {awayClub.shortName}
               </div>
               <div className="text-left">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-lg md:text-xl font-black text-white">{awayClub.name}</h3>
+                  <h3 className="text-base sm:text-lg md:text-xl font-black text-white">{awayClub.name}</h3>
                   {awayClub.id === userClubId && (
                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                       TÚ
@@ -193,7 +193,7 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
 
           {/* LISTA DE GOLEADORES DEBAJO DEL MARCADOR */}
           {(homeGoals.length > 0 || awayGoals.length > 0) && (
-            <div className="mt-4 pt-4 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4 text-xs">
               <div className="space-y-1 text-left md:text-right">
                 {homeGoals.map((g, idx) => (
                   <div key={idx} className="text-slate-300 font-medium flex items-center gap-1.5 md:justify-end">
@@ -219,7 +219,7 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
         </div>
 
         {/* NAVEGACIÓN DE PESTAÑAS DENTRO DEL MODAL */}
-        <div className="bg-slate-950 px-6 py-2.5 border-b border-slate-800 flex gap-2 overflow-x-auto shrink-0">
+        <div className="bg-slate-950 px-3 sm:px-6 py-2 sm:py-2.5 border-b border-slate-800 flex gap-1.5 sm:gap-2 overflow-x-auto shrink-0 scrollbar-none">
           {[
             {
               id: 'squad',
@@ -254,7 +254,7 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
                 type="button"
                 onClick={() => setActiveTab(tab.id as any)}
                 className={clsx(
-                  'flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap',
+                  'shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap',
                   isActive
                     ? 'bg-cyan-500 text-black shadow-md'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/60'

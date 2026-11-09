@@ -455,68 +455,40 @@ export default function FootballManagerApp() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-black">
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shadow-md border border-white/20"
-            style={{ backgroundColor: userClub.primaryColor, color: userClub.secondaryColor }}
-          >
-            {userClub.shortName}
-          </div>
-          <div>
-            <div className="font-black text-sm text-white flex items-center gap-2">
-              {userClub.name}
-              <span className="text-[10px] text-slate-400 font-mono">({managerName})</span>
+      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-3 sm:px-6 py-2.5 sm:py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Identidad del Club y Liga */}
+        <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-black text-xs sm:text-sm shadow-md border border-white/20 shrink-0"
+              style={{ backgroundColor: userClub.primaryColor, color: userClub.secondaryColor }}
+            >
+              {userClub.shortName}
             </div>
-            <div className="text-xs text-cyan-400 font-semibold flex items-center gap-1.5">
-              <span>{userDivisionInfo?.name || 'Liga'}</span>
-              <span className="text-slate-600">·</span>
-              <span>Temporada {currentSeason}</span>
-              <span className="text-slate-600">·</span>
-              <span>Jornada {currentRound}/{totalRounds}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 md:gap-6 text-xs">
-          <div>
-            <span className="text-slate-400 block text-[10px] uppercase font-bold">Caja Disponible</span>
-            <span className="font-mono font-bold text-emerald-400 text-sm">
-              {formatMoney(userClub.cashYen, selectedCurrency)}
-            </span>
-          </div>
-          <div>
-            <span className="text-slate-400 block text-[10px] uppercase font-bold">Presupuesto Fichajes</span>
-            <span className="font-mono font-bold text-cyan-400 text-sm">
-              {formatMoney(userClub.budgetYen, selectedCurrency)}
-            </span>
-          </div>
-          <div className="hidden sm:block">
-            <span className="text-slate-400 block text-[10px] uppercase font-bold">Confianza Directiva</span>
-            <div className="flex items-center gap-2">
-              <div className="w-16 h-2 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className={clsx(
-                    'h-full transition-all',
-                    boardTrust >= 70 ? 'bg-emerald-400' : boardTrust >= 40 ? 'bg-yellow-400' : 'bg-rose-500'
-                  )}
-                  style={{ width: `${boardTrust}%` }}
-                />
+            <div className="min-w-0 truncate">
+              <div className="font-black text-xs sm:text-sm text-white flex items-center gap-1.5 truncate">
+                <span className="truncate">{userClub.name}</span>
+                <span className="text-[10px] text-slate-400 font-mono hidden xs:inline">({managerName})</span>
               </div>
-              <span className="font-mono font-bold text-white">{boardTrust}%</span>
+              <div className="text-[11px] sm:text-xs text-cyan-400 font-semibold flex items-center gap-1.5 truncate">
+                <span className="truncate">{userDivisionInfo?.name || 'Liga'}</span>
+                <span className="text-slate-600">·</span>
+                <span className="shrink-0">T{currentSeason}</span>
+                <span className="text-slate-600">·</span>
+                <span className="shrink-0">J{currentRound}/{totalRounds}</span>
+              </div>
             </div>
           </div>
 
-          {/* SELECTOR RÁPIDO DE DIVISA */}
-          <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-lg p-1">
+          {/* Selector de divisa en móvil compacto */}
+          <div className="sm:hidden flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-lg p-0.5 shrink-0">
             {(['EUR', 'USD', 'JPY', 'GBP'] as Currency[]).map((cur) => (
               <button
                 key={cur}
                 type="button"
                 onClick={() => setCurrency(cur)}
-                title={`Cambiar divisa a ${cur}`}
                 className={clsx(
-                  'px-2 py-0.5 rounded text-[10px] font-bold transition-all',
+                  'px-1.5 py-0.5 rounded text-[9px] font-bold transition-all',
                   selectedCurrency === cur
                     ? 'bg-cyan-500 text-black shadow'
                     : 'text-slate-400 hover:text-white'
@@ -526,8 +498,61 @@ export default function FootballManagerApp() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Cajas financieras y acciones */}
+        <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 md:gap-6 text-xs w-full sm:w-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div>
+              <span className="text-slate-400 block text-[9px] sm:text-[10px] uppercase font-bold">Caja</span>
+              <span className="font-mono font-bold text-emerald-400 text-xs sm:text-sm">
+                {formatMoney(userClub.cashYen, selectedCurrency)}
+              </span>
+            </div>
+            <div>
+              <span className="text-slate-400 block text-[9px] sm:text-[10px] uppercase font-bold">Fichajes</span>
+              <span className="font-mono font-bold text-cyan-400 text-xs sm:text-sm">
+                {formatMoney(userClub.budgetYen, selectedCurrency)}
+              </span>
+            </div>
+            <div className="hidden md:block">
+              <span className="text-slate-400 block text-[10px] uppercase font-bold">Confianza</span>
+              <div className="flex items-center gap-2">
+                <div className="w-14 h-2 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className={clsx(
+                      'h-full transition-all',
+                      boardTrust >= 70 ? 'bg-emerald-400' : boardTrust >= 40 ? 'bg-yellow-400' : 'bg-rose-500'
+                    )}
+                    style={{ width: `${boardTrust}%` }}
+                  />
+                </div>
+                <span className="font-mono font-bold text-white text-[11px]">{boardTrust}%</span>
+              </div>
+            </div>
+          </div>
 
           <div className="flex items-center gap-2">
+            {/* SELECTOR RÁPIDO DE DIVISA (TABLET / DESKTOP) */}
+            <div className="hidden sm:flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-lg p-1">
+              {(['EUR', 'USD', 'JPY', 'GBP'] as Currency[]).map((cur) => (
+                <button
+                  key={cur}
+                  type="button"
+                  onClick={() => setCurrency(cur)}
+                  title={`Cambiar divisa a ${cur}`}
+                  className={clsx(
+                    'px-2 py-0.5 rounded text-[10px] font-bold transition-all',
+                    selectedCurrency === cur
+                      ? 'bg-cyan-500 text-black shadow'
+                      : 'text-slate-400 hover:text-white'
+                  )}
+                >
+                  {cur === 'EUR' ? '€' : cur === 'USD' ? '$' : cur === 'JPY' ? '¥' : '£'}
+                </button>
+              ))}
+            </div>
+
             <button
               type="button"
               onClick={() => {
@@ -540,9 +565,9 @@ export default function FootballManagerApp() {
                 a.click();
               }}
               title="Descargar Partida (.JSON)"
-              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-all"
+              className="p-1.5 sm:p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-all"
             >
-              <FolderDown className="w-4 h-4" />
+              <FolderDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
             <button
               type="button"
@@ -552,15 +577,15 @@ export default function FootballManagerApp() {
                 }
               }}
               title="Reiniciar Partida"
-              className="p-2 bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-700 transition-all"
+              className="p-1.5 sm:p-2 bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-700 transition-all"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </div>
       </header>
 
-      <nav className="bg-slate-900 border-b border-slate-800 px-6 overflow-x-auto flex gap-2 py-2">
+      <nav className="bg-slate-900 border-b border-slate-800 px-3 sm:px-6 overflow-x-auto flex gap-1.5 sm:gap-2 py-2 scrollbar-none">
         {[
           { id: 'office', label: 'Despacho', icon: Shield },
           { id: 'squad', label: 'Plantilla', icon: Users },
@@ -580,21 +605,21 @@ export default function FootballManagerApp() {
               type="button"
               onClick={() => setActiveTab(tab.id as any)}
               className={clsx(
-                'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all',
+                'shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all',
                 isActive
                   ? 'bg-cyan-500 text-black shadow-md'
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
               )}
             >
-              <Icon className="w-3.5 h-3.5" />
-              {tab.label}
-              {tab.alert && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
+              <Icon className="w-3.5 h-3.5 shrink-0" />
+              <span>{tab.label}</span>
+              {tab.alert && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping shrink-0" />}
             </button>
           );
         })}
       </nav>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 md:p-6">
         {activeTab === 'office' && <OfficeView leagueTable={leagueTable} />}
         {activeTab === 'squad' && <SquadView />}
         {activeTab === 'tactics' && <TacticsView />}

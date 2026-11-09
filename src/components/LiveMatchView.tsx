@@ -103,87 +103,90 @@ export const LiveMatchView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* 1. MARCADOR EN VIVO Y CRONÓMETRO */}
-      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          {/* Club Local */}
-          <div className="flex items-center gap-4 flex-1 justify-end text-right">
-            <div>
-              <h2 className="text-xl md:text-2xl font-black text-white">{liveMatch.homeClub.name}</h2>
-              <span className="text-xs text-slate-400 uppercase tracking-widest">{liveMatch.homeClub.formation}</span>
+      <div className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-2xl relative overflow-hidden">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6">
+          {/* Matchup row */}
+          <div className="flex items-center justify-between w-full md:contents gap-2 sm:gap-4">
+            {/* Club Local */}
+            <div className="flex items-center gap-2.5 sm:gap-4 flex-1 justify-start md:justify-end text-left md:text-right min-w-0">
+              <div className="min-w-0 order-2 md:order-1">
+                <h2 className="text-sm sm:text-lg md:text-2xl font-black text-white truncate">{liveMatch.homeClub.name}</h2>
+                <span className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-widest">{liveMatch.homeClub.formation}</span>
+              </div>
+              <div
+                className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center font-black text-sm sm:text-xl shadow-lg border-2 border-white/20 shrink-0 order-1 md:order-2"
+                style={{ backgroundColor: liveMatch.homeClub.primaryColor, color: liveMatch.homeClub.secondaryColor }}
+              >
+                {liveMatch.homeClub.shortName}
+              </div>
             </div>
-            <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg border-2 border-white/20"
-              style={{ backgroundColor: liveMatch.homeClub.primaryColor, color: liveMatch.homeClub.secondaryColor }}
-            >
-              {liveMatch.homeClub.shortName}
-            </div>
-          </div>
 
-          {/* Marcador Central y Minuto */}
-          <div className="flex flex-col items-center px-6 py-2 bg-slate-950/80 border border-slate-800 rounded-xl min-w-[200px]">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-4 h-4 text-cyan-400 animate-pulse" />
-              <span className="text-xs font-mono font-bold tracking-widest text-cyan-400">
-                {liveMatch.isFinished
-                  ? "FINAL 90+3'"
-                  : liveMatch.minute === 45 && !isPlaying
-                  ? 'DESCANSO (45\')'
-                  : `${liveMatch.minute}'`}
+            {/* Marcador Central y Minuto (Desktop y Mobile central) */}
+            <div className="flex flex-col items-center px-3 sm:px-6 py-1.5 sm:py-2 bg-slate-950/80 border border-slate-800 rounded-xl shrink-0 min-w-[120px] sm:min-w-[180px]">
+              <div className="flex items-center gap-1.5 mb-0.5 sm:mb-1">
+                <Clock className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                <span className="text-[10px] sm:text-xs font-mono font-bold tracking-wider text-cyan-400">
+                  {liveMatch.isFinished
+                    ? "FINAL 90+3'"
+                    : liveMatch.minute === 45 && !isPlaying
+                    ? 'DESCANSO'
+                    : `${liveMatch.minute}'`}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 sm:gap-4 text-2xl sm:text-4xl md:text-5xl font-black tracking-tight text-white font-mono">
+                <span className={clsx(liveMatch.homeScore > liveMatch.awayScore && 'text-yellow-400')}>
+                  {liveMatch.homeScore}
+                </span>
+                <span className="text-slate-600">-</span>
+                <span className={clsx(liveMatch.awayScore > liveMatch.homeScore && 'text-yellow-400')}>
+                  {liveMatch.awayScore}
+                </span>
+              </div>
+
+              <span className="text-[8px] sm:text-[10px] text-slate-500 font-semibold tracking-wider uppercase mt-0.5">
+                J{liveMatch.round} · T{liveMatch.season}
               </span>
             </div>
 
-            <div className="flex items-center gap-4 text-4xl md:text-5xl font-black tracking-tight text-white font-mono">
-              <span className={clsx(liveMatch.homeScore > liveMatch.awayScore && 'text-yellow-400')}>
-                {liveMatch.homeScore}
-              </span>
-              <span className="text-slate-600">-</span>
-              <span className={clsx(liveMatch.awayScore > liveMatch.homeScore && 'text-yellow-400')}>
-                {liveMatch.awayScore}
-              </span>
-            </div>
-
-            <span className="text-[10px] text-slate-500 font-semibold tracking-wider uppercase mt-1">
-              Jornada {liveMatch.round} · Temporada {liveMatch.season}
-            </span>
-          </div>
-
-          {/* Club Visitante */}
-          <div className="flex items-center gap-4 flex-1 justify-start text-left">
-            <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl shadow-lg border-2 border-white/20"
-              style={{ backgroundColor: liveMatch.awayClub.primaryColor, color: liveMatch.awayClub.secondaryColor }}
-            >
-              {liveMatch.awayClub.shortName}
-            </div>
-            <div>
-              <h2 className="text-xl md:text-2xl font-black text-white">{liveMatch.awayClub.name}</h2>
-              <span className="text-xs text-slate-400 uppercase tracking-widest">{liveMatch.awayClub.formation}</span>
+            {/* Club Visitante */}
+            <div className="flex items-center gap-2.5 sm:gap-4 flex-1 justify-end md:justify-start text-right md:text-left min-w-0">
+              <div
+                className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center font-black text-sm sm:text-xl shadow-lg border-2 border-white/20 shrink-0"
+                style={{ backgroundColor: liveMatch.awayClub.primaryColor, color: liveMatch.awayClub.secondaryColor }}
+              >
+                {liveMatch.awayClub.shortName}
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm sm:text-lg md:text-2xl font-black text-white truncate">{liveMatch.awayClub.name}</h2>
+                <span className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-widest">{liveMatch.awayClub.formation}</span>
+              </div>
             </div>
           </div>
         </div>
 
         {/* CONTROLES DE SIMULACIÓN Y SUSTITUCIÓN */}
-        <div className="mt-6 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+        <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {!liveMatch.isFinished ? (
               <>
                 <button
                   type="button"
                   onClick={() => setIsPlaying(!isPlaying)}
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg text-sm transition-all shadow-md"
+                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg text-xs sm:text-sm transition-all shadow-md"
                 >
-                  {isPlaying ? <Pause className="w-4 h-4 fill-black" /> : <Play className="w-4 h-4 fill-black" />}
-                  {isPlaying ? 'Pausar' : 'Reanudar'}
+                  {isPlaying ? <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-black" /> : <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-black" />}
+                  <span>{isPlaying ? 'Pausar' : 'Reanudar'}</span>
                 </button>
 
-                <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700">
+                <div className="flex items-center bg-slate-800 rounded-lg p-0.5 border border-slate-700">
                   {[1, 2, 5].map((spd) => (
                     <button
                       key={spd}
                       type="button"
                       onClick={() => setSpeed(spd)}
                       className={clsx(
-                        'px-2.5 py-1 text-xs font-bold rounded transition-all',
+                        'px-2 sm:px-2.5 py-1 text-xs font-bold rounded transition-all',
                         speed === spd ? 'bg-cyan-500 text-black' : 'text-slate-400 hover:text-white'
                       )}
                     >
@@ -195,31 +198,31 @@ export const LiveMatchView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleFastSimulateAll}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg border border-slate-700 transition-all"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg border border-slate-700 transition-all"
                   title="Simular instantáneamente hasta el pitido final (90'+)"
                 >
                   <FastForward className="w-3.5 h-3.5 text-yellow-400" />
-                  Saltar al Final
+                  <span>Saltar al Final</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleOpenSubModal}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg shadow-md transition-all"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-lg shadow-md transition-all"
                   title="Ajustes tácticos y sustituciones (pausa el partido automáticamente)"
                 >
                   <Users className="w-3.5 h-3.5" />
-                  Táctica y Cambios ({userSubsLeft} subs)
+                  <span>Táctica ({userSubsLeft} subs)</span>
                 </button>
               </>
             ) : (
               <button
                 type="button"
                 onClick={() => finishMatchDay()}
-                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-400 text-black font-black text-sm rounded-xl shadow-lg hover:brightness-110 transition-all animate-pulse"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 sm:px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-400 text-black font-black text-xs sm:text-sm rounded-xl shadow-lg hover:brightness-110 transition-all animate-pulse"
               >
                 <CheckCircle className="w-4 h-4" />
-                Continuar a Resultados y Clasificación
+                <span>Continuar a Resultados y Clasificación</span>
               </button>
             )}
           </div>

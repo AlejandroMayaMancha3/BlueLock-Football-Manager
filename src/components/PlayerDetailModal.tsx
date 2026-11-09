@@ -286,7 +286,7 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
         </div>
 
         {/* NAVEGACIÓN DE PESTAÑAS */}
-        <div className="bg-slate-950 px-6 py-2.5 border-b border-slate-800 flex gap-2 overflow-x-auto shrink-0">
+        <div className="bg-slate-950 px-3 sm:px-6 py-2 sm:py-2.5 border-b border-slate-800 flex gap-1.5 sm:gap-2 overflow-x-auto shrink-0 scrollbar-none">
           {[
             { id: 'profile', label: 'Ficha Técnica & Atributos', icon: Zap },
             { id: 'season', label: 'Rendimiento & Temporada', icon: Activity },
@@ -323,7 +323,7 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
                 type="button"
                 onClick={() => setActiveTab(tab.id as any)}
                 className={clsx(
-                  'flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap',
+                  'shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap',
                   isActive
                     ? 'bg-cyan-500 text-black shadow-md'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/60'

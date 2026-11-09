@@ -173,7 +173,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
             {/* Chapa del Jugador */}
             <div
               className={clsx(
-                'relative w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-xs md:text-sm shadow-lg border-2 transition-all',
+                'relative w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs md:text-sm shadow-lg border-2 transition-all',
                 isBanned
                   ? 'border-rose-500 ring-2 ring-rose-500/80 bg-rose-950'
                   : isInjured
@@ -215,7 +215,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
               {hasPenalty && (
                 <span
                   className={clsx(
-                    'absolute -bottom-1 -right-1 text-[8px] font-black rounded px-0.5 border leading-tight shadow-md',
+                    'absolute -bottom-1 -right-1 text-[7px] sm:text-[8px] font-black rounded px-0.5 border leading-tight shadow-md',
                     adaptation.affinityTier === 'disaster'
                       ? 'bg-rose-950 text-rose-300 border-rose-500 animate-bounce'
                       : 'bg-amber-950 text-amber-300 border-amber-500'
@@ -228,12 +228,12 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
 
               {/* Sanción o Lesión */}
               {isBanned && (
-                <span className="absolute -top-1 -left-1 bg-rose-600 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-white">
+                <span className="absolute -top-1 -left-1 bg-rose-600 text-white text-[7px] sm:text-[8px] font-black rounded-full w-3.5 h-3.5 sm:w-4 sm:h-4 flex items-center justify-center border border-white">
                   🟥
                 </span>
               )}
               {!isBanned && isInjured && (
-                <span className="absolute -top-1 -left-1 bg-amber-600 text-white text-[8px] font-black rounded-full w-4 h-4 flex items-center justify-center border border-white">
+                <span className="absolute -top-1 -left-1 bg-amber-600 text-white text-[7px] sm:text-[8px] font-black rounded-full w-3.5 h-3.5 sm:w-4 sm:h-4 flex items-center justify-center border border-white">
                   🏥
                 </span>
               )}
@@ -244,7 +244,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
                   {isCaptain && (
                     <span
                       title="Capitán del equipo"
-                      className="bg-yellow-500 text-black text-[8px] font-black rounded-full w-3.5 h-3.5 flex items-center justify-center border border-white shadow"
+                      className="bg-yellow-500 text-black text-[7px] sm:text-[8px] font-black rounded-full w-3 h-3 sm:w-3.5 sm:h-3.5 flex items-center justify-center border border-white shadow"
                     >
                       C
                     </span>
@@ -252,7 +252,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
                   {isPenalty && (
                     <span
                       title="Lanzador principal de penaltis"
-                      className="bg-blue-600 text-white text-[8px] font-black rounded-full w-3.5 h-3.5 flex items-center justify-center border border-white shadow"
+                      className="bg-blue-600 text-white text-[7px] sm:text-[8px] font-black rounded-full w-3 h-3 sm:w-3.5 sm:h-3.5 flex items-center justify-center border border-white shadow"
                     >
                       P
                     </span>
@@ -260,7 +260,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
                   {isFreeKick && (
                     <span
                       title="Lanzador de faltas directas"
-                      className="bg-emerald-600 text-white text-[8px] font-black rounded-full w-3.5 h-3.5 flex items-center justify-center border border-white shadow"
+                      className="bg-emerald-600 text-white text-[7px] sm:text-[8px] font-black rounded-full w-3 h-3 sm:w-3.5 sm:h-3.5 flex items-center justify-center border border-white shadow"
                     >
                       F
                     </span>
@@ -270,28 +270,28 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
 
               {/* Indicador de Arma de Blue Lock */}
               {hasWeapon && (
-                <span className="absolute -bottom-1 -left-1 bg-cyan-500 text-black text-[8px] font-black rounded-full w-3.5 h-3.5 flex items-center justify-center">
-                  <Zap className="w-2.5 h-2.5 fill-black" />
+                <span className="absolute -bottom-1 -left-1 bg-cyan-500 text-black text-[7px] sm:text-[8px] font-black rounded-full w-3 h-3 sm:w-3.5 sm:h-3.5 flex items-center justify-center">
+                  <Zap className="w-2 h-2 sm:w-2.5 sm:h-2.5 fill-black" />
                 </span>
               )}
             </div>
 
             {/* Etiqueta con Nombre, Posición y Potencial */}
-            <div className="mt-1 bg-slate-950/90 backdrop-blur-sm border border-slate-700/60 rounded px-1.5 py-0.5 text-[10px] md:text-xs text-center whitespace-nowrap shadow-md max-w-[105px] truncate">
-              <div className="flex items-center justify-center gap-1">
+            <div className="mt-0.5 sm:mt-1 bg-slate-950/90 backdrop-blur-sm border border-slate-700/60 rounded px-1 sm:px-1.5 py-0.5 text-[8px] sm:text-[10px] md:text-xs text-center whitespace-nowrap shadow-md max-w-[68px] sm:max-w-[90px] md:max-w-[110px] truncate">
+              <div className="flex items-center justify-center gap-0.5 sm:gap-1">
                 <span className={clsx('font-bold', hasPenalty ? adaptation.affinityColor : 'text-cyan-400')}>
                   {posCoord.role}
                 </span>
                 <span className="text-white font-medium truncate">{player.name.split(' ').pop()}</span>
               </div>
-              <div className="text-[9px] font-mono">
+              <div className="text-[7px] sm:text-[9px] font-mono">
                 {hasPenalty ? (
                   <span className={clsx('font-bold', adaptation.affinityColor)}>
-                    MED {adaptation.effectiveOvr} <span className="text-[8px] opacity-75">({player.overall})</span>
+                    MED {adaptation.effectiveOvr} <span className="opacity-75">({player.overall})</span>
                   </span>
                 ) : (
                   <span className="text-slate-400">
-                    MED {player.overall} · <b className="text-cyan-300 font-bold">POT {player.potential}</b>
+                    {player.overall} · <b className="text-cyan-300 font-bold">P{player.potential}</b>
                   </span>
                 )}
               </div>

@@ -184,7 +184,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
             <Globe2 className="w-4 h-4 text-cyan-400" />
             <span>País / Liga Nacional:</span>
           </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none sm:flex-wrap">
             {COUNTRIES_CATALOG.map((c) => {
               const isSelected = selectedCountry === c.id;
               const isUserHome = userCountry === c.id;
@@ -200,7 +200,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
                     }
                   }}
                   className={clsx(
-                    'px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border',
+                    'shrink-0 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border whitespace-nowrap',
                     isSelected
                       ? 'bg-cyan-500 text-black border-cyan-400 shadow-md font-black'
                       : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
@@ -220,7 +220,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
         </div>
 
         {/* Pestañas de las 4 Divisiones de 24 clubes */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <span className="text-xs font-bold text-slate-400 shrink-0 flex items-center gap-1 mr-1">
             <Layers className="w-3.5 h-3.5 text-cyan-400" />
             <span>Categoría:</span>
@@ -235,7 +235,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
                 type="button"
                 onClick={() => setActiveTabDivisionId(div.id)}
                 className={clsx(
-                  'px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-2',
+                  'shrink-0 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-2',
                   isTabActive
                     ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white border-cyan-400 shadow-lg font-black'
                     : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
@@ -260,7 +260,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
             <Trophy className="w-3.5 h-3.5" />
             Nivel {tier} · {activeDivisionInfo.countryNameEs || activeDivisionInfo.country || 'Europa'}
           </div>
-          <h3 className="text-2xl font-black text-white flex items-center gap-2">
+          <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
             <span>Clasificación {divisionName}</span>
           </h3>
           <p className="text-xs text-slate-400">
@@ -287,16 +287,16 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
               <tr>
-                <th className="p-3 w-12 text-center">Pos</th>
-                <th className="p-3 min-w-[180px]">Club</th>
-                <th className="p-3 text-center w-10">PJ</th>
-                <th className="p-3 text-center w-10">PG</th>
-                <th className="p-3 text-center w-10">PE</th>
-                <th className="p-3 text-center w-10">PP</th>
-                <th className="p-3 text-center w-12">GF</th>
-                <th className="p-3 text-center w-12">GC</th>
-                <th className="p-3 text-center w-12">DG</th>
-                <th className="p-3 text-center w-14 font-black text-white">PTS</th>
+                <th className="p-2 sm:p-3 w-8 sm:w-12 text-center">Pos</th>
+                <th className="p-2 sm:p-3 min-w-[120px] sm:min-w-[180px]">Club</th>
+                <th className="p-2 sm:p-3 text-center w-8 sm:w-10">PJ</th>
+                <th className="p-2 sm:p-3 text-center w-8 sm:w-10">PG</th>
+                <th className="p-3 text-center w-10 hidden sm:table-cell">PE</th>
+                <th className="p-3 text-center w-10 hidden sm:table-cell">PP</th>
+                <th className="p-3 text-center w-12 hidden sm:table-cell">GF</th>
+                <th className="p-3 text-center w-12 hidden sm:table-cell">GC</th>
+                <th className="p-2 sm:p-3 text-center w-10 sm:w-12">DG</th>
+                <th className="p-2 sm:p-3 text-center w-10 sm:w-14 font-black text-white">PTS</th>
                 <th className="p-3 text-center hidden md:table-cell min-w-[100px]">Últimos 5</th>
               </tr>
             </thead>
@@ -318,28 +318,28 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
                       zone.border
                     )}
                   >
-                    <td className="p-3 text-center">
+                    <td className="p-2 sm:p-3 text-center">
                       <span
                         className={clsx(
-                          'w-6 h-6 rounded-lg inline-flex items-center justify-center font-bold text-xs shadow-sm',
+                          'w-5 h-5 sm:w-6 sm:h-6 rounded-md sm:rounded-lg inline-flex items-center justify-center font-bold text-[10px] sm:text-xs shadow-sm',
                           zone.bg
                         )}
                       >
                         {pos}
                       </span>
                     </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white text-sm">{row.clubName}</span>
+                    <td className="p-2 sm:p-3">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <span className="font-bold text-white text-xs sm:text-sm truncate">{row.clubName}</span>
                         {isUser && (
-                          <span className="text-[9px] bg-cyan-500 text-black px-1.5 py-0.2 rounded font-black tracking-wider uppercase">
+                          <span className="text-[8px] sm:text-[9px] bg-cyan-500 text-black px-1 sm:px-1.5 py-0.2 rounded font-black tracking-wider uppercase shrink-0">
                             TÚ
                           </span>
                         )}
                         {zone.tag && (
                           <span
                             className={clsx(
-                              'text-[9px] px-1.5 py-0.2 rounded font-mono font-bold hidden lg:inline-block',
+                              'text-[9px] px-1.5 py-0.2 rounded font-mono font-bold hidden lg:inline-block shrink-0',
                               zone.isSpecial
                                 ? 'bg-slate-800/80 text-cyan-300 border border-slate-700'
                                 : 'text-slate-500'
@@ -350,15 +350,15 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
                         )}
                       </div>
                     </td>
-                    <td className="p-3 text-center text-slate-400">{row.played}</td>
-                    <td className="p-3 text-center">{row.won}</td>
-                    <td className="p-3 text-center">{row.drawn}</td>
-                    <td className="p-3 text-center">{row.lost}</td>
-                    <td className="p-3 text-center text-slate-400">{row.goalsFor}</td>
-                    <td className="p-3 text-center text-slate-400">{row.goalsAgainst}</td>
+                    <td className="p-2 sm:p-3 text-center text-slate-400">{row.played}</td>
+                    <td className="p-2 sm:p-3 text-center">{row.won}</td>
+                    <td className="p-3 text-center hidden sm:table-cell">{row.drawn}</td>
+                    <td className="p-3 text-center hidden sm:table-cell">{row.lost}</td>
+                    <td className="p-3 text-center text-slate-400 hidden sm:table-cell">{row.goalsFor}</td>
+                    <td className="p-3 text-center text-slate-400 hidden sm:table-cell">{row.goalsAgainst}</td>
                     <td
                       className={clsx(
-                        'p-3 text-center font-bold',
+                        'p-2 sm:p-3 text-center font-bold',
                         row.goalDifference > 0
                           ? 'text-emerald-400'
                           : row.goalDifference < 0
@@ -368,7 +368,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
                     >
                       {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
                     </td>
-                    <td className="p-3 text-center font-black text-sm text-cyan-400 bg-slate-950/40">
+                    <td className="p-2 sm:p-3 text-center font-black text-xs sm:text-sm text-cyan-400 bg-slate-950/40">
                       {row.points}
                     </td>
                     <td className="p-3 text-center hidden md:table-cell">

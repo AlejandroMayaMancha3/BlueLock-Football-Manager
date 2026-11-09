@@ -501,12 +501,12 @@ export const TacticsView: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/60">
-                        <span>
-                          {p.age} años · Fit {p.fitness}% · {p.weapons?.length ? `⚡ ${p.weapons[0].name}` : 'Sin arma'}
+                      <div className="flex flex-wrap items-center justify-between gap-1.5 text-[10px] text-slate-400 pt-1 border-t border-slate-800/60">
+                        <span className="truncate">
+                          {p.age}a · Fit {p.fitness}% {p.weapons?.length ? `· ⚡ ${p.weapons[0].name}` : ''}
                         </span>
 
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 shrink-0 ml-auto">
                           {/* 1. MODO: Hay un titular seleccionado en la pizarra -> Meter al 11 */}
                           {tacticsSelectedPlayer && (
                             <button
@@ -515,10 +515,10 @@ export const TacticsView: React.FC = () => {
                                 swapStartingPlayer(tacticsSelectedPlayer.id, p.id);
                                 clearAllSelections();
                               }}
-                              className="px-3 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-black rounded text-[11px] transition-all flex items-center gap-1 shadow-lg animate-pulse"
+                              className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-black rounded text-[10px] sm:text-[11px] transition-all flex items-center gap-1 shadow-lg animate-pulse"
                             >
-                              <ArrowRightLeft className="w-3.5 h-3.5" />
-                              Meter por {tacticsSelectedPlayer.name.split(' ').pop()}
+                              <ArrowRightLeft className="w-3.5 h-3.5 shrink-0" />
+                              <span>Meter por {tacticsSelectedPlayer.name.split(' ').pop()}</span>
                             </button>
                           )}
 
@@ -530,10 +530,10 @@ export const TacticsView: React.FC = () => {
                                 swapBenchPlayer(p.id, selectedReserveForBench.id);
                                 setSelectedReserveForBench(null);
                               }}
-                              className="px-2.5 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-black rounded text-[10px] transition-all flex items-center gap-1 shadow-lg animate-pulse"
+                              className="px-2 py-1 bg-cyan-500 hover:bg-cyan-400 text-black font-black rounded text-[10px] transition-all flex items-center gap-1 shadow-lg animate-pulse"
                             >
-                              <ArrowRightLeft className="w-3 h-3" />
-                              Quitar por {selectedReserveForBench.name.split(' ').pop()}
+                              <ArrowRightLeft className="w-3 h-3 shrink-0" />
+                              <span>Quitar por {selectedReserveForBench.name.split(' ').pop()}</span>
                             </button>
                           )}
 
@@ -545,10 +545,10 @@ export const TacticsView: React.FC = () => {
                                 swapBenchPlayer(selectedBenchForReserve.id, p.id);
                                 setSelectedBenchForReserve(null);
                               }}
-                              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-black rounded text-[10px] transition-all flex items-center gap-1 shadow-lg animate-pulse"
+                              className="px-2 py-1 bg-amber-500 hover:bg-amber-400 text-black font-black rounded text-[10px] transition-all flex items-center gap-1 shadow-lg animate-pulse"
                             >
-                              <ArrowRightLeft className="w-3 h-3" />
-                              Subir por {selectedBenchForReserve.name.split(' ').pop()}
+                              <ArrowRightLeft className="w-3 h-3 shrink-0" />
+                              <span>Subir por {selectedBenchForReserve.name.split(' ').pop()}</span>
                             </button>
                           )}
 
@@ -559,11 +559,11 @@ export const TacticsView: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => addToBench(p.id)}
-                                  className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500 hover:text-black text-emerald-300 font-bold rounded text-[10px] transition-all flex items-center gap-1 border border-emerald-500/40 shadow-sm"
+                                  className="px-2 py-0.5 bg-emerald-500/20 hover:bg-emerald-500 hover:text-black text-emerald-300 font-bold rounded text-[10px] transition-all flex items-center gap-1 border border-emerald-500/40 shadow-sm"
                                   title="Ocupar plaza vacante en el banquillo"
                                 >
                                   <Plus className="w-3 h-3" />
-                                  Al Banquillo
+                                  <span>Banquillo</span>
                                 </button>
                               )}
                               <button
@@ -575,7 +575,7 @@ export const TacticsView: React.FC = () => {
                                 className="px-2 py-0.5 bg-slate-800 hover:bg-cyan-500 hover:text-black text-slate-300 font-bold rounded text-[10px] transition-all flex items-center gap-1"
                               >
                                 <ArrowRightLeft className="w-3 h-3" />
-                                {benchPlayers.length >= 7 ? 'Sustituir en Banquillo...' : 'Cambiar por...'}
+                                <span>{benchPlayers.length >= 7 ? 'Sustituir...' : 'Cambiar...'}</span>
                               </button>
                             </div>
                           )}

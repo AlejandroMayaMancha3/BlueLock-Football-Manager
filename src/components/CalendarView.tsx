@@ -336,7 +336,7 @@ export const CalendarView: React.FC = () => {
         </div>
 
         {/* FILTROS DE FIXTURES */}
-        <div className="flex items-center gap-2 overflow-x-auto pt-2">
+        <div className="flex items-center gap-2 overflow-x-auto pt-2 scrollbar-none">
           <span className="text-xs font-bold text-slate-400 flex items-center gap-1 shrink-0">
             <Filter className="w-3.5 h-3.5 text-cyan-400" />
             <span>Filtro:</span>
@@ -355,7 +355,7 @@ export const CalendarView: React.FC = () => {
               type="button"
               onClick={() => setFilterType(flt.id as any)}
               className={clsx(
-                'px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border',
+                'shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all border',
                 filterType === flt.id
                   ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 shadow-sm'
                   : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
@@ -385,6 +385,9 @@ export const CalendarView: React.FC = () => {
             const userDrew = isPlayed && userScore !== undefined && rivalScore !== undefined && userScore === rivalScore;
             const userLost = isPlayed && userScore !== undefined && rivalScore !== undefined && userScore < rivalScore;
 
+            const homeC = clubsMap[fix.homeClubId] || userClub;
+            const awayC = clubsMap[fix.awayClubId] || rivalClub || userClub;
+
             return (
               <div
                 key={fix.id}
@@ -401,47 +404,47 @@ export const CalendarView: React.FC = () => {
                 {/* FRANJA DE CABECERA DE LA TARJETA */}
                 <div
                   className={clsx(
-                    'px-4 py-2 border-b flex items-center justify-between text-xs',
+                    'px-3 sm:px-4 py-2 border-b flex flex-wrap items-center justify-between gap-1.5 text-xs',
                     isCurrentMatch
                       ? 'bg-cyan-950/80 border-cyan-500/40 text-cyan-300'
                       : 'bg-slate-950/80 border-slate-800 text-slate-400'
                   )}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-black text-white">JORNADA {fix.round}</span>
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                    <span className="font-mono font-black text-white text-[11px] sm:text-xs">JORNADA {fix.round}</span>
                     <span className="text-slate-600">·</span>
-                    <span className="flex items-center gap-1 text-[11px]">
+                    <span className="flex items-center gap-1 text-[10px] sm:text-[11px]">
                       <Clock className="w-3 h-3 text-slate-500" />
                       {dateStr}
                     </span>
                     <span className="text-slate-600">·</span>
-                    <span className="flex items-center gap-1 text-[11px]">
+                    <span className="flex items-center gap-1 text-[10px] sm:text-[11px]">
                       {isHome ? (
                         <>
                           <Home className="w-3 h-3 text-cyan-400" />
-                          <span className="text-cyan-300 font-bold">Local (En Casa)</span>
+                          <span className="text-cyan-300 font-bold">Local</span>
                         </>
                       ) : (
                         <>
                           <Plane className="w-3 h-3 text-amber-400" />
-                          <span className="text-amber-300 font-bold">Visitante (A Domicilio)</span>
+                          <span className="text-amber-300 font-bold">Visitante</span>
                         </>
                       )}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
                     {isCurrentMatch && (
-                      <span className="px-2.5 py-0.5 rounded-full bg-cyan-500 text-black text-[10px] font-black uppercase tracking-wider animate-pulse flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded-full bg-cyan-500 text-black text-[9px] sm:text-[10px] font-black uppercase tracking-wider animate-pulse flex items-center gap-1">
                         <Sparkles className="w-3 h-3 fill-black" />
-                        Próximo Partido
+                        Próximo
                       </span>
                     )}
 
                     {isPlayed && (
                       <span
                         className={clsx(
-                          'px-2 py-0.5 rounded-full text-[10px] font-mono font-black uppercase tracking-wider',
+                          'px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-mono font-black uppercase tracking-wider',
                           userWon && 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
                           userDrew && 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
                           userLost && 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
@@ -454,153 +457,130 @@ export const CalendarView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setInspectRound(fix.round)}
-                      className="px-2.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-bold flex items-center gap-1 transition-colors"
+                      className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-bold flex items-center gap-1 transition-colors"
                       title="Ver todos los resultados de los 12 partidos de esta jornada"
                     >
                       <Eye className="w-3 h-3 text-cyan-400" />
-                      <span>Ver Jornada {fix.round}</span>
+                      <span className="hidden sm:inline">Ver Jornada {fix.round}</span>
+                      <span className="sm:hidden">J{fix.round}</span>
                     </button>
                   </div>
                 </div>
 
                 {/* CONTENIDO PRINCIPAL: CLUB LOCAL VS CLUB VISITANTE */}
-                <div className="p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4">
-                  {/* CLUB LOCAL */}
-                  <div
-                    className={clsx(
-                      'flex items-center gap-3.5 w-full md:w-5/12',
-                      isHome ? 'justify-start' : 'justify-start md:justify-end md:flex-row-reverse text-left md:text-right'
-                    )}
-                  >
-                    {(() => {
-                      const homeC = clubsMap[fix.homeClubId] || userClub;
-                      return (
-                        <>
-                          <div
-                            className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shadow-md border-2 border-white/20 shrink-0"
-                            style={{ backgroundColor: homeC.primaryColor, color: homeC.secondaryColor }}
+                <div className="p-3 sm:p-5 flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-2 sm:gap-4">
+                    {/* CLUB LOCAL */}
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center font-black text-xs sm:text-base shadow-md border-2 border-white/20 shrink-0"
+                        style={{ backgroundColor: homeC.primaryColor, color: homeC.secondaryColor }}
+                      >
+                        {homeC.shortName}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={clsx(
+                              'font-black text-xs sm:text-sm md:text-base truncate',
+                              homeC.id === userClubId ? 'text-cyan-300' : 'text-white'
+                            )}
                           >
-                            {homeC.shortName}
+                            {homeC.name}
+                          </span>
+                          {homeC.id === userClubId && (
+                            <span className="text-[8px] sm:text-[9px] bg-cyan-500/20 text-cyan-300 px-1 py-0.2 rounded font-mono font-bold shrink-0">
+                              TÚ
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] sm:text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 truncate">
+                          <span>Nivel {homeC.level}</span>
+                          <span className="text-slate-600 hidden sm:inline">·</span>
+                          <span className="hidden sm:inline">{homeC.country}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CENTRO: MARCADOR O ESTADO DE PARTIDO */}
+                    <div className="shrink-0 px-2 text-center">
+                      {isPlayed ? (
+                        <div className="text-center">
+                          <div className="text-xl sm:text-2xl md:text-3xl font-black font-mono tracking-widest text-white px-3 sm:px-4 py-1 rounded-xl bg-slate-950 border border-slate-800 shadow-inner">
+                            <span>{fix.homeScore}</span>
+                            <span className="text-slate-600 mx-1.5 sm:mx-2">-</span>
+                            <span>{fix.awayScore}</span>
                           </div>
-                          <div className="truncate">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={clsx(
-                                  'font-black text-sm md:text-base truncate',
-                                  homeC.id === userClubId ? 'text-cyan-300' : 'text-white'
-                                )}
-                              >
-                                {homeC.name}
-                              </span>
-                              {homeC.id === userClubId && (
-                                <span className="text-[9px] bg-cyan-500/20 text-cyan-300 px-1 py-0.2 rounded font-mono font-bold">
-                                  TÚ
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                              <span>Fuerza: {homeC.level}</span>
-                              <span className="text-slate-600">·</span>
-                              <span>{homeC.country}</span>
-                            </div>
+                          <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase mt-1 block tracking-wider">
+                            Finalizado
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <div className="text-xs sm:text-sm font-bold text-slate-500 font-mono px-2.5 sm:px-3 py-1 rounded-lg bg-slate-950/60 border border-slate-800/80">
+                            VS
                           </div>
-                        </>
-                      );
-                    })()}
+                          <span className="text-[9px] sm:text-[10px] text-slate-600 font-mono mt-0.5 block">
+                            {isCurrentMatch ? 'En turno' : 'Por jugar'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* CLUB VISITANTE */}
+                    <div className="flex items-center justify-end gap-2 sm:gap-3 text-right flex-1 min-w-0">
+                      <div className="min-w-0">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {awayC.id === userClubId && (
+                            <span className="text-[8px] sm:text-[9px] bg-cyan-500/20 text-cyan-300 px-1 py-0.2 rounded font-mono font-bold shrink-0">
+                              TÚ
+                            </span>
+                          )}
+                          <span
+                            className={clsx(
+                              'font-black text-xs sm:text-sm md:text-base truncate',
+                              awayC.id === userClubId ? 'text-cyan-300' : 'text-white'
+                            )}
+                          >
+                            {awayC.name}
+                          </span>
+                        </div>
+                        <div className="text-[10px] sm:text-[11px] text-slate-400 flex items-center justify-end gap-1 mt-0.5 truncate">
+                          <span>Nivel {awayC.level}</span>
+                          <span className="text-slate-600 hidden sm:inline">·</span>
+                          <span className="hidden sm:inline">{awayC.country}</span>
+                        </div>
+                      </div>
+                      <div
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center font-black text-xs sm:text-base shadow-md border-2 border-white/20 shrink-0"
+                        style={{ backgroundColor: awayC.primaryColor, color: awayC.secondaryColor }}
+                      >
+                        {awayC.shortName}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* CENTRO: MARCADOR O ESTADO DE PARTIDO */}
-                  <div className="flex flex-col items-center justify-center shrink-0 w-full md:w-2/12 my-1 md:my-0">
-                    {isPlayed ? (
-                      <div className="text-center">
-                        <div className="text-2xl md:text-3xl font-black font-mono tracking-widest text-white px-4 py-1 rounded-xl bg-slate-950 border border-slate-800 shadow-inner">
-                          <span>{fix.homeScore}</span>
-                          <span className="text-slate-600 mx-2">-</span>
-                          <span>{fix.awayScore}</span>
-                        </div>
-                        <span className="text-[10px] text-slate-500 font-bold uppercase mt-1 block tracking-wider">
-                          Finalizado
-                        </span>
-                      </div>
-                    ) : isCurrentMatch ? (
-                      <div className="text-center space-y-1.5">
-                        <div className="text-lg font-black text-cyan-400 font-mono tracking-wider animate-pulse">
-                          VS
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={startMatchDay}
-                            className="px-3 py-1.5 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1"
-                          >
-                            <Play className="w-3.5 h-3.5 fill-black" />
-                            <span>Jugar</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={simulateFullMatchDay}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-1"
-                          >
-                            <FastForward className="w-3.5 h-3.5 text-yellow-400" />
-                            <span>Simular</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <div className="text-sm font-bold text-slate-500 font-mono px-3 py-1 rounded-lg bg-slate-950/60 border border-slate-800/80">
-                          VS
-                        </div>
-                        <span className="text-[10px] text-slate-600 font-mono mt-1 block">
-                          Por disputar
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* CLUB VISITANTE */}
-                  <div
-                    className={clsx(
-                      'flex items-center gap-3.5 w-full md:w-5/12',
-                      isHome ? 'justify-start md:justify-end md:flex-row-reverse text-left md:text-right' : 'justify-start'
-                    )}
-                  >
-                    {(() => {
-                      const awayC = clubsMap[fix.awayClubId] || rivalClub || userClub;
-                      return (
-                        <>
-                          <div
-                            className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base shadow-md border-2 border-white/20 shrink-0"
-                            style={{ backgroundColor: awayC.primaryColor, color: awayC.secondaryColor }}
-                          >
-                            {awayC.shortName}
-                          </div>
-                          <div className="truncate">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={clsx(
-                                  'font-black text-sm md:text-base truncate',
-                                  awayC.id === userClubId ? 'text-cyan-300' : 'text-white'
-                                )}
-                              >
-                                {awayC.name}
-                              </span>
-                              {awayC.id === userClubId && (
-                                <span className="text-[9px] bg-cyan-500/20 text-cyan-300 px-1 py-0.2 rounded font-mono font-bold">
-                                  TÚ
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                              <span>Fuerza: {awayC.level}</span>
-                              <span className="text-slate-600">·</span>
-                              <span>{awayC.country}</span>
-                            </div>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
+                  {/* SI ES EL PARTIDO ACTUAL: BOTONES DE DISPUTAR / SIMULAR EN FILA ADAPTADA */}
+                  {isCurrentMatch && !isPlayed && (
+                    <div className="pt-2.5 border-t border-cyan-500/30 flex flex-col sm:flex-row items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={startMatchDay}
+                        className="w-full sm:w-auto px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 animate-pulse"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-black" />
+                        <span>Disputar en Vivo (2D)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={simulateFullMatchDay}
+                        className="w-full sm:w-auto px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <FastForward className="w-3.5 h-3.5 text-yellow-400" />
+                        <span>Simular Partido</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* PIE DE TARJETA SI FUE EL ÚLTIMO PARTIDO */}
