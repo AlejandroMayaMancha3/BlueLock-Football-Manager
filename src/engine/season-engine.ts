@@ -279,8 +279,27 @@ export function computeLeagueTable(clubs: Club[], fixtures: MatchFixture[]): Lea
   });
 }
 
-// Simula la tabla de clasificación final realista de 46 jornadas para una división IA
-export function simulateAiDivisionTable(divisionClubs: Club[]): LeagueTableRow[] {
+// Simula la tabla de clasificación realista para una división IA adaptada a las jornadas transcurridas
+export function simulateAiDivisionTable(divisionClubs: Club[], targetRounds: number = 46): LeagueTableRow[] {
+  const effectiveRounds = Math.max(0, Math.min(46, targetRounds));
+
+  if (effectiveRounds === 0) {
+    return divisionClubs.map((club) => ({
+      clubId: club.id,
+      clubName: club.name,
+      shortName: club.shortName,
+      played: 0,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      goalDifference: 0,
+      points: 0,
+      formHistory: [],
+    }));
+  }
+
   const table: LeagueTableRow[] = divisionClubs.map((club) => {
     const basePower = club.level * 1.6 + (club.reputation * 0.4);
     const variance = (Math.random() * 16) - 8;
@@ -288,7 +307,7 @@ export function simulateAiDivisionTable(divisionClubs: Club[]): LeagueTableRow[]
       clubId: club.id,
       clubName: club.name,
       shortName: club.shortName,
-      played: 46,
+      played: effectiveRounds,
       won: 0,
       drawn: 0,
       lost: 0,
@@ -304,22 +323,28 @@ export function simulateAiDivisionTable(divisionClubs: Club[]): LeagueTableRow[]
   table.sort((a: any, b: any) => b.rawStrength - a.rawStrength);
 
   table.forEach((row: any, rank) => {
-    const targetPoints = Math.max(
+    const fullTargetPoints = Math.max(
       28,
       Math.min(104, Math.round(96 - (rank * 2.7) + (Math.random() * 6 - 3)))
     );
-    const draws = Math.floor(Math.random() * 7) + 8;
-    const wins = Math.max(5, Math.min(30, Math.floor((targetPoints - draws) / 3)));
-    const losses = Math.max(0, 46 - wins - draws);
-    const actualPoints = (wins * 3) + draws;
+    const roundRatio = effectiveRounds / 46;
+    const targetPoints = Math.round(fullTargetPoints * roundRatio);
 
-    const goalsFor = Math.max(25, Math.round((wins * 2.1) + (draws * 0.9) + Math.random() * 10));
-    const goalsAgainst = Math.max(20, Math.round((losses * 1.8) + (draws * 0.9) + Math.random() * 8));
+    const fullDraws = Math.floor(Math.random() * 7) + 8;
+    const scaledDraws = Math.min(effectiveRounds, Math.round(fullDraws * roundRatio));
+    const scaledWins = Math.max(0, Math.min(effectiveRounds - scaledDraws, Math.floor((targetPoints - scaledDraws) / 3)));
+    const scaledLosses = Math.max(0, effectiveRounds - scaledWins - scaledDraws);
+    const actualPoints = (scaledWins * 3) + scaledDraws;
 
-    row.played = 46;
-    row.won = wins;
-    row.drawn = draws;
-    row.lost = losses;
+    const fullGf = Math.max(25, Math.round((scaledWins * 2.1) + (scaledDraws * 0.9) + Math.random() * 10));
+    const fullGa = Math.max(20, Math.round((scaledLosses * 1.8) + (scaledDraws * 0.9) + Math.random() * 8));
+    const goalsFor = Math.max(0, Math.round(fullGf * roundRatio));
+    const goalsAgainst = Math.max(0, Math.round(fullGa * roundRatio));
+
+    row.played = effectiveRounds;
+    row.won = scaledWins;
+    row.drawn = scaledDraws;
+    row.lost = scaledLosses;
     row.points = actualPoints;
     row.goalsFor = goalsFor;
     row.goalsAgainst = goalsAgainst;

@@ -42,7 +42,7 @@ type SortOption =
   | 'name_asc';
 
 export const MarketView: React.FC = () => {
-  const { currentRound, userClubId, clubs, players, selectedCurrency, makeBuyOffer } = useGameStore();
+  const { currentRound, userClubId, clubs, players, selectedCurrency, makeBuyOffer, isSeasonCompleted } = useGameStore();
 
   const userClub = clubs.find((c) => c.id === userClubId);
   const currencyCfg = CURRENCIES[selectedCurrency] || CURRENCIES.EUR;
@@ -74,7 +74,7 @@ export const MarketView: React.FC = () => {
   const [offerYears, setOfferYears] = useState<number>(3);
   const [marketFeedback, setMarketFeedback] = useState<{ success: boolean; msg: string } | null>(null);
 
-  const isWindowOpen = currentRound <= 4 || (currentRound >= 11 && currentRound <= 14);
+  const isWindowOpen = isSeasonCompleted || currentRound <= 6 || (currentRound >= 22 && currentRound <= 28);
 
   // Insignia de Potencial
   const getPotentialTier = (pot: number) => {
@@ -292,7 +292,7 @@ export const MarketView: React.FC = () => {
               </span>
             ) : (
               <span className="text-[10px] bg-rose-950 text-rose-400 border border-rose-500/50 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">
-                ● Ventana Cerrada (J1-4 y J11-14)
+                ● Ventana Cerrada (Abierta en J1-6 y J22-28)
               </span>
             )}
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useGameStore } from '@/store/game-store';
 import {
   Trophy,
@@ -11,10 +11,13 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Sparkles,
+  Layers,
+  Globe2,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { LeagueTableRow } from '@/types/football-manager';
-import { getDivisionById } from '@/engine/data/divisions-catalog';
+import { LeagueTableRow, CountryLeague } from '@/types/football-manager';
+import { getDivisionById, getDivisionsByCountry, COUNTRIES_CATALOG } from '@/engine/data/divisions-catalog';
+import { simulateAiDivisionTable } from '@/engine/season-engine';
 
 interface TableViewProps {
   leagueTable: LeagueTableRow[];
@@ -23,6 +26,7 @@ interface TableViewProps {
 export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
   const {
     currentSeason,
+    currentRound,
     userClubId,
     clubs,
     players,
@@ -32,19 +36,49 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
   } = useGameStore();
 
   const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
-  const activeDivisionId = userClub?.divisionId || userClub?.league || selectedDivisionId || 'es_laliga';
-  const divisionInfo = getDivisionById(activeDivisionId);
-  const divisionName = divisionInfo?.name || 'Liga';
+  const userDivisionId = userClub?.divisionId || userClub?.league || selectedDivisionId || 'es_laliga';
+  const userCountry = (userClub?.country as CountryLeague) || 'Spain';
 
-  const totalTeams = leagueTable.length;
-  const tier = divisionInfo?.tier || 1;
-  const promDirect = divisionInfo?.promotionDirect || (tier === 1 ? 0 : 2);
-  const promPlayoff = divisionInfo?.promotionPlayoff || 0;
-  const relegDirect = divisionInfo?.relegationDirect || (tier === 4 ? 0 : 3);
-  const relegPlayoff = divisionInfo?.relegationPlayoff || 0;
+  // Estados de navegación para explorar cualquier división del país o del continente
+  const [selectedCountry, setSelectedCountry] = useState<CountryLeague>(userCountry);
+  const [activeTabDivisionId, setActiveTabDivisionId] = useState<string>(userDivisionId);
+
+  // Obtener las divisiones del país actualmente seleccionado
+  const availableDivisions = useMemo(() => {
+    return getDivisionsByCountry(selectedCountry);
+  }, [selectedCountry]);
+
+  // Si se cambia de país y la división actual no pertenece a él, seleccionar la primera división
+  const activeDivisionInfo = useMemo(() => {
+    const found = getDivisionById(activeTabDivisionId);
+    if (found && found.country === selectedCountry) {
+      return found;
+    }
+    return availableDivisions[0] || getDivisionById('es_laliga')!;
+  }, [activeTabDivisionId, availableDivisions, selectedCountry]);
+
+  const isViewingUserDivision = activeDivisionInfo.id === userDivisionId;
+  const divisionName = activeDivisionInfo.name || 'Liga';
+
+  // Calcular la tabla para la división seleccionada
+  const displayedTable = useMemo(() => {
+    if (isViewingUserDivision) {
+      return leagueTable;
+    }
+    const targetClubs = clubs.filter((c) => (c.divisionId || c.league) === activeDivisionInfo.id);
+    const completedMatches = isSeasonCompleted ? 46 : Math.max(0, currentRound - 1);
+    return simulateAiDivisionTable(targetClubs, completedMatches);
+  }, [isViewingUserDivision, leagueTable, clubs, activeDivisionInfo.id, isSeasonCompleted, currentRound]);
+
+  const totalTeams = displayedTable.length || 24;
+  const tier = activeDivisionInfo.tier || 1;
+  const promDirect = activeDivisionInfo.promotionDirect || (tier === 1 ? 0 : 2);
+  const promPlayoff = activeDivisionInfo.promotionPlayoff || 0;
+  const relegDirect = activeDivisionInfo.relegationDirect || (tier === 4 ? 0 : 3);
+  const relegPlayoff = activeDivisionInfo.relegationPlayoff || 0;
 
   // Filtrar futbolistas exclusivamente de los clubes de esta división
-  const divisionClubIds = new Set(leagueTable.map((r) => r.clubId));
+  const divisionClubIds = new Set(displayedTable.map((r) => r.clubId));
   const divisionPlayers = players.filter((p) => divisionClubIds.has(p.clubId));
 
   const topScorers = [...divisionPlayers]
@@ -142,18 +176,96 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
 
   return (
     <div className="space-y-6">
+      {/* SELECTOR INTERACTIVO DE PAÍS Y DIVISIÓN */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xl space-y-4">
+        {/* Selector de Países */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
+            <Globe2 className="w-4 h-4 text-cyan-400" />
+            <span>País / Liga Nacional:</span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {COUNTRIES_CATALOG.map((c) => {
+              const isSelected = selectedCountry === c.id;
+              const isUserHome = userCountry === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCountry(c.id);
+                    const countryDivs = getDivisionsByCountry(c.id);
+                    if (countryDivs.length > 0) {
+                      setActiveTabDivisionId(countryDivs[0].id);
+                    }
+                  }}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border',
+                    isSelected
+                      ? 'bg-cyan-500 text-black border-cyan-400 shadow-md font-black'
+                      : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+                  )}
+                >
+                  <span>{c.flag}</span>
+                  <span>{c.nameEs}</span>
+                  {isUserHome && (
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-950/80 text-cyan-300 font-mono ml-0.5">
+                      Tu País
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Pestañas de las 4 Divisiones de 24 clubes */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <span className="text-xs font-bold text-slate-400 shrink-0 flex items-center gap-1 mr-1">
+            <Layers className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Categoría:</span>
+          </span>
+          {availableDivisions.map((div) => {
+            const isTabActive = activeDivisionInfo.id === div.id;
+            const isUserClubDiv = userDivisionId === div.id;
+
+            return (
+              <button
+                key={div.id}
+                type="button"
+                onClick={() => setActiveTabDivisionId(div.id)}
+                className={clsx(
+                  'px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border flex items-center gap-2',
+                  isTabActive
+                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white border-cyan-400 shadow-lg font-black'
+                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white hover:border-slate-700'
+                )}
+              >
+                <span>Nivel {div.tier}: {div.name}</span>
+                {isUserClubDiv && (
+                  <span className="text-[9px] bg-yellow-500 text-black px-1.5 py-0.2 rounded font-black uppercase tracking-wider animate-pulse">
+                    Tu División
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* CABECERA DINÁMICA DE LA DIVISIÓN */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/70 border border-cyan-500/30 text-cyan-400 text-[10px] font-mono font-bold uppercase tracking-wider mb-1.5">
             <Trophy className="w-3.5 h-3.5" />
-            Nivel {tier} · {divisionInfo?.country || 'Europa'}
+            Nivel {tier} · {activeDivisionInfo.countryNameEs || activeDivisionInfo.country || 'Europa'}
           </div>
           <h3 className="text-2xl font-black text-white flex items-center gap-2">
             <span>Clasificación {divisionName}</span>
           </h3>
           <p className="text-xs text-slate-400">
             Temporada {currentSeason} · {totalTeams} Clubes compitiendo exclusivamente en esta categoría
+            {isViewingUserDivision ? ' (Liga en disputa en vivo)' : ' (Simulación de la pirámide de ascenso)'}
           </p>
         </div>
 
@@ -189,7 +301,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono">
-              {leagueTable.map((row, idx) => {
+              {displayedTable.map((row, idx) => {
                 const pos = idx + 1;
                 const isUser = row.clubId === userClubId;
                 const zone = getZoneBadge(pos);
@@ -199,93 +311,84 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
                   <tr
                     key={row.clubId}
                     className={clsx(
-                      'hover:bg-slate-800/40 transition-colors',
-                      zone.border,
-                      isUser ? 'bg-cyan-950/40 font-bold' : ''
+                      'transition-colors',
+                      isUser
+                        ? 'bg-cyan-950/60 hover:bg-cyan-900/60 text-white font-bold'
+                        : 'hover:bg-slate-800/40 text-slate-300',
+                      zone.border
                     )}
                   >
-                    {/* Posición */}
                     <td className="p-3 text-center">
                       <span
                         className={clsx(
-                          'w-6 h-6 rounded-full inline-flex items-center justify-center font-black text-xs transition-transform',
-                          zone.bg,
-                          isUser && 'ring-2 ring-cyan-400'
+                          'w-6 h-6 rounded-lg inline-flex items-center justify-center font-bold text-xs shadow-sm',
+                          zone.bg
                         )}
                       >
                         {pos}
                       </span>
                     </td>
-
-                    {/* Club */}
-                    <td className="p-3 font-sans">
+                    <td className="p-3">
                       <div className="flex items-center gap-2">
-                        <span
-                          className={clsx(
-                            'text-sm font-bold truncate',
-                            isUser ? 'text-cyan-300 font-black' : 'text-white'
-                          )}
-                        >
-                          {row.clubName}
-                        </span>
+                        <span className="font-bold text-white text-sm">{row.clubName}</span>
                         {isUser && (
-                          <span className="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 px-1.5 py-0.2 rounded font-mono font-bold">
-                            Tú
+                          <span className="text-[9px] bg-cyan-500 text-black px-1.5 py-0.2 rounded font-black tracking-wider uppercase">
+                            TÚ
                           </span>
                         )}
-                        {zone.isSpecial && (
-                          <span className="hidden lg:inline-block text-[9px] px-1.5 py-0.2 rounded font-mono font-bold uppercase text-slate-400">
+                        {zone.tag && (
+                          <span
+                            className={clsx(
+                              'text-[9px] px-1.5 py-0.2 rounded font-mono font-bold hidden lg:inline-block',
+                              zone.isSpecial
+                                ? 'bg-slate-800/80 text-cyan-300 border border-slate-700'
+                                : 'text-slate-500'
+                            )}
+                          >
                             {zone.tag}
                           </span>
                         )}
                       </div>
                     </td>
-
-                    {/* Estadísticas */}
-                    <td className="p-3 text-center text-slate-300 font-bold">{row.played}</td>
-                    <td className="p-3 text-center text-emerald-400 font-bold">{row.won}</td>
-                    <td className="p-3 text-center text-slate-400">{row.drawn}</td>
-                    <td className="p-3 text-center text-rose-400">{row.lost}</td>
-                    <td className="p-3 text-center text-slate-300">{row.goalsFor}</td>
+                    <td className="p-3 text-center text-slate-400">{row.played}</td>
+                    <td className="p-3 text-center">{row.won}</td>
+                    <td className="p-3 text-center">{row.drawn}</td>
+                    <td className="p-3 text-center">{row.lost}</td>
+                    <td className="p-3 text-center text-slate-400">{row.goalsFor}</td>
                     <td className="p-3 text-center text-slate-400">{row.goalsAgainst}</td>
-                    <td className="p-3 text-center font-bold">
-                      <span
-                        className={clsx(
-                          row.goalDifference > 0
-                            ? 'text-emerald-400'
-                            : row.goalDifference < 0
-                            ? 'text-rose-400'
-                            : 'text-slate-400'
-                        )}
-                      >
-                        {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
-                      </span>
+                    <td
+                      className={clsx(
+                        'p-3 text-center font-bold',
+                        row.goalDifference > 0
+                          ? 'text-emerald-400'
+                          : row.goalDifference < 0
+                          ? 'text-rose-400'
+                          : 'text-slate-400'
+                      )}
+                    >
+                      {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
                     </td>
-
-                    {/* Puntos */}
-                    <td className="p-3 text-center font-black text-base text-yellow-400 bg-slate-950/40">
+                    <td className="p-3 text-center font-black text-sm text-cyan-400 bg-slate-950/40">
                       {row.points}
                     </td>
-
-                    {/* Forma últimos 5 */}
                     <td className="p-3 text-center hidden md:table-cell">
                       <div className="flex items-center justify-center gap-1">
                         {lastFive.length > 0 ? (
-                          lastFive.map((res, rIdx) => (
+                          lastFive.map((res, fIdx) => (
                             <span
-                              key={rIdx}
+                              key={fIdx}
                               className={clsx(
-                                'w-4 h-4 rounded text-[9px] font-black inline-flex items-center justify-center font-mono',
-                                res === 'W' && 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40',
-                                res === 'D' && 'bg-slate-700 text-slate-300 border border-slate-600',
-                                res === 'L' && 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                                'w-4 h-4 rounded text-[9px] font-bold flex items-center justify-center shadow-xs',
+                                res === 'W' && 'bg-emerald-500 text-black',
+                                res === 'D' && 'bg-amber-500 text-black',
+                                res === 'L' && 'bg-rose-500 text-white'
                               )}
                             >
                               {res}
                             </span>
                           ))
                         ) : (
-                          <span className="text-[10px] text-slate-600 font-mono">-</span>
+                          <span className="text-[10px] text-slate-600">-</span>
                         )}
                       </div>
                     </td>
@@ -296,37 +399,34 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
           </table>
         </div>
 
-        {/* LEYENDA OFICIAL DE ZONAS */}
-        <div className="p-3.5 bg-slate-950/80 border-t border-slate-800 text-[11px] flex flex-wrap items-center gap-4 text-slate-400">
-          <span className="font-bold uppercase tracking-wider text-[10px] text-cyan-400 font-mono">
-            Zonas de Clasificación:
-          </span>
+        {/* LEYENDA DINÁMICA DE ZONAS SEGÚN EL TIER */}
+        <div className="bg-slate-950/90 p-4 border-t border-slate-800 flex flex-wrap items-center gap-4 text-xs font-semibold">
           {tier === 1 ? (
             <>
               <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block" />
+                <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block shadow-sm" />
                 <span>1.º Campeón de Liga</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-3 h-3 rounded-full bg-cyan-500 inline-block" />
                 <span>2.º al 4.º Zona Élite</span>
               </div>
-              {relegDirect > 0 ? (
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-full bg-blue-600 inline-block" />
+                <span>5.º y 6.º Europa</span>
+              </div>
+              {relegDirect > 0 && (
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-rose-600 inline-block" />
                   <span>
                     {totalTeams - relegDirect + 1}.º al {totalTeams}.º Descenso Directo
                   </span>
                 </div>
-              ) : (
-                <div className="flex items-center gap-1.5 text-slate-500 font-medium">
-                  <span>ℹ️ En 4.ª división no hay descensos (solo ascensos a 3.ª)</span>
-                </div>
               )}
               {relegPlayoff > 0 && (
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-amber-600 inline-block" />
-                  <span>Playout de Permanencia</span>
+                  <span>Playout / Permanencia</span>
                 </div>
               )}
             </>
@@ -450,7 +550,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
           <div className="flex items-center justify-between pb-2 border-b border-slate-800">
             <h4 className="font-bold text-white text-sm flex items-center gap-2">
               <Zap className="w-4 h-4 text-cyan-400" />
-              <span>Máximos Asistentes (Pases Clave)</span>
+              <span>Máximos Asistentes</span>
             </h4>
             <span className="text-[10px] text-slate-500 uppercase font-mono">{divisionName}</span>
           </div>
@@ -504,7 +604,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
                     </div>
                     <div className="text-right shrink-0">
                       <span className="font-mono font-black text-sm text-cyan-400">{p.seasonAssists}</span>
-                      <span className="text-[10px] text-slate-500 block">asist.</span>
+                      <span className="text-[10px] text-slate-500 block">asistencias</span>
                     </div>
                   </div>
                 );

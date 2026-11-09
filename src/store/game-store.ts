@@ -1211,9 +1211,51 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       return { success: false, message: `Se necesitan al menos ${formatMoney(60000000, get().selectedCurrency)} en caja para la formación del canterano.` };
     }
 
-    const firstNames = ['Seiichi', 'Takuma', 'Kazuya', 'Ryosuke', 'Taiki', 'Shinji', 'Ren'];
-    const lastNames = ['Nakamura', 'Fujiwara', 'Matsuda', 'Onda', 'Shibata', 'Hayashi'];
-    const name = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
+    const clubCountry = userClub.country || 'Spain';
+    const isBlueLockTalent = Math.random() < 0.15; // 15% de probabilidad de ser un becado especial del proyecto Blue Lock
+    let firstName = 'Pablo';
+    let lastName = 'García';
+    let youthNationality = 'España';
+
+    if (isBlueLockTalent) {
+      const jpFirst = ['Seiichi', 'Takuma', 'Kazuya', 'Ryosuke', 'Taiki', 'Shinji', 'Ren', 'Kiyoshi', 'Kouhei'];
+      const jpLast = ['Nakamura', 'Fujiwara', 'Matsuda', 'Onda', 'Shibata', 'Hayashi', 'Endo', 'Takahashi'];
+      firstName = jpFirst[Math.floor(Math.random() * jpFirst.length)];
+      lastName = jpLast[Math.floor(Math.random() * jpLast.length)];
+      youthNationality = 'Japón';
+    } else if (clubCountry === 'England') {
+      const enFirst = ['Jack', 'Oliver', 'Harry', 'George', 'Charlie', 'Mason', 'Archie', 'Freddie', 'Jude', 'Callum'];
+      const enLast = ['Smith', 'Walker', 'Harrison', 'Taylor', 'Wilson', 'Bennett', 'Fletcher', 'Sterling', 'Shaw'];
+      firstName = enFirst[Math.floor(Math.random() * enFirst.length)];
+      lastName = enLast[Math.floor(Math.random() * enLast.length)];
+      youthNationality = 'Inglaterra';
+    } else if (clubCountry === 'Germany') {
+      const deFirst = ['Lukas', 'Leon', 'Felix', 'Jonas', 'Maximilian', 'Tim', 'Niklas', 'Julian', 'Florian', 'Kai'];
+      const deLast = ['Müller', 'Schmidt', 'Schneider', 'Fischer', 'Weber', 'Wagner', 'Becker', 'Hoffmann', 'Schulz'];
+      firstName = deFirst[Math.floor(Math.random() * deFirst.length)];
+      lastName = deLast[Math.floor(Math.random() * deLast.length)];
+      youthNationality = 'Alemania';
+    } else if (clubCountry === 'Italy') {
+      const itFirst = ['Leonardo', 'Francesco', 'Alessandro', 'Lorenzo', 'Mattia', 'Matteo', 'Tommaso', 'Federico', 'Nicolo'];
+      const itLast = ['Rossi', 'Russo', 'Ferrari', 'Esposito', 'Bianchi', 'Romano', 'Colombo', 'Ricci', 'Marino'];
+      firstName = itFirst[Math.floor(Math.random() * itFirst.length)];
+      lastName = itLast[Math.floor(Math.random() * itLast.length)];
+      youthNationality = 'Italia';
+    } else if (clubCountry === 'France') {
+      const frFirst = ['Lucas', 'Louis', 'Gabriel', 'Hugo', 'Arthur', 'Jules', 'Raphaël', 'Théo', 'Mathis', 'Maxime'];
+      const frLast = ['Martin', 'Bernard', 'Dubois', 'Thomas', 'Robert', 'Richard', 'Petit', 'Durand', 'Leroy'];
+      firstName = frFirst[Math.floor(Math.random() * frFirst.length)];
+      lastName = frLast[Math.floor(Math.random() * frLast.length)];
+      youthNationality = 'Francia';
+    } else {
+      const esFirst = ['Pablo', 'Mateo', 'Alejandro', 'Hugo', 'Adrián', 'Álvaro', 'Iker', 'Lucas', 'Marc', 'Raúl'];
+      const esLast = ['García', 'Rodríguez', 'López', 'Martínez', 'Navarro', 'Torres', 'Serrano', 'Mendoza', 'Romero'];
+      firstName = esFirst[Math.floor(Math.random() * esFirst.length)];
+      lastName = esLast[Math.floor(Math.random() * esLast.length)];
+      youthNationality = 'España';
+    }
+
+    const name = `${firstName} ${lastName}`;
 
     const positions: Player['position'][] = ['POR', 'LI', 'DFC', 'LD', 'MCD', 'MC', 'MI', 'MD', 'MCO', 'EI', 'ED', 'DC'];
     const pos = positions[Math.floor(Math.random() * positions.length)];
@@ -1240,7 +1282,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           name: 'Despertar de Cantera',
           type: 'striker',
           level: 86,
-          description: 'Hambre pura descubierta en las pruebas de selección de Blue Lock',
+          description: isBlueLockTalent ? 'Prodigio becado por las pruebas de selección mundial de Blue Lock' : 'Joya forjada en las categorías inferiores del club',
         },
       ],
       egoRating: 88,
@@ -1252,7 +1294,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       clubId: userClubId,
       name: `${name} (Cantera)`,
       age: 16,
-      nationality: 'Japón',
+      nationality: youthNationality,
       position: pos,
       overall: calculatedOvr,
       potential: youthPotential,
@@ -1264,7 +1306,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           name: 'Despertar de Cantera',
           type: 'striker',
           level: 86,
-          description: 'Hambre pura descubierta en las pruebas de selección de Blue Lock',
+          description: isBlueLockTalent ? 'Prodigio becado por las pruebas de selección mundial de Blue Lock' : 'Joya forjada en las categorías inferiores del club',
         },
       ],
       egoRating: 88,
@@ -1323,11 +1365,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   makeBuyOffer: (playerId, feeYen, wageYen, years) => {
-    const { players, clubs, userClubId, currentRound, ledger, currentSeason } = get();
-    // Check transfer windows (Rounds 1-4 or 11-14)
-    const isWindowOpen = currentRound <= 4 || (currentRound >= 11 && currentRound <= 14);
+    const { players, clubs, userClubId, currentRound, ledger, currentSeason, isSeasonCompleted } = get();
+    // En una liga de 46 jornadas: Verano (J1-6 o fin de temporada) e Invierno (J22-28)
+    const isWindowOpen = isSeasonCompleted || currentRound <= 6 || (currentRound >= 22 && currentRound <= 28);
     if (!isWindowOpen) {
-      return { success: false, message: 'La ventana de fichajes está cerrada. Se abrirá en las Jornadas 1-4 y 11-14.' };
+      return { success: false, message: 'La ventana de fichajes está cerrada. Se abrirá en las Jornadas 1-6 (Verano) y 22-28 (Invierno).' };
     }
 
     const player = players.find((p) => p.id === playerId);
