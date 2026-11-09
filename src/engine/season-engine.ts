@@ -10,6 +10,7 @@ import {
 } from '@/types/football-manager';
 import { shouldAwakenWeapon, generateContextualWeapon } from './weapon-registry';
 import { getDivisionsByCountry } from './data/divisions-catalog';
+import { calculatePlayerMarketValue } from './player-valuation';
 
 // Generates 22 rounds for 12 clubs using round-robin algorithm
 export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixture[] {
@@ -448,6 +449,15 @@ export function advanceToNextSeason(
       }
     }
 
+    const newValuation = calculatePlayerMarketValue({
+      overall: newOvr,
+      potential: newPotential,
+      age,
+      weapons: finalWeapons,
+      egoRating: p.egoRating,
+      position: p.position,
+    });
+
     return {
       ...p,
       age,
@@ -456,6 +466,8 @@ export function advanceToNextSeason(
       potential: newPotential,
       stats: newStats,
       weapons: finalWeapons,
+      marketValueYen: newValuation.marketValueYen,
+      weeklyWageYen: newValuation.weeklyWageYen,
       fitness: 100,
       morale: matchesPlayed >= 10 ? 85 : 65,
       form: 75,

@@ -629,6 +629,17 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           }
         }
 
+        const postMatchVal = calculatePlayerMarketValue({
+          overall: currentOvr,
+          potential: currentPot,
+          age: p.age,
+          weapons: currentWeapons,
+          egoRating: p.egoRating,
+          position: updatedPos,
+        });
+        const matchPerformanceMultiplier = 1 + (playerGoals * 0.04) + (userWon ? 0.015 : 0) + (rating >= 8.0 ? 0.025 : 0);
+        const dynamicMarketValue = Math.max(postMatchVal.marketValueYen, Math.round(postMatchVal.marketValueYen * matchPerformanceMultiplier));
+
         return {
           ...p,
           position: updatedPos,
@@ -650,7 +661,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           fitness: calculatedFitness,
           morale: Math.min(100, Math.max(25, p.morale + moraleBonus + (rating >= 8.0 ? 3 : 0))),
           form: Math.min(100, Math.max(35, Math.round(p.form * 0.65 + rating * 3.8))),
-          marketValueYen: Math.round(p.marketValueYen * (1 + (playerGoals * 0.08) + (userWon ? 0.02 : 0))),
+          marketValueYen: dynamicMarketValue,
+          weeklyWageYen: postMatchVal.weeklyWageYen,
           isBanned: playerReds > 0 || ((p.yellowCardsCount || 0) + playerYellows >= 5),
           yellowCardsCount: ((p.yellowCardsCount || 0) + playerYellows >= 5) ? 0 : ((p.yellowCardsCount || 0) + playerYellows),
           injuryWeeks: Math.max(fisicoStrain, Math.max(0, (p.injuryWeeks || 0) - 1)),
@@ -678,6 +690,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         }
 
         const unplayedStaminaRecovery = trainingPlan === 'descanso' ? 30 : 15;
+        const unplayedVal = calculatePlayerMarketValue({
+          overall: newOvr,
+          potential: newPot,
+          age: p.age,
+          weapons: p.weapons,
+          egoRating: p.egoRating,
+          position: updatedPos,
+        });
 
         return {
           ...p,
@@ -690,6 +710,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           potential: newPot,
           form: newForm,
           morale: newMorale,
+          marketValueYen: unplayedVal.marketValueYen,
+          weeklyWageYen: unplayedVal.weeklyWageYen,
           fitness: Math.min(100, p.fitness + unplayedStaminaRecovery), // Descansado físicamente
           isBanned: false, // Si descansó, cumple su partido de sanción
           injuryWeeks: Math.max(0, (p.injuryWeeks || 0) - 1),
@@ -799,6 +821,39 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
             offeredFeeYen: Math.round(lp.marketValueYen * mult),
             offeredWageYen: Math.round(lp.weeklyWageYen * 1.15),
             contractYears: 3,
+            status: 'pending',
+            dateStr: `Jornada ${currentRound}`,
+            isFromUser: false,
+          });
+        }
+      }
+    });
+
+    // Ofertas no solicitadas para estrellas mundiales (OVR >= 85) no transferibles
+    const unlistedStars = finalPlayers.filter(
+      (p) => p.clubId === userClubId && !p.isTransferListed && p.overall >= 85 && !currentOffers.some((o) => o.playerId === p.id && o.status === 'pending')
+    );
+
+    unlistedStars.forEach((star) => {
+      if (Math.random() < 0.25) {
+        const topRivals = updatedClubs.filter((c) => c.id !== userClubId && c.reputation >= 70);
+        const candidateClubs = topRivals.length > 0 ? topRivals : updatedClubs.filter((c) => c.id !== userClubId);
+        const eligibleBuyers = candidateClubs.filter(
+          (c) => finalPlayers.filter((p) => p.clubId === c.id).length < 25
+        );
+        if (eligibleBuyers.length > 0) {
+          const buyer = eligibleBuyers[Math.floor(Math.random() * eligibleBuyers.length)];
+          const mult = 1.05 + Math.random() * 0.35; // Entre 105% y 140% de su cotización de mercado
+          currentOffers.push({
+            id: `star-offer-${Date.now()}-${star.id}-${buyer.id}`,
+            playerId: star.id,
+            playerName: star.name,
+            sellerClubId: userClubId,
+            buyerClubId: buyer.id,
+            buyerClubName: buyer.name,
+            offeredFeeYen: Math.round(star.marketValueYen * mult),
+            offeredWageYen: Math.round(star.weeklyWageYen * 1.30),
+            contractYears: 4,
             status: 'pending',
             dateStr: `Jornada ${currentRound}`,
             isFromUser: false,
