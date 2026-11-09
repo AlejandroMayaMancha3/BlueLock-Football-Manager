@@ -31,6 +31,7 @@ import { TableView } from '@/components/TableView';
 import { MarketView } from '@/components/MarketView';
 import { TrainingView } from '@/components/TrainingView';
 import { FinanceView } from '@/components/FinanceView';
+import { SimulatedMatchModal } from '@/components/SimulatedMatchModal';
 
 export default function FootballManagerApp() {
   const {
@@ -46,6 +47,8 @@ export default function FootballManagerApp() {
     boardTrust,
     isSacked,
     selectedCurrency,
+    simulatedMatchSummary,
+    clearSimulatedMatchSummary,
     setCurrency,
     loadFromStorage,
     startNewGame,
@@ -398,6 +401,14 @@ export default function FootballManagerApp() {
         {activeTab === 'training' && <TrainingView />}
         {activeTab === 'finance' && <FinanceView />}
       </main>
+
+      {/* MODAL EMERGENTE DE PARTIDO SIMULADO */}
+      {simulatedMatchSummary && (
+        <SimulatedMatchModal
+          summary={simulatedMatchSummary}
+          onClose={clearSimulatedMatchSummary}
+        />
+      )}
     </div>
   );
 }

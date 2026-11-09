@@ -195,3 +195,54 @@ export interface SeasonHistoryEntry {
   topScorerClubName: string;
   prizeMoneyYen: number;
 }
+
+export interface PlayerPerformanceSummary {
+  playerId: string;
+  playerName: string;
+  position: Position;
+  age: number;
+  minutesPlayed: number;
+  rating: number;
+  goals: number;
+  assists: number;
+  yellowCards: number;
+  redCards: number;
+  oldOverall: number;
+  newOverall: number;
+  oldPotential: number;
+  newPotential: number;
+  flowState: boolean;
+  fitness: number;
+  isSub: boolean;
+}
+
+export interface MatchSummaryData {
+  round: number;
+  season: number;
+  homeClub: Club;
+  awayClub: Club;
+  homeScore: number;
+  awayScore: number;
+  userClubId: string;
+  userIsHome: boolean;
+  events: MatchEvent[];
+  homeStats: {
+    possession: number;
+    shots: number;
+    shotsOnTarget: number;
+    chances: number;
+    fouls: number;
+    corners: number;
+  };
+  awayStats: {
+    possession: number;
+    shots: number;
+    shotsOnTarget: number;
+    chances: number;
+    fouls: number;
+    corners: number;
+  };
+  playerPerformances: PlayerPerformanceSummary[];
+  roundFixtures: MatchFixture[];
+}
+

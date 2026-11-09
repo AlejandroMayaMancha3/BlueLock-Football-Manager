@@ -215,7 +215,7 @@ export const LiveMatchView: React.FC = () => {
             ) : (
               <button
                 type="button"
-                onClick={finishMatchDay}
+                onClick={() => finishMatchDay()}
                 className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-400 text-black font-black text-sm rounded-xl shadow-lg hover:brightness-110 transition-all animate-pulse"
               >
                 <CheckCircle className="w-4 h-4" />

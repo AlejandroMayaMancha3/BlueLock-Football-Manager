@@ -13,6 +13,8 @@ import {
   TacticalPase,
   Formation,
   Currency,
+  MatchSummaryData,
+  PlayerPerformanceSummary,
 } from '@/types/football-manager';
 import { generateInitialClubsAndPlayers } from '@/engine/game-data';
 import {
@@ -54,6 +56,8 @@ export interface GameStoreState {
   seasonHistory: SeasonHistoryEntry[];
   isSacked: boolean;
   isSeasonCompleted: boolean;
+  simulatedMatchSummary: MatchSummaryData | null;
+  lastMatchSummary: MatchSummaryData | null;
 
   // Actions
   startNewGame: (managerName: string, clubId: string, currency?: Currency) => void;
@@ -66,7 +70,9 @@ export interface GameStoreState {
   tickMatchMinute: () => void;
   fastForwardMatch: () => void;
   executeMatchSub: (outId: string, inId: string) => void;
-  finishMatchDay: () => void;
+  finishMatchDay: (isSimulation?: boolean) => void;
+  clearSimulatedMatchSummary: () => void;
+  openLastMatchSummary: () => void;
   updateTactics: (mentalidad: TacticalMentalidad, presion: TacticalPresion, estiloPase: TacticalPase) => void;
   updateFormation: (formation: Formation) => void;
   swapStartingPlayer: (playerOutId: string, playerInId: string) => void;
@@ -106,6 +112,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   seasonHistory: [],
   isSacked: false,
   isSeasonCompleted: false,
+  simulatedMatchSummary: null,
+  lastMatchSummary: null,
 
   setCurrency: (currency: Currency) => {
     set({ selectedCurrency: currency });
@@ -152,6 +160,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       seasonHistory: [],
       isSacked: false,
       isSeasonCompleted: false,
+      simulatedMatchSummary: null,
+      lastMatchSummary: null,
     };
 
     set(newState);
@@ -231,7 +241,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     }
 
     set({ liveMatch: match });
-    get().finishMatchDay();
+    get().finishMatchDay(true);
   },
 
   tickMatchMinute: () => {
@@ -280,7 +290,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     set({ liveMatch: updated });
   },
 
-  finishMatchDay: () => {
+  finishMatchDay: (isSimulation: boolean = false) => {
     const {
       liveMatch,
       fixtures,
@@ -332,6 +342,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const userIsHome = liveMatch.homeClub.id === userClubId;
     const userWon = userIsHome ? liveMatch.homeScore > liveMatch.awayScore : liveMatch.awayScore > liveMatch.homeScore;
     const userDrew = liveMatch.homeScore === liveMatch.awayScore;
+
+    const playerPerformances: PlayerPerformanceSummary[] = [];
 
     const finalPlayers = updatedPlayers.map((p) => {
       // Un jugador participó si fue titular o entró como suplente (tiene valoración en playerRatings)
@@ -395,6 +407,31 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         // Portería a cero si es arquero o zaguero
         const cleanSheet = (p.position === 'POR' || p.position === 'DFC') && (userIsHome ? liveMatch.awayScore === 0 : liveMatch.homeScore === 0) ? 1 : 0;
 
+        const calculatedFitness = Math.min(100, Math.max(40, p.fitness - fatigueLoss + staminaRecovery));
+        const isStarter = userIsHome
+          ? liveMatch.homeLineup.includes(p.id)
+          : liveMatch.awayLineup.includes(p.id);
+
+        playerPerformances.push({
+          playerId: p.id,
+          playerName: p.name,
+          position: p.position,
+          age: p.age,
+          minutesPlayed,
+          rating,
+          goals: playerGoals,
+          assists: playerAssists,
+          yellowCards: playerYellows,
+          redCards: playerReds,
+          oldOverall: p.overall,
+          newOverall: currentOvr,
+          oldPotential: p.potential,
+          newPotential: currentPot,
+          flowState: !!p.flowState,
+          fitness: calculatedFitness,
+          isSub: !isStarter,
+        });
+
         return {
           ...p,
           overall: currentOvr,
@@ -408,7 +445,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           seasonRedCards: (p.seasonRedCards || 0) + playerReds,
           seasonCleanSheets: (p.seasonCleanSheets || 0) + cleanSheet,
           seasonAverageRating: newAvgRating,
-          fitness: Math.min(100, Math.max(40, p.fitness - fatigueLoss + staminaRecovery)),
+          fitness: calculatedFitness,
           morale: Math.min(100, Math.max(25, p.morale + moraleBonus + (rating >= 8.0 ? 3 : 0))),
           form: Math.min(100, Math.max(35, Math.round(p.form * 0.65 + rating * 3.8))),
           marketValueYen: Math.round(p.marketValueYen * (1 + (playerGoals * 0.08) + (userWon ? 0.02 : 0))),
@@ -500,6 +537,28 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       nextDecisionEvent = DECISION_EVENTS_POOL[Math.floor(Math.random() * DECISION_EVENTS_POOL.length)];
     }
 
+    // Ordenar actuaciones: titulares primero, luego suplentes; ordenados por minutos descendente
+    playerPerformances.sort((a, b) => {
+      if (a.isSub !== b.isSub) return a.isSub ? 1 : -1;
+      return b.minutesPlayed - a.minutesPlayed;
+    });
+
+    const summaryData: MatchSummaryData = {
+      round: currentRound,
+      season: currentSeason,
+      homeClub: liveMatch.homeClub,
+      awayClub: liveMatch.awayClub,
+      homeScore: liveMatch.homeScore,
+      awayScore: liveMatch.awayScore,
+      userClubId,
+      userIsHome,
+      events: [...liveMatch.events],
+      homeStats: { ...liveMatch.homeStats },
+      awayStats: { ...liveMatch.awayStats },
+      playerPerformances,
+      roundFixtures: finalFixtures.filter((f) => f.round === currentRound),
+    };
+
     set({
       fixtures: finalFixtures,
       players: finalPlayers,
@@ -513,9 +572,20 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       activeDecisionEvent: nextDecisionEvent,
       activeTab: isSeasonCompleted ? 'table' : 'office',
       liveMatch: null,
+      lastMatchSummary: summaryData,
+      simulatedMatchSummary: isSimulation ? summaryData : null,
     });
 
     get().saveToStorage();
+  },
+
+  clearSimulatedMatchSummary: () => set({ simulatedMatchSummary: null }),
+
+  openLastMatchSummary: () => {
+    const { lastMatchSummary } = get();
+    if (lastMatchSummary) {
+      set({ simulatedMatchSummary: lastMatchSummary });
+    }
   },
 
   updateTactics: (mentalidad, presion, estiloPase) => {

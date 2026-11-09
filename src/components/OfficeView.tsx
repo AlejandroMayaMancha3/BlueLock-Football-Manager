@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useGameStore } from '@/store/game-store';
-import { Calendar, Play, Sparkles, ArrowRight, Shield, FastForward } from 'lucide-react';
+import { Calendar, Play, Sparkles, ArrowRight, Shield, FastForward, FileText } from 'lucide-react';
 import clsx from 'clsx';
 import { LeagueTableRow } from '@/types/football-manager';
 import { formatTextWithCurrency } from '@/lib/currency';
@@ -23,6 +23,8 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
     activeDecisionEvent,
     selectedCurrency,
     fixtures,
+    lastMatchSummary,
+    openLastMatchSummary,
     startMatchDay,
     simulateFullMatchDay,
     answerDecisionEvent,
@@ -120,6 +122,18 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
                   Simular Partido Completo
                 </button>
               </div>
+
+              {lastMatchSummary && (
+                <button
+                  type="button"
+                  onClick={openLastMatchSummary}
+                  className="px-4 py-2 bg-slate-900/90 hover:bg-slate-800 border border-slate-750 hover:border-cyan-500/50 text-cyan-300 font-bold text-xs rounded-xl shadow transition-all flex items-center gap-2"
+                  title="Volver a abrir el informe y resumen completo del último partido disputado o simulado"
+                >
+                  <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                  Ver Acta de la Jornada {lastMatchSummary.round}
+                </button>
+              )}
             </div>
 
             {/* Rival */}
