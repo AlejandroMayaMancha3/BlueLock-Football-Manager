@@ -29,6 +29,7 @@ import {
   tickLiveMatch,
   executeLiveSub,
 } from '@/engine/match-engine-2d';
+import { shouldAwakenWeapon, generateContextualWeapon } from '@/engine/weapon-registry';
 import { DECISION_EVENTS_POOL } from '@/engine/events-data';
 import { formatMoney } from '@/lib/currency';
 
@@ -433,10 +434,62 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           isSub: !isStarter,
         });
 
+        // Comprobar Despertar de Armas (Consagración, Prodigio o Epifanía de Ego)
+        let currentWeapons = p.weapons ? [...p.weapons] : [];
+        const candidateForAwaken: Player = { ...p, overall: currentOvr, potential: currentPot };
+
+        const isEpiphany =
+          currentWeapons.length === 0 &&
+          (rating >= 8.8 || playerGoals >= 2 || (p.position === 'POR' && cleanSheet > 0 && rating >= 8.5));
+
+        if (isEpiphany) {
+          const awakened = generateContextualWeapon(candidateForAwaken, false);
+          currentWeapons.push(awakened);
+          liveMatch.events.unshift({
+            minute: 90,
+            type: 'commentary',
+            teamId: p.clubId,
+            playerId: p.id,
+            playerName: p.name,
+            description: `⚡ ¡EPIFANÍA DE EGO! Tras una exhibición descomunal (Nota ${rating.toFixed(1)}), ¡${p.name} despierta su arma: [${awakened.name}]!`,
+            ballZone: { x: 50, y: 50 },
+          });
+        } else {
+          const awakenDecision = shouldAwakenWeapon(candidateForAwaken);
+          if (awakenDecision.awaken) {
+            if (currentWeapons.length === 0) {
+              const awakened = generateContextualWeapon(candidateForAwaken, false);
+              currentWeapons.push(awakened);
+              liveMatch.events.unshift({
+                minute: 90,
+                type: 'commentary',
+                teamId: p.clubId,
+                playerId: p.id,
+                playerName: p.name,
+                description: `🌟 ¡DESPERTAR DE EGO! ${p.name} alcanza el umbral de maestría y forja su arma: [${awakened.name}]!`,
+                ballZone: { x: 50, y: 50 },
+              });
+            } else if (awakenDecision.isSecondary && currentWeapons.length === 1 && Math.random() < 0.35) {
+              const secondary = generateContextualWeapon(candidateForAwaken, true);
+              currentWeapons.push(secondary);
+              liveMatch.events.unshift({
+                minute: 90,
+                type: 'commentary',
+                teamId: p.clubId,
+                playerId: p.id,
+                playerName: p.name,
+                description: `🔮 ¡EVOLUCIÓN DE PRODIGIO! ${p.name} despierta su segunda arma de Ego: [${secondary.name}]!`,
+                ballZone: { x: 50, y: 50 },
+              });
+            }
+          }
+        }
+
         return {
           ...p,
           overall: currentOvr,
           potential: currentPot,
+          weapons: currentWeapons,
           consecutiveMatchesWithoutPlaying: 0,
           seasonMatches: newSeasonMatches,
           seasonMinutes: newSeasonMinutes,

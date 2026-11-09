@@ -1,4 +1,5 @@
 import { Club, Player, MatchEvent, Formation } from '@/types/football-manager';
+import { checkBalancedChemicalReaction } from './weapon-registry';
 
 export interface SetPieceState {
   type: 'kickoff' | 'corner' | 'dangerous_free_kick' | 'free_kick_cross' | 'midfield_foul' | 'penalty';
@@ -1554,9 +1555,27 @@ export function tickLiveMatch(
 
     statsObj.shots += 1;
 
+    // Reacción Química Equilibrada Blue Lock (+12 a +18 boost)
+    let chemicalBoost = 0;
+    if (shooter && passer) {
+      const chem = checkBalancedChemicalReaction(passer, shooter);
+      if (chem && chem.triggered && Math.random() < 0.45) {
+        chemicalBoost = chem.boost;
+        next.events.unshift({
+          minute: currentMinute,
+          type: 'flow',
+          teamId: attTeam.id,
+          playerId: shooter.id,
+          playerName: shooter.name,
+          description: chem.narrative,
+          ballZone: next.ballPosition,
+        });
+      }
+    }
+
     // Efecto de arma Blue Lock
     const weapon = shooter?.weapons?.[0];
-    let shotPower = (shooter?.stats.shooting || 75) + (weapon ? weapon.level * 0.15 : 0);
+    let shotPower = (shooter?.stats.shooting || 75) + (weapon ? weapon.level * 0.15 : 0) + chemicalBoost;
     const gkPower = (defGk?.stats.goalkeeping || 70) + (defGk?.weapons?.[0] ? defGk.weapons[0].level * 0.15 : 0);
 
     // Activación de Flow State

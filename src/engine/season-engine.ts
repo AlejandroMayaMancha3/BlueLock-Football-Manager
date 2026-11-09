@@ -1,4 +1,5 @@
 import { Club, Player, MatchFixture, LeagueTableRow, SeasonHistoryEntry } from '@/types/football-manager';
+import { shouldAwakenWeapon, generateContextualWeapon } from './weapon-registry';
 
 // Generates 22 rounds for 12 clubs using round-robin algorithm
 export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixture[] {
@@ -374,6 +375,18 @@ export function advanceToNextSeason(
       finalTransferListed = false;
     }
 
+    // Despertar de Armas de Ego tras la evolución de fin de temporada
+    let finalWeapons = [...(p.weapons || [])];
+    const candidatePlayer: Player = { ...p, overall: newOvr, potential: newPotential, stats: newStats, age };
+    const awakenCheck = shouldAwakenWeapon(candidatePlayer);
+    if (awakenCheck.awaken) {
+      if (finalWeapons.length === 0) {
+        finalWeapons = [generateContextualWeapon(candidatePlayer, false)];
+      } else if (awakenCheck.isSecondary && finalWeapons.length === 1 && Math.random() < 0.45) {
+        finalWeapons = [...finalWeapons, generateContextualWeapon(candidatePlayer, true)];
+      }
+    }
+
     return {
       ...p,
       age,
@@ -381,6 +394,7 @@ export function advanceToNextSeason(
       overall: newOvr,
       potential: newPotential,
       stats: newStats,
+      weapons: finalWeapons,
       fitness: 100,
       morale: matchesPlayed >= 10 ? 85 : 65,
       form: 75,

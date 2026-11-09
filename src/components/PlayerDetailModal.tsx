@@ -22,6 +22,7 @@ import {
 import clsx from 'clsx';
 import { useGameStore } from '@/store/game-store';
 import { Player, Position } from '@/types/football-manager';
+import { checkIsProdigy } from '@/engine/weapon-registry';
 import { formatMoney, formatWithSpaces, parseNumberFromSpaces, convertToYen } from '@/lib/currency';
 
 interface PlayerDetailModalProps {
@@ -153,6 +154,11 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
                   <span className={clsx('px-2.5 py-0.5 rounded-md text-xs font-mono font-bold border', getPositionColor(player.position))}>
                     {player.position}
                   </span>
+                  {checkIsProdigy(player) && (
+                    <span className="px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-purple-950/80 text-purple-300 border border-purple-500/50 flex items-center gap-1 shadow-sm">
+                      <span>🔮</span> PRODIGIO
+                    </span>
+                  )}
                   {player.secondaryPosition && (
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-slate-800 text-slate-400 border border-slate-700">
                       Sec: {player.secondaryPosition}
@@ -401,10 +407,29 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
 
               {/* Armas y Habilidades del Ego */}
               <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-purple-400" />
-                  Armas & Habilidades Únicas del Ego
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-400" />
+                    Armas & Habilidades Únicas del Ego
+                  </h4>
+                  {checkIsProdigy(player) && (
+                    <span className="text-[10px] font-bold text-purple-300 bg-purple-950/60 border border-purple-500/40 px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <span>🔮</span> Talento Prodigio
+                    </span>
+                  )}
+                </div>
+
+                {checkIsProdigy(player) && (
+                  <div className="p-3 bg-purple-950/30 border border-purple-500/30 rounded-xl text-xs text-purple-200 flex items-start gap-2.5">
+                    <span className="text-base">🔮</span>
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-purple-300">Prodigio de Blue Lock ({player.age} años · Potencial {player.potential})</p>
+                      <p className="text-[11px] text-purple-300/80 leading-relaxed">
+                        Despierta su primera arma de Ego tempranamente (a partir de 80 de media) y posee un 40% de probabilidad de forjar una 2ª arma complementaria al consagrarse en el fútbol de élite.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {player.weapons && player.weapons.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -423,7 +448,19 @@ export const PlayerDetailModal: React.FC<PlayerDetailModalProps> = ({ player: in
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500 italic">Este jugador aún no ha despertado un arma de ego exclusiva.</p>
+                  <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl space-y-2">
+                    <p className="text-xs text-slate-300 font-semibold">
+                      Este jugador aún no ha forjado un arma de Ego exclusiva.
+                    </p>
+                    <div className="text-[11px] text-slate-400 space-y-1">
+                      <p>• <b>Consagración:</b> Despertará su arma garantizada al alcanzar <b>88 de media</b>.</p>
+                      {checkIsProdigy(player) ? (
+                        <p className="text-purple-300 font-semibold">• <b>Estatus Prodigio:</b> Despertará su primera arma de forma precoz al alcanzar <b>80 de media</b> (o con 94+ potencial).</p>
+                      ) : (
+                        <p>• <b>Epifanía en Partido:</b> Puede despertar un arma antes de tiempo si logra una actuación estelar (nota ≥ 8.8, doblete o atajadas clave).</p>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

@@ -1,4 +1,5 @@
 import { Club, Player, Position, Weapon, Formation, PlayerStats } from '@/types/football-manager';
+import { shouldAwakenWeapon, generateContextualWeapon } from './weapon-registry';
 
 // Random helper
 function rnd(min: number, max: number): number {
@@ -895,5 +896,18 @@ export function generateInitialClubsAndPlayers(): { clubs: Club[]; players: Play
     };
   });
 
-  return { clubs, players };
+  const finalizedPlayers = players.map((p) => {
+    if (!p.weapons || p.weapons.length === 0) {
+      const decision = shouldAwakenWeapon(p);
+      if (decision.awaken) {
+        return {
+          ...p,
+          weapons: [generateContextualWeapon(p, false)],
+        };
+      }
+    }
+    return p;
+  });
+
+  return { clubs, players: finalizedPlayers };
 }

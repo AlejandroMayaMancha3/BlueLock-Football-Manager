@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { Zap, TrendingUp, AlertTriangle, Star, Tag, Users, UserCheck } from 'lucide-react';
 import { formatMoney } from '@/lib/currency';
 import { Player } from '@/types/football-manager';
+import { checkIsProdigy } from '@/engine/weapon-registry';
 import { PlayerDetailModal } from './PlayerDetailModal';
 
 export const SquadView: React.FC = () => {
@@ -150,6 +151,15 @@ export const SquadView: React.FC = () => {
                           >
                             {player.name}
                           </button>
+
+                          {checkIsProdigy(player) && (
+                            <span
+                              className="text-[9px] bg-purple-950/80 text-purple-300 border border-purple-500/50 px-1.5 py-0.2 rounded font-bold flex items-center gap-0.5 shadow-sm"
+                              title="Prodigio de Blue Lock: Talento precoz con potencial de élite (≤ 20 años y Potencial ≥ 90). Despierta armas tempranamente."
+                            >
+                              <span>🔮</span> Prodigio
+                            </span>
+                          )}
 
                           {player.isTransferListed && (
                             <span className="text-[9px] bg-amber-950/80 text-amber-300 border border-amber-500/50 px-1.5 py-0.2 rounded font-bold">
