@@ -46,7 +46,7 @@ export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixt
     tempIds.splice(1, 0, last);
   }
 
-  // First leg (Jornadas 1 to 11)
+  // First leg (Jornadas 1 to 11 o 1 a 23)
   firstLegRounds.forEach((pairs, rIdx) => {
     const roundNum = rIdx + 1;
     pairs.forEach(([h, a], mIdx) => {
@@ -54,6 +54,9 @@ export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixt
         id: `fix-s${season}-r${roundNum}-m${mIdx}`,
         season,
         round: roundNum,
+        leagueMatchday: roundNum,
+        competitionType: 'league',
+        roundStageName: `Jornada ${roundNum}`,
         homeClubId: h,
         awayClubId: a,
         isPlayed: false,
@@ -69,6 +72,9 @@ export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixt
         id: `fix-s${season}-r${roundNum}-m${mIdx}`,
         season,
         round: roundNum,
+        leagueMatchday: roundNum,
+        competitionType: 'league',
+        roundStageName: `Jornada ${roundNum}`,
         homeClubId: a, // Inverted
         awayClubId: h,
         isPlayed: false,

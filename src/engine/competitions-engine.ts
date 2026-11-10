@@ -662,6 +662,7 @@ export function generateSeasonFixturesWithTournaments(
           id: `fix-s${season}-r${roundNumber}-lg-m${mIdx}`,
           season,
           round: roundNumber,
+          leagueMatchday: matchdayNumber,
           homeClubId: h,
           awayClubId: a,
           isPlayed: false,
@@ -713,7 +714,7 @@ export function generateSeasonFixturesWithTournaments(
       const uIdx = slot.uefaIndex;
       const euroRival = europeanRivalPool[uIdx] || europeanRivalPool[0];
       const isHome = uIdx % 2 === 0; // 4 casa, 4 fuera alternados
-      const stageName = `Fase de Liga · Jornada ${uIdx + 1}`;
+      const stageName = `Fase de Liga · Fecha ${uIdx + 1} de 8`;
 
       // Partido del usuario contra rival de otra liga
       allGeneratedFixtures.push({
@@ -853,7 +854,22 @@ export function ensureSeasonTournaments(
   );
 
   if (hasTournaments) {
-    return existingFixtures;
+    // Asegurar que las jornadas de liga tengan asignado su leagueMatchday correspondiente (1 a 46)
+    return existingFixtures.map((f) => {
+      if (!f.competitionType || f.competitionType === 'league') {
+        let lMatchday = f.leagueMatchday;
+        if (!lMatchday && f.roundStageName?.startsWith('Jornada ')) {
+          const parsed = parseInt(f.roundStageName.replace('Jornada ', ''), 10);
+          if (!isNaN(parsed)) lMatchday = parsed;
+        }
+        return {
+          ...f,
+          competitionType: 'league',
+          leagueMatchday: lMatchday,
+        };
+      }
+      return f;
+    });
   }
 
   const userClub = allClubs.find((c) => c.id === userClubId) || allClubs[0];
@@ -1899,5 +1915,73 @@ export function getNationalCupBracket(
     round8,
     quarters,
     final: [finalMatchup],
+  };
+}
+
+/**
+ * Información unificada del progreso de la Liga Regular y los Torneos Oficiales.
+ * Permite separar limpiamente las 46 Jornadas de Liga de los partidos de Copa y Europa.
+ */
+export interface LeagueProgressInfo {
+  totalLeagueMatchdays: number; // 46
+  completedLeagueMatchdays: number; // 0..46
+  currentLeagueMatchday: number; // 1..46
+  nextFixture?: MatchFixture;
+  isCupNext: boolean;
+  isUefaNext: boolean;
+  isLeagueNext: boolean;
+  headerBadgeText: string;
+}
+
+export function getLeagueProgressInfo(
+  fixtures: MatchFixture[],
+  currentRound: number,
+  userClubId: string,
+  isSeasonCompleted: boolean
+): LeagueProgressInfo {
+  const totalLeagueMatchdays = 46;
+  const userFixtures = fixtures.filter(
+    (f) => f.homeClubId === userClubId || f.awayClubId === userClubId
+  );
+  const completedLeagueMatchdays = userFixtures.filter(
+    (f) => (f.competitionType === 'league' || !f.competitionType) && f.isPlayed
+  ).length;
+
+  const nextFixture = userFixtures.find((f) => f.round === currentRound);
+
+  const isCupNext = nextFixture?.competitionType === 'cup';
+  const isUefaNext =
+    nextFixture?.competitionType === 'ucl' ||
+    nextFixture?.competitionType === 'uel' ||
+    nextFixture?.competitionType === 'uecl';
+  const isLeagueNext = !isCupNext && !isUefaNext;
+
+  let currentLeagueMatchday = 1;
+  if (nextFixture?.leagueMatchday) {
+    currentLeagueMatchday = nextFixture.leagueMatchday;
+  } else if (isSeasonCompleted) {
+    currentLeagueMatchday = 46;
+  } else {
+    currentLeagueMatchday = Math.min(46, completedLeagueMatchdays + 1);
+  }
+
+  let headerBadgeText = `J${currentLeagueMatchday}/46`;
+  if (isSeasonCompleted) {
+    headerBadgeText = 'Temporada Concluida (46/46)';
+  } else if (isCupNext) {
+    headerBadgeText = `J${currentLeagueMatchday}/46 · 🛡️ Copa (${nextFixture?.roundStageName || 'Eliminatoria'})`;
+  } else if (isUefaNext) {
+    headerBadgeText = `J${currentLeagueMatchday}/46 · 🏆 ${nextFixture?.competitionName?.replace('UEFA ', '') || 'Europa'}`;
+  }
+
+  return {
+    totalLeagueMatchdays,
+    completedLeagueMatchdays,
+    currentLeagueMatchday,
+    nextFixture,
+    isCupNext,
+    isUefaNext,
+    isLeagueNext,
+    headerBadgeText,
   };
 }

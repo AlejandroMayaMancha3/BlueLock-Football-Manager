@@ -167,6 +167,7 @@ export interface MatchFixture {
   id: string;
   season: number;
   round: number;
+  leagueMatchday?: number;
   divisionId?: string;
   isPlayoff?: boolean;
   playoffStage?: 'semi' | 'final' | 'relegation_tie' | 'barrage' | 'spareggio' | 'playout';

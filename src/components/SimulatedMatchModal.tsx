@@ -112,7 +112,11 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
               {summary.isSimulated !== false ? 'Simulación Completa · 90 Minutos' : 'Partido Disputado (2D) · 90 Minutos'}
             </span>
             <span className="text-slate-400 text-xs font-semibold hidden sm:inline">
-              Temporada {season} · Jornada {round}
+              {competitionType === 'cup'
+                ? `Temporada ${season} · ${competitionName || 'Copa'} (${roundStageName || 'Eliminatoria'})`
+                : competitionType === 'ucl' || competitionType === 'uel' || competitionType === 'uecl'
+                ? `Temporada ${season} · ${competitionName || 'UEFA'} (${roundStageName || 'Fecha'})`
+                : `Temporada ${season} · ${roundStageName || 'Jornada'} de 46`}
             </span>
           </div>
 
@@ -152,7 +156,7 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
               </div>
             ) : (
               <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-slate-950/80 border border-slate-800 text-slate-300 text-xs font-mono font-black uppercase tracking-wider">
-                <span>{competitionName || 'Liga Regular'} · {roundStageName || `Jornada ${round}`}</span>
+                <span>{competitionName || 'Liga Regular'} · {roundStageName || `Jornada ${round}`} de 46</span>
               </div>
             )}
           </div>
@@ -305,7 +309,12 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
               id: 'round',
               label: 'Otros Resultados',
               icon: Trophy,
-              badge: `Jornada ${round}`,
+              badge:
+                competitionType === 'cup'
+                  ? roundStageName || 'Copa'
+                  : competitionType === 'ucl' || competitionType === 'uel' || competitionType === 'uecl'
+                  ? roundStageName || 'UEFA'
+                  : roundStageName || `Jornada ${round}`,
             },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -711,7 +720,12 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                  Resultados Simulados · Jornada {round}
+                  Resultados Simulados ·{' '}
+                  {competitionType === 'cup'
+                    ? `${competitionName || 'Copa'} (${roundStageName || 'Eliminatoria'})`
+                    : competitionType === 'ucl' || competitionType === 'uel' || competitionType === 'uecl'
+                    ? `${competitionName || 'UEFA'} (${roundStageName || 'Fecha'})`
+                    : `${roundStageName || `Jornada ${round}`} de 46`}
                 </h4>
                 <span className="text-[11px] text-slate-500 font-mono">
                   {roundFixtures.length} partidos disputados

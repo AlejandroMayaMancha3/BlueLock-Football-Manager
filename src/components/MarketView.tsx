@@ -42,10 +42,15 @@ type SortOption =
   | 'name_asc';
 
 export const MarketView: React.FC = () => {
-  const { currentRound, userClubId, clubs, players, selectedCurrency, makeBuyOffer, isSeasonCompleted, recentTransfers = [] } = useGameStore();
+  const { currentRound, userClubId, clubs, players, selectedCurrency, makeBuyOffer, isSeasonCompleted, recentTransfers = [], fixtures = [] } = useGameStore();
 
   const userClub = clubs.find((c) => c.id === userClubId);
   const currencyCfg = CURRENCIES[selectedCurrency] || CURRENCIES.EUR;
+
+  const userLeaguePlayed = fixtures.filter(
+    (f) => (f.competitionType === 'league' || !f.competitionType) && (f.homeClubId === userClubId || f.awayClubId === userClubId) && f.isPlayed
+  ).length;
+  const currentLeagueMatchday = Math.min(46, userLeaguePlayed + 1);
 
   // Subpestañas del Mercado: Catálogo de Jugadores / Movimientos de Clubes Rivales
   const [marketSubTab, setMarketSubTab] = useState<'catalog' | 'rival_feed'>('catalog');
@@ -78,7 +83,7 @@ export const MarketView: React.FC = () => {
   const [offerYears, setOfferYears] = useState<number>(3);
   const [marketFeedback, setMarketFeedback] = useState<{ success: boolean; msg: string } | null>(null);
 
-  const isWindowOpen = isSeasonCompleted || currentRound <= 6 || (currentRound >= 22 && currentRound <= 28);
+  const isWindowOpen = isSeasonCompleted || currentLeagueMatchday <= 6 || (currentLeagueMatchday >= 22 && currentLeagueMatchday <= 28);
 
   // Cantidad de filtros avanzados activos
   const activeAdvancedFiltersCount = useMemo(() => {

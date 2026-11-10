@@ -349,9 +349,15 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
       return leagueTable;
     }
     const targetClubs = clubs.filter((c) => (c.divisionId || c.league) === activeDivisionInfo.id);
-    const completedMatches = isSeasonCompleted ? 46 : Math.max(0, currentRound - 1);
+    const userPlayedLeague = fixtures.filter(
+      (f) =>
+        (f.competitionType === 'league' || !f.competitionType) &&
+        (f.homeClubId === userClubId || f.awayClubId === userClubId) &&
+        f.isPlayed
+    ).length;
+    const completedMatches = isSeasonCompleted ? 46 : Math.min(46, userPlayedLeague);
     return simulateAiDivisionTable(targetClubs, completedMatches);
-  }, [isViewingUserDivision, leagueTable, clubs, activeDivisionInfo.id, isSeasonCompleted, currentRound]);
+  }, [isViewingUserDivision, leagueTable, clubs, activeDivisionInfo.id, isSeasonCompleted, fixtures, userClubId]);
 
   const totalTeams = displayedTable.length || 24;
   const tier = activeDivisionInfo.tier || 1;

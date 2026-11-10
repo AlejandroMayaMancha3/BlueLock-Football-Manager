@@ -25,6 +25,7 @@ import { Currency, CountryLeague, TierLevel } from '@/types/football-manager';
 import { formatMoney } from '@/lib/currency';
 import { COUNTRIES_CATALOG, getDivisionsByCountry, getDivisionById } from '@/engine/data/divisions-catalog';
 import { CLUBS_MASTER_CATALOG, EUR_TO_YEN } from '@/engine/data/leagues-catalog';
+import { getLeagueProgressInfo } from '@/engine/competitions-engine';
 
 // Componentes modulares
 import { OfficeView } from '@/components/OfficeView';
@@ -46,6 +47,7 @@ export default function FootballManagerApp() {
     userClubId,
     currentSeason,
     currentRound,
+    isSeasonCompleted,
     clubs,
     fixtures,
     selectedDivisionId,
@@ -454,7 +456,7 @@ export default function FootballManagerApp() {
 
   // 3. MAIN DASHBOARD
   const userDivisionInfo = getDivisionById(activeDivisionId);
-  const totalRounds = fixtures.length > 0 ? Math.max(...fixtures.map((f) => f.round)) : 46;
+  const progressInfo = getLeagueProgressInfo(fixtures, currentRound, userClubId, isSeasonCompleted);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-black">
@@ -478,7 +480,7 @@ export default function FootballManagerApp() {
                 <span className="text-slate-600">·</span>
                 <span className="shrink-0">T{currentSeason}</span>
                 <span className="text-slate-600">·</span>
-                <span className="shrink-0">J{currentRound}/{totalRounds}</span>
+                <span className="shrink-0">{progressInfo.headerBadgeText}</span>
               </div>
             </div>
           </div>
@@ -600,7 +602,7 @@ export default function FootballManagerApp() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `bluelock-career-s${currentSeason}-j${currentRound}.json`;
+                a.download = `bluelock-career-s${currentSeason}-j${progressInfo.currentLeagueMatchday}.json`;
                 a.click();
               }}
               title="Descargar Partida (.JSON)"

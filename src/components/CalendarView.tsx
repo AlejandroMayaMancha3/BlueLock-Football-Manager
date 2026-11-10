@@ -28,28 +28,31 @@ import {
 import clsx from 'clsx';
 import { MatchFixture, Club } from '@/types/football-manager';
 import { getDivisionById } from '@/engine/data/divisions-catalog';
+import { getLeagueProgressInfo } from '@/engine/competitions-engine';
 
-// Meses de la temporada y jornadas aproximadas
-const SEASON_MONTHS = [
-  { name: 'Agosto', rounds: [1, 2, 3] },
-  { name: 'Septiembre', rounds: [4, 5, 6, 7, 8] },
-  { name: 'Octubre', rounds: [9, 10, 11, 12, 13] },
-  { name: 'Noviembre', rounds: [14, 15, 16, 17] },
-  { name: 'Diciembre', rounds: [18, 19, 20, 21] },
-  { name: 'Enero (Mercado Invierno)', rounds: [22, 23, 24, 25, 26] },
-  { name: 'Febrero', rounds: [27, 28, 29, 30, 31] },
-  { name: 'Marzo', rounds: [32, 33, 34, 35, 36] },
-  { name: 'Abril', rounds: [37, 38, 39, 40, 41] },
-  { name: 'Mayo (Desenlace)', rounds: [42, 43, 44, 45, 46] },
+// Distribución cronológica oficial de los meses de la temporada (Agosto a Junio)
+const SEASON_MONTHS_NAMES = [
+  { id: 7, name: 'Agosto' },
+  { id: 8, name: 'Septiembre' },
+  { id: 9, name: 'Octubre' },
+  { id: 10, name: 'Noviembre' },
+  { id: 11, name: 'Diciembre' },
+  { id: 0, name: 'Enero (Mercado Invierno)' },
+  { id: 1, name: 'Febrero' },
+  { id: 2, name: 'Marzo' },
+  { id: 3, name: 'Abril' },
+  { id: 4, name: 'Mayo (Desenlace)' },
+  { id: 5, name: 'Junio (Finales UEFA)' },
 ];
 
 /**
- * Genera una fecha simulada realista de fin de semana para cada jornada
+ * Genera una fecha simulada realista distribuida a lo largo de la temporada de 10 meses
  */
-function getSimulatedDate(round: number, season: number): string {
+function getSimulatedDate(round: number, season: number, totalSlots: number = 64): string {
   const baseYear = 2026 + (season - 1);
   const startDate = new Date(baseYear, 7, 16); // 16 de Agosto
-  const matchDate = new Date(startDate.getTime() + (round - 1) * 7 * 24 * 60 * 60 * 1000);
+  const daysStep = Math.max(3.5, 285 / Math.max(46, totalSlots));
+  const matchDate = new Date(startDate.getTime() + (round - 1) * daysStep * 24 * 60 * 60 * 1000);
 
   const day = matchDate.getDate();
   const monthsEs = [
@@ -58,6 +61,14 @@ function getSimulatedDate(round: number, season: number): string {
   ];
   const monthName = monthsEs[matchDate.getMonth()];
   return `${day} ${monthName} ${matchDate.getFullYear()}`;
+}
+
+function getSimulatedMonthIndex(round: number, season: number, totalSlots: number = 64): number {
+  const baseYear = 2026 + (season - 1);
+  const startDate = new Date(baseYear, 7, 16);
+  const daysStep = Math.max(3.5, 285 / Math.max(46, totalSlots));
+  const matchDate = new Date(startDate.getTime() + (round - 1) * daysStep * 24 * 60 * 60 * 1000);
+  return matchDate.getMonth();
 }
 
 /**
@@ -178,6 +189,10 @@ export const CalendarView: React.FC = () => {
     };
   }, [userFixtures, userClubId]);
 
+  const progressInfo = useMemo(() => {
+    return getLeagueProgressInfo(fixtures, currentRound, userClubId, isSeasonCompleted);
+  }, [fixtures, currentRound, userClubId, isSeasonCompleted]);
+
   // Filtrado de fixtures según selección del usuario
   const filteredFixtures = useMemo(() => {
     return userFixtures.filter((f) => {
@@ -225,7 +240,14 @@ export const CalendarView: React.FC = () => {
                 <span className="text-cyan-400 text-lg font-bold">{divisionName}</span>
               </h2>
               <p className="text-xs text-slate-400">
-                46 Jornadas de competición regular · Próximo compromiso: <b>Jornada {currentRound}</b>
+                46 Jornadas de competición regular · Próximo compromiso:{' '}
+                <b className="text-white">
+                  {progressInfo.isCupNext
+                    ? `${progressInfo.nextFixture?.competitionName || 'Copa'} (${progressInfo.nextFixture?.roundStageName || 'Eliminatoria'})`
+                    : progressInfo.isUefaNext
+                    ? `${progressInfo.nextFixture?.competitionName || 'UEFA'} (${progressInfo.nextFixture?.roundStageName || 'Fecha'})`
+                    : `Jornada ${progressInfo.currentLeagueMatchday} de 46`}
+                </b>
               </p>
             </div>
           </div>
@@ -238,7 +260,7 @@ export const CalendarView: React.FC = () => {
               className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
             >
               <Zap className="w-4 h-4 fill-black" />
-              <span>Ir a Jornada Actual ({currentRound})</span>
+              <span>Ir al Próximo Partido</span>
             </button>
 
             <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
@@ -269,14 +291,14 @@ export const CalendarView: React.FC = () => {
         {/* BARRA DE PROGRESO Y KPI DE RENDIMIENTO */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-3 border-t border-slate-800/80 text-xs">
           <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800">
-            <span className="text-[10px] text-slate-500 font-bold uppercase block">Partidos Jugados</span>
+            <span className="text-[10px] text-slate-500 font-bold uppercase block">Partidos de Liga Jugados</span>
             <span className="text-base font-black text-white font-mono">
-              {seasonStats.played} <span className="text-xs text-slate-500 font-normal">/ 46</span>
+              {progressInfo.completedLeagueMatchdays} <span className="text-xs text-slate-500 font-normal">/ 46</span>
             </span>
             <div className="w-full h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
               <div
                 className="bg-cyan-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${seasonStats.completionRate}%` }}
+                style={{ width: `${Math.round((progressInfo.completedLeagueMatchdays / 46) * 100)}%` }}
               />
             </div>
           </div>
@@ -353,7 +375,7 @@ export const CalendarView: React.FC = () => {
           <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 flex flex-col justify-between">
             <span className="text-[10px] text-slate-500 font-bold uppercase">Estado de Temporada</span>
             <span className="text-xs font-bold text-cyan-400">
-              {isSeasonCompleted ? '🏆 Concluida' : `En curso (J${currentRound})`}
+              {isSeasonCompleted ? '🏆 Concluida' : `En curso (Liga: J${progressInfo.currentLeagueMatchday}/46)`}
             </span>
           </div>
         </div>
@@ -473,7 +495,7 @@ export const CalendarView: React.FC = () => {
                       </span>
                     ) : (
                       <span className="font-mono font-black text-white text-[11px] sm:text-xs">
-                        {fix.competitionName || divisionName} · {fix.roundStageName || `Jornada ${fix.round}`}
+                        {fix.competitionName || divisionName} · {fix.roundStageName || `Jornada ${fix.leagueMatchday || fix.round}`} de 46
                       </span>
                     )}
 
@@ -684,8 +706,11 @@ export const CalendarView: React.FC = () => {
       {/* 3. VISTA MES A MES (DISTRIBUCIÓN ANUAL ESTILO FIFA) */}
       {viewMode === 'month' && (
         <div className="space-y-6">
-          {SEASON_MONTHS.map((month) => {
-            const monthFixs = userFixtures.filter((f) => month.rounds.includes(f.round));
+          {SEASON_MONTHS_NAMES.map((month) => {
+            const maxSlots = userFixtures.length > 0 ? Math.max(...userFixtures.map((f) => f.round)) : 46;
+            const monthFixs = userFixtures.filter(
+              (f) => getSimulatedMonthIndex(f.round, currentSeason, maxSlots) === month.id
+            );
             if (monthFixs.length === 0) return null;
 
             return (
@@ -696,7 +721,7 @@ export const CalendarView: React.FC = () => {
                     <span>{month.name}</span>
                   </h3>
                   <span className="text-xs font-mono font-bold text-slate-400">
-                    Jornadas {month.rounds[0]} a {month.rounds[month.rounds.length - 1]}
+                    {monthFixs.length} {monthFixs.length === 1 ? 'partido' : 'partidos'} programados
                   </span>
                 </div>
 
@@ -706,7 +731,7 @@ export const CalendarView: React.FC = () => {
                     const rivId = isH ? f.awayClubId : f.homeClubId;
                     const riv = clubsMap[rivId];
                     const isCurrent = f.round === currentRound && !isSeasonCompleted;
-                    const dateStr = getSimulatedDate(f.round, currentSeason);
+                    const dateStr = getSimulatedDate(f.round, currentSeason, maxSlots);
 
                     return (
                       <div
@@ -722,7 +747,13 @@ export const CalendarView: React.FC = () => {
                         )}
                       >
                         <div className="flex items-center justify-between text-[11px] text-slate-400">
-                          <span className="font-mono font-black text-white">J{f.round}</span>
+                          <span className="font-mono font-black text-white">
+                            {f.competitionType === 'cup'
+                              ? `🛡️ ${f.roundStageName || 'Copa'}`
+                              : f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl'
+                              ? `🏆 ${f.roundStageName || 'UEFA'}`
+                              : `J${f.leagueMatchday || f.round}/46`}
+                          </span>
                           <span>{dateStr}</span>
                           <span className={clsx('font-bold', isH ? 'text-cyan-400' : 'text-amber-400')}>
                             {isH ? 'Casa' : 'Fuera'}
@@ -780,9 +811,15 @@ export const CalendarView: React.FC = () => {
                   {roundInspectFixtures[0]?.roundStageName || `Jornada ${inspectRound}`}
                 </span>
                 <h3 className="text-xl font-black text-white flex items-center gap-2">
-                  <span>Jornada {inspectRound} Oficial</span>
+                  <span>
+                    {roundInspectFixtures[0]?.competitionType === 'cup'
+                      ? `${roundInspectFixtures[0]?.competitionName || 'Copa'} (${roundInspectFixtures[0]?.roundStageName})`
+                      : roundInspectFixtures[0]?.competitionType === 'ucl' || roundInspectFixtures[0]?.competitionType === 'uel' || roundInspectFixtures[0]?.competitionType === 'uecl'
+                      ? `${roundInspectFixtures[0]?.competitionName || 'UEFA'} (${roundInspectFixtures[0]?.roundStageName})`
+                      : `Jornada ${roundInspectFixtures[0]?.leagueMatchday || inspectRound} de 46`}
+                  </span>
                   <span className="text-xs text-slate-400 font-normal">
-                    ({getSimulatedDate(inspectRound, currentSeason)})
+                    ({getSimulatedDate(inspectRound, currentSeason, userFixtures.length || 46)})
                   </span>
                 </h3>
               </div>

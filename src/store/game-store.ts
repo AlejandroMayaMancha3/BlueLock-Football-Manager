@@ -945,6 +945,24 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       isSimulated: isSimulation,
     };
 
+    // Calcular jornada liguera oficial actual (1 a 46) y texto de fecha correspondiente
+    const userLeaguePlayed = finalFixturesWithPrune.filter(
+      (f) =>
+        (f.competitionType === 'league' || !f.competitionType) &&
+        (f.homeClubId === userClubId || f.awayClubId === userClubId) &&
+        f.isPlayed
+    ).length;
+    const currentLeagueMatchday = Math.min(46, userLeaguePlayed);
+
+    const matchDateStr =
+      userFixture?.competitionType === 'cup'
+        ? `Copa (${userFixture.roundStageName || 'Eliminatoria'})`
+        : userFixture?.competitionType === 'ucl' ||
+          userFixture?.competitionType === 'uel' ||
+          userFixture?.competitionType === 'uecl'
+        ? `UEFA (${userFixture.roundStageName || 'Fecha'})`
+        : `Jornada ${userFixture?.leagueMatchday || currentLeagueMatchday} de 46`;
+
     // Generar ofertas automáticas de compra de la IA para jugadores puestos en venta (si no tienen ofertas bloqueadas)
     const currentOffers = [...get().transferOffers];
     const listedPlayers = finalPlayers.filter(
@@ -971,7 +989,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
             offeredWageYen: Math.round(lp.weeklyWageYen * 1.15),
             contractYears: 3,
             status: 'pending',
-            dateStr: `Jornada ${currentRound}`,
+            dateStr: matchDateStr,
             isFromUser: false,
           });
         }
@@ -1004,7 +1022,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
             offeredWageYen: Math.round(star.weeklyWageYen * 1.30),
             contractYears: 4,
             status: 'pending',
-            dateStr: `Jornada ${currentRound}`,
+            dateStr: matchDateStr,
             isFromUser: false,
           });
         }
@@ -1017,7 +1035,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const existingRecentTransfers = get().recentTransfers || [];
     let updatedRecentTransfers = [...existingRecentTransfers];
 
-    const isTransferWindowActive = currentRound <= 6 || (currentRound >= 22 && currentRound <= 28);
+    const isTransferWindowActive = currentLeagueMatchday <= 6 || (currentLeagueMatchday >= 22 && currentLeagueMatchday <= 28);
     if (isTransferWindowActive && !isSeasonCompleted && Math.random() < 0.85) {
       const rivalMarketResult = executeAiTransferMarket(
         finalMarketClubs,
@@ -1538,11 +1556,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   makeBuyOffer: (playerId, feeYen, wageYen, years) => {
-    const { players, clubs, userClubId, currentRound, ledger, currentSeason, isSeasonCompleted } = get();
+    const { players, clubs, userClubId, currentRound, ledger, currentSeason, isSeasonCompleted, fixtures } = get();
+    const userLeaguePlayed = fixtures.filter(
+      (f) => (f.competitionType === 'league' || !f.competitionType) && (f.homeClubId === userClubId || f.awayClubId === userClubId) && f.isPlayed
+    ).length;
+    const currentLeagueMatchday = Math.min(46, userLeaguePlayed + 1);
     // En una liga de 46 jornadas: Verano (J1-6 o fin de temporada) e Invierno (J22-28)
-    const isWindowOpen = isSeasonCompleted || currentRound <= 6 || (currentRound >= 22 && currentRound <= 28);
+    const isWindowOpen = isSeasonCompleted || currentLeagueMatchday <= 6 || (currentLeagueMatchday >= 22 && currentLeagueMatchday <= 28);
     if (!isWindowOpen) {
-      return { success: false, message: 'La ventana de fichajes está cerrada. Se abrirá en las Jornadas 1-6 (Verano) y 22-28 (Invierno).' };
+      return { success: false, message: 'La ventana de fichajes está cerrada. Se abrirá en las Jornadas 1-6 (Verano) y 22-28 (Invierno) de la Liga Regular.' };
     }
 
     const player = players.find((p) => p.id === playerId);
@@ -1643,7 +1665,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         type: 'fichaje_compra',
         concept: `Fichaje de ${player.name}`,
         amountYen: -feeYen,
-        dateStr: `Jornada ${currentRound}`,
+        dateStr: `Jornada ${currentLeagueMatchday} de 46`,
       },
     ];
 
@@ -1663,7 +1685,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       toClubId: userClubId,
       toClubName: userClub.name,
       feeYen,
-      dateStr: `Jornada ${currentRound}`,
+      dateStr: `Jornada ${currentLeagueMatchday} de 46`,
       isImportant: true,
     };
 
@@ -1707,7 +1729,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   },
 
   acceptSellOffer: (offerId) => {
-    const { transferOffers, players, clubs, userClubId, ledger, currentSeason, currentRound } = get();
+    const { transferOffers, players, clubs, userClubId, ledger, currentSeason, currentRound, fixtures } = get();
+    const userLeaguePlayed = fixtures.filter(
+      (f) => (f.competitionType === 'league' || !f.competitionType) && (f.homeClubId === userClubId || f.awayClubId === userClubId) && f.isPlayed
+    ).length;
+    const currentLeagueMatchday = Math.min(46, userLeaguePlayed + 1);
     const offer = transferOffers.find((o) => o.id === offerId);
     if (!offer) return;
 
@@ -1791,7 +1817,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       toClubId: offer.buyerClubId,
       toClubName: offer.buyerClubName,
       feeYen: offer.offeredFeeYen,
-      dateStr: `Jornada ${currentRound}`,
+      dateStr: `Jornada ${currentLeagueMatchday} de 46`,
       isImportant: true,
     };
 
@@ -1807,7 +1833,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         type: 'fichaje_venta',
         concept: `Venta de ${player.name} al ${offer.buyerClubName}`,
         amountYen: offer.offeredFeeYen,
-        dateStr: `Jornada ${currentRound}`,
+        dateStr: `Jornada ${currentLeagueMatchday} de 46`,
       },
     ];
 

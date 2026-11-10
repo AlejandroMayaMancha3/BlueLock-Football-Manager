@@ -27,6 +27,7 @@ import { LeagueTableRow, Player } from '@/types/football-manager';
 import { formatMoney, formatTextWithCurrency } from '@/lib/currency';
 import { PlayerDetailModal } from './PlayerDetailModal';
 import { getDivisionById } from '@/engine/data/divisions-catalog';
+import { getLeagueProgressInfo } from '@/engine/competitions-engine';
 
 interface OfficeViewProps {
   leagueTable: LeagueTableRow[];
@@ -46,6 +47,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
     selectedCurrency,
     fixtures,
     selectedDivisionId,
+    isSeasonCompleted,
     lastMatchSummary,
     lastSeasonTransitionReport,
     clearSeasonTransitionReport,
@@ -67,7 +69,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
   const activeDivisionId = userClub?.divisionId || userClub?.league || selectedDivisionId || 'es_laliga';
   const divisionInfo = getDivisionById(activeDivisionId);
   const divisionName = divisionInfo?.name || 'Liga';
-  const totalRounds = fixtures.length > 0 ? Math.max(...fixtures.map((f) => f.round)) : 46;
+  const progressInfo = getLeagueProgressInfo(fixtures, currentRound, userClubId, isSeasonCompleted);
 
   const nextUserFixture = fixtures.find(
     (f) => f.round === currentRound && (f.homeClubId === userClubId || f.awayClubId === userClubId)
@@ -395,9 +397,34 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
       <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-xl space-y-5 sm:space-y-6">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h3 className="text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-cyan-400" /> Próximo Partido · Jornada {currentRound} de {totalRounds}
+            {progressInfo.isCupNext ? (
+              <>
+                <Shield className="w-4 h-4 text-rose-400" />
+                <span>
+                  Próximo Partido · {progressInfo.nextFixture?.competitionName || 'Copa Nacional'} · {progressInfo.nextFixture?.roundStageName}
+                </span>
+              </>
+            ) : progressInfo.isUefaNext ? (
+              <>
+                <Trophy className="w-4 h-4 text-amber-400" />
+                <span>
+                  Próximo Partido · {progressInfo.nextFixture?.competitionName || 'Competición UEFA'} · {progressInfo.nextFixture?.roundStageName}
+                </span>
+              </>
+            ) : (
+              <>
+                <Calendar className="w-4 h-4 text-cyan-400" />
+                <span>Próximo Partido · Jornada {progressInfo.currentLeagueMatchday} de 46</span>
+              </>
+            )}
           </h3>
-          <span className="text-[11px] sm:text-xs text-cyan-400 font-bold font-mono">{divisionName}</span>
+          <span className="text-[11px] sm:text-xs text-cyan-400 font-bold font-mono">
+            {progressInfo.isCupNext
+              ? progressInfo.nextFixture?.competitionName || 'Copa Nacional'
+              : progressInfo.isUefaNext
+              ? progressInfo.nextFixture?.competitionName || 'Competición UEFA'
+              : divisionName}
+          </span>
         </div>
 
         {rivalClub ? (
