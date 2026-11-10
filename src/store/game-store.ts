@@ -21,6 +21,7 @@ import {
   TierLevel,
   SeasonTransitionReport,
   TransferNewsEntry,
+  ClubTrophyRecord,
 } from '@/types/football-manager';
 import { generateInitialClubsAndPlayers, calculateOvr } from '@/engine/game-data';
 import {
@@ -58,6 +59,10 @@ import {
   reconcileClubTreasury,
   getSeasonRenewalSponsorYen,
 } from '@/engine/finance-engine';
+import {
+  reconstructClubTrophiesFromHistory,
+  awardTrophyToClub,
+} from '@/engine/competitions-engine';
 
 const STORAGE_KEY = 'bluelock_football_manager_v2';
 
@@ -74,7 +79,7 @@ export interface GameStoreState {
   clubs: Club[];
   players: Player[];
   fixtures: MatchFixture[];
-  activeTab: 'office' | 'squad' | 'tactics' | 'live_match' | 'table' | 'calendar' | 'market' | 'training' | 'finance' | 'inbox';
+  activeTab: 'office' | 'squad' | 'tactics' | 'live_match' | 'table' | 'calendar' | 'market' | 'training' | 'finance' | 'inbox' | 'my_club';
   liveMatch: LiveMatchState | null;
   boardTrust: number; // 0-100
   squadMorale: number; // 0-100
@@ -84,6 +89,7 @@ export interface GameStoreState {
   transferOffers: TransferOffer[];
   ledger: ClubLedgerEntry[];
   seasonHistory: SeasonHistoryEntry[];
+  clubTrophies: ClubTrophyRecord[];
   isSacked: boolean;
   isSeasonCompleted: boolean;
   simulatedMatchSummary: MatchSummaryData | null;
@@ -92,6 +98,7 @@ export interface GameStoreState {
   clearSeasonTransitionReport: () => void;
   recentTransfers: TransferNewsEntry[];
   reconcileUserTreasury: () => void;
+  awardClubTrophy: (trophyKey: string, customOfficialName?: string) => void;
 
   // Actions
   startNewGame: (managerName: string, clubId: string, currency?: Currency, country?: CountryLeague, divisionId?: string) => void;
@@ -160,6 +167,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   lastMatchSummary: null,
   lastSeasonTransitionReport: null,
   recentTransfers: [],
+  clubTrophies: [],
   clearSeasonTransitionReport: () => {
     set({ lastSeasonTransitionReport: null });
     get().saveToStorage();
@@ -241,6 +249,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       lastMatchSummary: null,
       lastSeasonTransitionReport: null,
       recentTransfers: [],
+      clubTrophies: [],
     };
 
     set(newState);
@@ -289,11 +298,20 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           return reconciledClub;
         });
 
+        // Reconstruir o cargar el palmarés histórico del club
+        const userClub = completeClubs.find((c) => c.id === parsed.userClubId) || completeClubs[0];
+        const loadedTrophies = reconstructClubTrophiesFromHistory(
+          userClub,
+          parsed.seasonHistory || [],
+          parsed.clubTrophies || []
+        );
+
         set({
           ...parsed,
           clubs: reconciledClubs,
           players: completePlayers,
           ledger: currentLedger,
+          clubTrophies: loadedTrophies,
           selectedCurrency: parsed.selectedCurrency || 'EUR',
           recentTransfers: parsed.recentTransfers || [],
         });
@@ -1840,6 +1858,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       newFixtures,
       seasonHistoryEntry,
       seasonTransitionReport,
+      earnedTrophy,
     } = advanceToNextSeason(
       currentSeason,
       userClubId,
@@ -1875,6 +1894,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       dateStr: `Inicio Temporada ${newSeason}`,
     };
 
+    const currentTrophies = get().clubTrophies || [];
+    const updatedTrophies = earnedTrophy ? [earnedTrophy, ...currentTrophies] : currentTrophies;
+
     set({
       currentSeason: newSeason,
       currentRound: 1,
@@ -1886,6 +1908,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       seasonHistory: [seasonHistoryEntry, ...seasonHistory],
       ledger: [sponsorEntry, prizeEntry, ...ledger],
       recentTransfers: updatedRecentTransfers,
+      clubTrophies: updatedTrophies,
       youthPromotedThisSeason: false,
       isSeasonCompleted: false,
       activeTab: 'office',
@@ -1909,6 +1932,16 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       return c;
     });
     set({ clubs: updatedClubs, ledger: updatedLedger });
+    get().saveToStorage();
+  },
+
+  awardClubTrophy: (trophyKey: string, customOfficialName?: string) => {
+    const { clubs, userClubId, currentSeason, clubTrophies } = get();
+    const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
+    const newTrophy = awardTrophyToClub(userClub, trophyKey, currentSeason, {
+      customOfficialName,
+    });
+    set({ clubTrophies: [newTrophy, ...(clubTrophies || [])] });
     get().saveToStorage();
   },
 

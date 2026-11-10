@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Coins,
   Calendar,
+  Award,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { computeLeagueTable } from '@/engine/season-engine';
@@ -35,6 +36,7 @@ import { CalendarView } from '@/components/CalendarView';
 import { MarketView } from '@/components/MarketView';
 import { TrainingView } from '@/components/TrainingView';
 import { FinanceView } from '@/components/FinanceView';
+import { MyClubView } from '@/components/MyClubView';
 import { SimulatedMatchModal } from '@/components/SimulatedMatchModal';
 
 export default function FootballManagerApp() {
@@ -52,6 +54,7 @@ export default function FootballManagerApp() {
     boardTrust,
     isSacked,
     selectedCurrency,
+    clubTrophies = [],
     simulatedMatchSummary,
     clearSimulatedMatchSummary,
     setCurrency,
@@ -502,7 +505,38 @@ export default function FootballManagerApp() {
 
         {/* Cajas financieras y acciones */}
         <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 md:gap-6 text-xs w-full sm:w-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-800/80">
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2.5 sm:gap-4">
+            {/* ACCESO A "Mi Club" (A LA IZQUIERDA DE CAJA) */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('my_club')}
+              title="Mi Club: Vitrina de Trofeos Oficiales y Palmarés Histórico"
+              className={clsx(
+                'flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer shrink-0',
+                activeTab === 'my_club'
+                  ? 'bg-amber-400 text-black border-amber-300 shadow-md shadow-amber-400/20'
+                  : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800 hover:border-slate-700'
+              )}
+            >
+              <Award className={clsx('w-3.5 h-3.5', activeTab === 'my_club' ? 'text-black' : 'text-amber-400')} />
+              <div className="text-left">
+                <span className="text-[8px] sm:text-[9px] block leading-none text-slate-400 uppercase font-bold">Palmarés</span>
+                <span className={clsx('text-[11px] sm:text-xs font-black block leading-none', activeTab === 'my_club' ? 'text-black' : 'text-amber-300')}>
+                  Mi Club
+                </span>
+              </div>
+              {clubTrophies && clubTrophies.length > 0 && (
+                <span
+                  className={clsx(
+                    'ml-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-black',
+                    activeTab === 'my_club' ? 'bg-black text-amber-300' : 'bg-amber-950 text-amber-300 border border-amber-500/40'
+                  )}
+                >
+                  {clubTrophies.length}
+                </span>
+              )}
+            </button>
+
             <div>
               <span className="text-slate-400 block text-[9px] sm:text-[10px] uppercase font-bold">Caja</span>
               <span
@@ -593,6 +627,7 @@ export default function FootballManagerApp() {
       <nav className="bg-slate-900 border-b border-slate-800 px-3 sm:px-6 overflow-x-auto flex gap-1.5 sm:gap-2 py-2 scrollbar-none">
         {[
           { id: 'office', label: 'Despacho', icon: Shield },
+          { id: 'my_club', label: 'Mi Club', icon: Award },
           { id: 'squad', label: 'Plantilla', icon: Users },
           { id: 'tactics', label: 'Táctica & Pizarra', icon: Target },
           { id: 'live_match', label: 'Partido en Vivo', icon: Play, alert: !!liveMatch },
@@ -626,6 +661,7 @@ export default function FootballManagerApp() {
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 md:p-6">
         {activeTab === 'office' && <OfficeView leagueTable={leagueTable} />}
+        {activeTab === 'my_club' && <MyClubView />}
         {activeTab === 'squad' && <SquadView />}
         {activeTab === 'tactics' && <TacticsView />}
         {activeTab === 'live_match' && (liveMatch ? <LiveMatchView /> : <OfficeView leagueTable={leagueTable} />)}

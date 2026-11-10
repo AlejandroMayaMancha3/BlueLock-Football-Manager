@@ -8,12 +8,14 @@ import {
   SeasonTransitionReport,
   CountryLeague,
   TierLevel,
+  ClubTrophyRecord,
 } from '@/types/football-manager';
 import { shouldAwakenWeapon, generateContextualWeapon } from './weapon-registry';
 import { getDivisionsByCountry, getDivisionById, COUNTRIES_CATALOG } from './data/divisions-catalog';
 import { calculatePlayerMarketValue } from './player-valuation';
 import { executeAiTransferMarket } from './transfer-engine';
 import { getTierPrizePoolYen, getSeasonRenewalSponsorYen, reconcileClubTreasury } from './finance-engine';
+import { awardTrophyToClub } from './competitions-engine';
 
 // Generates 22 rounds for 12 clubs using round-robin algorithm
 export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixture[] {
@@ -379,6 +381,7 @@ export function advanceToNextSeason(
   newFixtures: MatchFixture[];
   seasonHistoryEntry: SeasonHistoryEntry;
   seasonTransitionReport: SeasonTransitionReport;
+  earnedTrophy?: ClubTrophyRecord;
 } {
   const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
   const userPos = table.findIndex((r) => r.clubId === userClubId) + 1;
@@ -869,6 +872,14 @@ export function advanceToNextSeason(
     rivalTransfers: preSeasonRivalTransfers,
   };
 
+  let earnedTrophy: ClubTrophyRecord | undefined;
+  if (userPos === 1) {
+    earnedTrophy = awardTrophyToClub(userClub, userClub.divisionId || '', currentSeason, {
+      customCompetitionName: userCountryDivisions.find((d) => d.tier === userOldTier)?.name,
+      dateStr: `Temporada ${currentSeason}`,
+    });
+  }
+
   return {
     newSeason: nextSeason,
     newClubs: finalEvolvedClubs,
@@ -876,6 +887,7 @@ export function advanceToNextSeason(
     newFixtures,
     seasonHistoryEntry: historyEntry,
     seasonTransitionReport,
+    earnedTrophy,
   };
 }
 

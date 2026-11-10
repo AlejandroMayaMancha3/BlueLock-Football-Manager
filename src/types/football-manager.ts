@@ -371,3 +371,42 @@ export interface MatchSummaryData {
   isSimulated?: boolean;
 }
 
+export type TrophyType =
+  | 'ucl'            // UEFA Champions League ("La Orejona")
+  | 'uel'            // UEFA Europa League ("Copa de la UEFA")
+  | 'uecl'           // UEFA Conference League ("Trofeo UEFA Conference")
+  | 'league_t1'      // 1ª División Nacional (LaLiga, Premier, Serie A, Bundesliga, Ligue 1)
+  | 'league_t2'      // 2ª División
+  | 'league_t3'      // 3ª División
+  | 'league_t4'      // 4ª División
+  | 'cup_main'       // Copa Nacional (Copa del Rey, FA Cup, Coppa Italia, DFB-Pokal, Coupe de France)
+  | 'cup_secondary'; // EFL Cup / Carabao Cup
+
+export interface ClubTrophyRecord {
+  id: string;
+  clubId: string;
+  season: number;
+  trophyKey: string;
+  trophyType: TrophyType;
+  officialName: string;
+  popularName?: string;
+  competitionName: string;
+  country?: CountryLeague | 'Europe';
+  dateStr: string;
+  iconType: string;
+  tier?: TierLevel;
+}
+
+export type UefaTournamentType = 'ucl' | 'uel' | 'uecl';
+
+export interface EuropeanQualificationEntry {
+  clubId: string;
+  clubName: string;
+  country: CountryLeague;
+  leaguePosition: number;
+  tournament: UefaTournamentType;
+  qualificationReason: string;
+  stage: 'league_phase' | 'playoff';
+}
+
+
