@@ -211,6 +211,74 @@ export function calculateEuropeanQualifications(
 }
 
 /**
+ * Evalúa las clasificaciones continentales oficiales para las 5 ligas y devuelve el torneo
+ * correspondiente al club del usuario, o null si no clasificó (ej. quedó 16.º en liga regular).
+ */
+export function getUserEuropeanTournamentQualification(
+  countryTables: Record<CountryLeague, LeagueTableRow[]>,
+  cupWinners: Record<
+    CountryLeague,
+    { mainCupWinnerClubId: string; secondaryCupWinnerClubId?: string }
+  >,
+  userClubId: string,
+  options?: {
+    performanceSpotCountries?: CountryLeague[];
+    uclDefendingChampionClubId?: string;
+    uelDefendingChampionClubId?: string;
+    ueclDefendingChampionClubId?: string;
+  }
+): {
+  tournament: 'ucl' | 'uel' | 'uecl' | null;
+  reason?: string;
+  allQualifications: Record<CountryLeague, EuropeanQualificationEntry[]>;
+} {
+  const allQuals = calculateEuropeanQualifications(countryTables, cupWinners, options);
+  for (const country of Object.keys(allQuals) as CountryLeague[]) {
+    const found = allQuals[country].find((e) => e.clubId === userClubId);
+    if (found) {
+      return {
+        tournament: found.tournament,
+        reason: found.qualificationReason,
+        allQualifications: allQuals,
+      };
+    }
+  }
+  return {
+    tournament: null,
+    reason: undefined,
+    allQualifications: allQuals,
+  };
+}
+
+/**
+ * Determina el torneo continental inicial para la Temporada 1 según la reputación y nivel
+ * del club dentro de la división de honor (Tier 1) de su país.
+ * Equipos de Tier 2, 3 o 4, o clasificados por debajo del 7.º puesto de Tier 1, devuelven null.
+ */
+export function getInitialSeasonEuropeanTournament(
+  userClub: Club,
+  allClubs: Club[]
+): 'ucl' | 'uel' | 'uecl' | null {
+  if (!userClub || userClub.tier !== 1) return null;
+  const country = (userClub.country || 'Spain') as CountryLeague;
+  const countryTier1 = allClubs
+    .filter((c) => c.country === country && c.tier === 1)
+    .sort((a, b) => (b.level * 1.5 + b.reputation) - (a.level * 1.5 + a.reputation));
+
+  const rank = countryTier1.findIndex((c) => c.id === userClub.id) + 1;
+  if (rank <= 0) return null;
+
+  // En pretemporada inicial para las 5 ligas:
+  // España e Inglaterra (Plazas EPS): 1-5 UCL, 6-7 UEL/UECL
+  // Otras ligas: 1-4 UCL, 5-6 UEL, 7 UECL
+  const uclLimit = ['Spain', 'England'].includes(country) ? 5 : 4;
+  if (rank <= uclLimit) return 'ucl';
+  if (rank <= uclLimit + 2) return 'uel';
+  if (rank <= uclLimit + 3) return 'uecl';
+  return null;
+}
+
+/**
  * Registra y otorga un trofeo oficial al palmarés histórico del club
  */
 export function awardTrophyToClub(
@@ -491,7 +559,7 @@ export function generateSeasonFixturesWithTournaments(
   allClubs: Club[],
   userClubId: string,
   options?: {
-    europeanTournament?: 'ucl' | 'uel' | 'uecl';
+    europeanTournament?: 'ucl' | 'uel' | 'uecl' | null;
   }
 ): MatchFixture[] {
   const userClub =
@@ -507,47 +575,57 @@ export function generateSeasonFixturesWithTournaments(
   // 1. GENERAR 46 JORNADAS DE LIGA REGULAR
   const leagueMatchdays = generateLeagueMatchdays(divisionClubs);
 
-  // 2. SELECCIONAR RIVALES EUROPEOS (EXCLUSIVAMENTE DE OTROS PAÍSES)
-  const euroTournament = options?.europeanTournament || 'ucl';
+  // 2. DETERMINAR SI EL CLUB CLASIFICA A EUROPA Y SELECCIONAR RIVALES
+  let euroTournament: 'ucl' | 'uel' | 'uecl' | null = null;
+  if (options && options.europeanTournament !== undefined) {
+    euroTournament = options.europeanTournament;
+  } else if (userClub) {
+    euroTournament = getInitialSeasonEuropeanTournament(userClub, allClubs);
+  }
+
   const euroName =
     euroTournament === 'ucl'
       ? 'UEFA Champions League'
       : euroTournament === 'uel'
       ? 'UEFA Europa League'
-      : 'UEFA Conference League';
+      : euroTournament === 'uecl'
+      ? 'UEFA Conference League'
+      : '';
 
   const otherCountries: CountryLeague[] = (['Spain', 'England', 'Germany', 'Italy', 'France'] as CountryLeague[]).filter(
     (c) => c !== userCountry
   );
 
-  // Seleccionar los clubes más prestigiosos de cada uno de los otros 4 países
+  // Seleccionar los clubes más prestigiosos de cada uno de los otros 4 países (solo si disputa Europa)
   const europeanRivalPool: Club[] = [];
-  otherCountries.forEach((country) => {
-    const foreignClubs = allClubs
-      .filter((c) => c.country === country && c.tier === 1)
-      .sort((a, b) => b.level - a.level);
-    // Tomar los 2 mejores de cada país para la fase suiza de 8 partidos
-    if (foreignClubs[0]) europeanRivalPool.push(foreignClubs[0]);
-    if (foreignClubs[1]) europeanRivalPool.push(foreignClubs[1]);
-  });
+  const euroKnockoutRivals: Club[] = [];
 
-  // Si por alguna razón faltan clubes, completar con cualquier club extranjero de primer nivel
-  if (europeanRivalPool.length < 8) {
-    const extras = allClubs
+  if (euroTournament) {
+    otherCountries.forEach((country) => {
+      const foreignClubs = allClubs
+        .filter((c) => c.country === country && c.tier === 1)
+        .sort((a, b) => b.level - a.level);
+      // Tomar los 2 mejores de cada país para la fase suiza de 8 partidos
+      if (foreignClubs[0]) europeanRivalPool.push(foreignClubs[0]);
+      if (foreignClubs[1]) europeanRivalPool.push(foreignClubs[1]);
+    });
+
+    if (europeanRivalPool.length < 8) {
+      const extras = allClubs
+        .filter((c) => c.country !== userCountry && !europeanRivalPool.some((p) => p.id === c.id))
+        .sort((a, b) => b.level - a.level);
+      europeanRivalPool.push(...extras.slice(0, 8 - europeanRivalPool.length));
+    }
+
+    const koCandidates = allClubs
       .filter((c) => c.country !== userCountry && !europeanRivalPool.some((p) => p.id === c.id))
-      .sort((a, b) => b.level - a.level);
-    europeanRivalPool.push(...extras.slice(0, 8 - europeanRivalPool.length));
-  }
+      .sort((a, b) => b.level - a.level)
+      .slice(0, 4);
 
-  // Seleccionar 4 rivales adicionales para las rondas eliminatorias (Octavos, Cuartos, Semis, Final)
-  const euroKnockoutRivals: Club[] = allClubs
-    .filter((c) => c.country !== userCountry && !europeanRivalPool.some((p) => p.id === c.id))
-    .sort((a, b) => b.level - a.level)
-    .slice(0, 4);
-
-  // Si no hay suficientes extras, reutilizar los gigantes extranjeros más fuertes en orden inverso
-  while (euroKnockoutRivals.length < 4) {
-    euroKnockoutRivals.push(europeanRivalPool[euroKnockoutRivals.length % europeanRivalPool.length]);
+    euroKnockoutRivals.push(...koCandidates);
+    while (euroKnockoutRivals.length < 4) {
+      euroKnockoutRivals.push(europeanRivalPool[euroKnockoutRivals.length % europeanRivalPool.length]);
+    }
   }
 
   // 3. SELECCIONAR RIVALES DE COPA NACIONAL (EXCLUSIVAMENTE DEL MISMO PAÍS, DISTINTAS DIVISIONES)
@@ -570,7 +648,6 @@ export function generateSeasonFixturesWithTournaments(
   ];
 
   // 4. ESTRUCTURA CRONOLÓGICA DE JORNADAS DE LA TEMPORADA
-  // Intercalar partidos de liga, copa y competiciones continentales
   interface ScheduledSlot {
     type: 'league' | 'cup' | 'uefa_league' | 'uefa_knockout';
     leagueIndex?: number;
@@ -584,68 +661,117 @@ export function generateSeasonFixturesWithTournaments(
   let uefaLeagueIdx = 0;
   let uefaKoIdx = 0;
 
-  // Intercalar cronológicamente los 64 eventos
-  // Fase de otoño / invierno
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 1
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 2
-  scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 3 (UCL J1)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 4
-  scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 5 (Copa 1/32)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 6
-  scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 7 (UCL J2)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 8
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 9
-  scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 10 (UCL J3)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 11
-  scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 12 (Copa 1/16)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 13
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 14
-  scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 15 (UCL J4)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 16
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 17
-  scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 18 (Copa Octavos)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 19
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 20
-  scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 21 (UCL J5)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 22
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 23
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 24
-  scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 25 (UCL J6)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 26
-  scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 27 (Copa Cuartos)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 28
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 29
-  scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 30 (UCL J7)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 31
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 32
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 33
-  scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 34 (UCL J8)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 35 (Fin 1ª Vuelta)
+  if (!euroTournament) {
+    // CALENDARIO PARA CLUBES SIN CLASIFICACIÓN EUROPEA:
+    // Exactamente 52 jornadas oficiales (46 de Liga regular + 6 rondas de Copa Nacional).
+    // Sin partidos ficticios ni fantasmas de Champions League.
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 1
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 2
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 3
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 4
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ });          // 5 (Copa 1/32)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 6
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 7
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 8
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 9
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 10
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 11
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ });          // 12 (Copa 1/16)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 13
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 14
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 15
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 16
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 17
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ });          // 18 (Copa Octavos)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 19
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 20
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 21
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 22
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 23
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 24
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ });          // 25 (Copa Cuartos)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 26
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 27
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 28
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 29
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 30
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 31
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 32
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 33
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ });          // 34 (Copa Semifinal)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 35
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 36
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 37
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 38
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 39
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ });          // 40 (¡Gran Final de Copa Nacional!)
+    while (leagueIdx < 46) {
+      scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ });
+    }
+  } else {
+    // CALENDARIO PARA CLUBES CLASIFICADOS A EUROPA (UCL, UEL o UECL):
+    // 64 jornadas oficiales (46 de Liga + 6 de Copa + 8 Fase Suiza UEFA + 4 Eliminatorias UEFA).
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 1
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 2
+    scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 3 (UCL J1)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 4
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 5 (Copa 1/32)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 6
+    scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 7 (UCL J2)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 8
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 9
+    scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 10 (UCL J3)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 11
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 12 (Copa 1/16)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 13
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 14
+    scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 15 (UCL J4)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 16
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 17
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 18 (Copa Octavos)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 19
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 20
+    scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 21 (UCL J5)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 22
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 23
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 24
+    scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 25 (UCL J6)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 26
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 27 (Copa Cuartos)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 28
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 29
+    scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 30 (UCL J7)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 31
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 32
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 33
+    scheduleSlots.push({ type: 'uefa_league', uefaIndex: uefaLeagueIdx++ }); // 34 (UCL J8)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 35 (Fin 1ª Vuelta)
 
-  // Fase de primavera / desenlace de títulos
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 36
-  scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 37 (Copa Semifinal)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 38
-  scheduleSlots.push({ type: 'uefa_knockout', uefaIndex: uefaKoIdx++ }); // 39 (UCL Octavos)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 40
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 41
-  scheduleSlots.push({ type: 'uefa_knockout', uefaIndex: uefaKoIdx++ }); // 42 (UCL Cuartos)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 43
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 44
-  scheduleSlots.push({ type: 'uefa_knockout', uefaIndex: uefaKoIdx++ }); // 45 (UCL Semifinal)
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 46
-  scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 47 (¡Gran Final de Copa Nacional!)
+    // Fase de primavera / desenlace de títulos
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 36
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 37 (Copa Semifinal)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 38
+    scheduleSlots.push({ type: 'uefa_knockout', uefaIndex: uefaKoIdx++ }); // 39 (UCL Octavos)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 40
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 41
+    scheduleSlots.push({ type: 'uefa_knockout', uefaIndex: uefaKoIdx++ }); // 42 (UCL Cuartos)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 43
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 44
+    scheduleSlots.push({ type: 'uefa_knockout', uefaIndex: uefaKoIdx++ }); // 45 (UCL Semifinal)
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // 46
+    scheduleSlots.push({ type: 'cup', cupIndex: cupIdx++ }); // 47 (¡Gran Final de Copa Nacional!)
 
-  // Resto de jornadas de liga hasta la jornada 45
-  while (leagueIdx < 45) {
-    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ });
+    // Resto de jornadas de liga hasta la jornada 45
+    while (leagueIdx < 45) {
+      scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ });
+    }
+
+    // Penúltimo: Jornada 46 decisiva de liga regular
+    scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // Última jornada liguera
+
+    // Colofón de la temporada: ¡Gran Final Continental UEFA!
+    scheduleSlots.push({ type: 'uefa_knockout', uefaIndex: uefaKoIdx++ });
   }
-
-  // Penúltimo: Jornada 46 decisiva de liga regular
-  scheduleSlots.push({ type: 'league', leagueIndex: leagueIdx++ }); // Última jornada liguera
-
-  // Colofón de la temporada: ¡Gran Final Continental de UEFA Champions League!
-  scheduleSlots.push({ type: 'uefa_knockout', uefaIndex: uefaKoIdx++ });
 
   // 5. CONVERTIR SLOTS A FIXTURES COMPLETOS
   const allGeneratedFixtures: MatchFixture[] = [];
@@ -711,6 +837,7 @@ export function generateSeasonFixturesWithTournaments(
         });
       }
     } else if (slot.type === 'uefa_league' && slot.uefaIndex !== undefined) {
+      const effectiveEuroTournament: 'ucl' | 'uel' | 'uecl' = euroTournament || 'ucl';
       const uIdx = slot.uefaIndex;
       const euroRival = europeanRivalPool[uIdx] || europeanRivalPool[0];
       const isHome = uIdx % 2 === 0; // 4 casa, 4 fuera alternados
@@ -724,7 +851,7 @@ export function generateSeasonFixturesWithTournaments(
         homeClubId: isHome ? userClubId : euroRival.id,
         awayClubId: isHome ? euroRival.id : userClubId,
         isPlayed: false,
-        competitionType: euroTournament,
+        competitionType: effectiveEuroTournament,
         competitionName: euroName,
         roundStageName: stageName,
         isKnockout: false,
@@ -743,13 +870,14 @@ export function generateSeasonFixturesWithTournaments(
           homeClubId: otherForeigns[i * 2].id,
           awayClubId: otherForeigns[i * 2 + 1].id,
           isPlayed: false,
-          competitionType: euroTournament,
+          competitionType: effectiveEuroTournament,
           competitionName: euroName,
           roundStageName: stageName,
           isKnockout: false,
         });
       }
     } else if (slot.type === 'uefa_knockout' && slot.uefaIndex !== undefined) {
+      const effectiveEuroTournament: 'ucl' | 'uel' | 'uecl' = euroTournament || 'ucl';
       const koIdx = slot.uefaIndex;
       const koRivals = euroKnockoutRivals;
       const koStages = ['Octavos de Final', 'Cuartos de Final', 'Semifinal', '¡Gran Final de la Champions League!'];
@@ -766,11 +894,11 @@ export function generateSeasonFixturesWithTournaments(
         homeClubId: isHome || isFinal ? userClubId : koRival.id,
         awayClubId: isHome || isFinal ? koRival.id : userClubId,
         isPlayed: false,
-        competitionType: euroTournament,
+        competitionType: effectiveEuroTournament,
         competitionName: euroName,
         roundStageName: stageName,
         isKnockout: true,
-        trophyKey: isFinal ? euroTournament : undefined,
+        trophyKey: isFinal ? effectiveEuroTournament : undefined,
       });
 
       // Partidos complementarios de eliminatoria europea para IA
@@ -785,7 +913,7 @@ export function generateSeasonFixturesWithTournaments(
           homeClubId: foreignContenders[i * 2].id,
           awayClubId: foreignContenders[i * 2 + 1].id,
           isPlayed: false,
-          competitionType: euroTournament,
+          competitionType: effectiveEuroTournament,
           competitionName: euroName,
           roundStageName: stageName,
           isKnockout: true,
@@ -847,8 +975,44 @@ export function ensureSeasonTournaments(
   currentRound: number,
   existingFixtures: MatchFixture[],
   allClubs: Club[],
-  userClubId: string
+  userClubId: string,
+  userTournamentOverride?: 'ucl' | 'uel' | 'uecl' | null
 ): MatchFixture[] {
+  const userClub = allClubs.find((c) => c.id === userClubId) || allClubs[0];
+  const userDivId = userClub.divisionId || userClub.league || 'es_laliga';
+  const divClubs = allClubs.filter((c) => (c.divisionId || c.league) === userDivId);
+  const clubsForFixtures = divClubs.length >= 2 ? divClubs : allClubs;
+
+  // Si el usuario NO clasificó a torneos continentales (userTournamentOverride === null),
+  // saneamos para que no tenga partidos de UCL / UEL / UECL en su calendario activo
+  if (userTournamentOverride === null) {
+    const hasInvalidEuroMatches = existingFixtures.some(
+      (f) =>
+        (f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl') &&
+        (f.homeClubId === userClubId || f.awayClubId === userClubId)
+    );
+
+    if (hasInvalidEuroMatches) {
+      const filtered = existingFixtures.filter((f) => {
+        const isUserEuro =
+          (f.homeClubId === userClubId || f.awayClubId === userClubId) &&
+          (f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl');
+        return !isUserEuro;
+      });
+
+      const remainingRounds = Array.from(new Set(filtered.map((f) => f.round))).sort((a, b) => a - b);
+      const roundMap = new Map<number, number>();
+      remainingRounds.forEach((oldRound, idx) => {
+        roundMap.set(oldRound, idx + 1);
+      });
+
+      return filtered.map((f) => ({
+        ...f,
+        round: roundMap.get(f.round) || f.round,
+      }));
+    }
+  }
+
   const hasTournaments = existingFixtures.some(
     (f) => f.competitionType === 'cup' || f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl'
   );
@@ -872,18 +1036,17 @@ export function ensureSeasonTournaments(
     });
   }
 
-  const userClub = allClubs.find((c) => c.id === userClubId) || allClubs[0];
-  const userDivId = userClub.divisionId || userClub.league || 'es_laliga';
-  const divClubs = allClubs.filter((c) => (c.divisionId || c.league) === userDivId);
-  const clubsForFixtures = divClubs.length >= 2 ? divClubs : allClubs;
-
   // Si la temporada aún está al inicio (jornada 1 sin jugar)
   if (currentRound <= 1 && existingFixtures.every((f) => !f.isPlayed)) {
-    return generateSeasonFixturesWithTournaments(season, clubsForFixtures, allClubs, userClubId);
+    return generateSeasonFixturesWithTournaments(season, clubsForFixtures, allClubs, userClubId, {
+      europeanTournament: userTournamentOverride,
+    });
   }
 
   // Si ya se han jugado jornadas, generamos el calendario completo y preservamos los jugados
-  const fullCalendar = generateSeasonFixturesWithTournaments(season, clubsForFixtures, allClubs, userClubId);
+  const fullCalendar = generateSeasonFixturesWithTournaments(season, clubsForFixtures, allClubs, userClubId, {
+    europeanTournament: userTournamentOverride,
+  });
   const playedFixtures = existingFixtures.filter((f) => f.isPlayed);
   const playedUserFixtures = playedFixtures.filter((f) => f.homeClubId === userClubId || f.awayClubId === userClubId);
   const playedCount = playedUserFixtures.length;
@@ -918,7 +1081,8 @@ export function ensureSeasonTournaments(
  */
 export function getEuropeanTournamentsClubs(
   allClubs: Club[],
-  userClubId: string
+  userClubId: string,
+  userTournamentOverride?: 'ucl' | 'uel' | 'uecl' | null
 ): {
   ucl: Club[];
   uel: Club[];
@@ -927,12 +1091,15 @@ export function getEuropeanTournamentsClubs(
   const userClub = allClubs.find((c) => c.id === userClubId);
   const countries: CountryLeague[] = ['Spain', 'England', 'Germany', 'Italy', 'France'];
 
-  // Determinar si el usuario participa en Europa según su nivel y división
+  // Determinar si el usuario participa en Europa:
+  // Si userTournamentOverride está definido, se respeta estrictamente.
+  // Si es null, el club del usuario NO participa en ningún torneo europeo.
+  // Si es undefined, se calcula con getInitialSeasonEuropeanTournament.
   let userTournament: 'ucl' | 'uel' | 'uecl' | null = null;
-  if (userClub && userClub.tier === 1) {
-    if (userClub.level >= 82) userTournament = 'ucl';
-    else if (userClub.level >= 77) userTournament = 'uel';
-    else userTournament = 'uecl';
+  if (userTournamentOverride !== undefined) {
+    userTournament = userTournamentOverride;
+  } else if (userClub) {
+    userTournament = getInitialSeasonEuropeanTournament(userClub, allClubs);
   }
 
   const uclList: Club[] = [];
@@ -945,6 +1112,9 @@ export function getEuropeanTournamentsClubs(
     if (userTournament === 'ucl') uclList.push(userClub);
     else if (userTournament === 'uel') uelList.push(userClub);
     else if (userTournament === 'uecl') ueclList.push(userClub);
+    assignedClubIds.add(userClub.id);
+  } else if (userClub) {
+    // Si el usuario no clasificó a Europa, aseguramos que nunca entre de relleno
     assignedClubIds.add(userClub.id);
   }
 
@@ -1013,9 +1183,10 @@ export function getEuropeanTournamentsClubs(
 export function getUefa36Clubs(
   allClubs: Club[],
   userClubId: string,
-  tournament: 'ucl' | 'uel' | 'uecl' = 'ucl'
+  tournament: 'ucl' | 'uel' | 'uecl' = 'ucl',
+  userTournamentOverride?: 'ucl' | 'uel' | 'uecl' | null
 ): Club[] {
-  const tours = getEuropeanTournamentsClubs(allClubs, userClubId);
+  const tours = getEuropeanTournamentsClubs(allClubs, userClubId, userTournamentOverride);
   return tours[tournament] || tours.ucl;
 }
 

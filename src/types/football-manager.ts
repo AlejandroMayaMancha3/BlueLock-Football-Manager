@@ -306,6 +306,8 @@ export interface SeasonTransitionReport {
   promotions: PromotionRelegationMovement[];
   relegations: PromotionRelegationMovement[];
   rivalTransfers?: TransferNewsEntry[];
+  europeanQualification?: 'ucl' | 'uel' | 'uecl' | null;
+  europeanQualificationReason?: string;
 }
 
 export interface SeasonHistoryEntry {
@@ -324,6 +326,8 @@ export interface SeasonHistoryEntry {
   userOutcome?: 'champion' | 'promoted' | 'relegated' | 'stayed';
   promotedClubNames?: string[];
   relegatedClubNames?: string[];
+  europeanQualification?: 'ucl' | 'uel' | 'uecl' | null;
+  europeanQualificationReason?: string;
 }
 
 export interface PlayerPerformanceSummary {

@@ -15,7 +15,11 @@ import { getDivisionsByCountry, getDivisionById, COUNTRIES_CATALOG } from './dat
 import { calculatePlayerMarketValue } from './player-valuation';
 import { executeAiTransferMarket } from './transfer-engine';
 import { getTierPrizePoolYen, getSeasonRenewalSponsorYen, reconcileClubTreasury } from './finance-engine';
-import { awardTrophyToClub, generateSeasonFixturesWithTournaments } from './competitions-engine';
+import {
+  awardTrophyToClub,
+  generateSeasonFixturesWithTournaments,
+  getUserEuropeanTournamentQualification,
+} from './competitions-engine';
 
 // Generates 22 rounds for 12 clubs using round-robin algorithm
 export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixture[] {
@@ -599,6 +603,13 @@ export function advanceToNextSeason(
   const allPromotions: PromotionRelegationMovement[] = [];
   const allRelegations: PromotionRelegationMovement[] = [];
   const countryChampions: Record<string, { tier: number; divisionName: string; clubId: string; clubName: string }[]> = {};
+  const allTier1Tables: Record<CountryLeague, LeagueTableRow[]> = {
+    Spain: [],
+    England: [],
+    Germany: [],
+    Italy: [],
+    France: [],
+  };
 
   COUNTRIES_CATALOG.forEach((cntry) => {
     const cDivisions = getDivisionsByCountry(cntry.id);
@@ -617,6 +628,8 @@ export function advanceToNextSeason(
         cTierTables[t] = simulateAiDivisionTable(divClubs);
       }
     });
+
+    allTier1Tables[cntry.id as CountryLeague] = cTierTables[1] || [];
 
     countryChampions[cntry.id] = [
       { tier: 1, divisionName: cDiv1.name, clubId: cTierTables[1][0]?.clubId || '', clubName: cTierTables[1][0]?.clubName || '' },
@@ -847,7 +860,36 @@ export function advanceToNextSeason(
     userOutcome = userPos === 1 ? 'champion' : 'stayed';
   }
 
-  // 7. Generar nuevo calendario completo con Liga, Competiciones Europeas y Copa Nacional
+  // 7. Evaluar clasificación reglamentaria a competiciones UEFA y generar calendario de la nueva temporada
+  const cupWinners: Record<CountryLeague, { mainCupWinnerClubId: string; secondaryCupWinnerClubId?: string }> = {
+    Spain: { mainCupWinnerClubId: allTier1Tables.Spain[1]?.clubId || allTier1Tables.Spain[0]?.clubId || '' },
+    England: {
+      mainCupWinnerClubId: allTier1Tables.England[2]?.clubId || allTier1Tables.England[0]?.clubId || '',
+      secondaryCupWinnerClubId: allTier1Tables.England[3]?.clubId || allTier1Tables.England[1]?.clubId || '',
+    },
+    Germany: { mainCupWinnerClubId: allTier1Tables.Germany[1]?.clubId || allTier1Tables.Germany[0]?.clubId || '' },
+    Italy: { mainCupWinnerClubId: allTier1Tables.Italy[1]?.clubId || allTier1Tables.Italy[0]?.clubId || '' },
+    France: { mainCupWinnerClubId: allTier1Tables.France[1]?.clubId || allTier1Tables.France[0]?.clubId || '' },
+  };
+
+  const euroQual = getUserEuropeanTournamentQualification(
+    allTier1Tables,
+    cupWinners,
+    userClubId,
+    {
+      performanceSpotCountries: ['Spain', 'England'],
+    }
+  );
+
+  const userEuropeanTournament = euroQual.tournament;
+  const userEuropeanReason =
+    euroQual.reason ||
+    (userOldTier !== 1
+      ? `Club militante en categorías inferiores (Tier ${userOldTier}) - Sin acceso continental`
+      : userPos >= 8
+      ? `Puesto ${userPos}.º en liga regular - Sin acceso continental`
+      : 'No clasificado para competiciones continentales');
+
   const userNewDivId = userClubAfter.divisionId || userClubAfter.league;
   const divClubs = finalEvolvedClubs.filter((c) => (c.divisionId || c.league) === userNewDivId);
   const clubsForFixtures = divClubs.length >= 2 ? divClubs : finalEvolvedClubs;
@@ -855,7 +897,10 @@ export function advanceToNextSeason(
     nextSeason,
     clubsForFixtures,
     finalEvolvedClubs,
-    userClubId
+    userClubId,
+    {
+      europeanTournament: userEuropeanTournament,
+    }
   );
 
   const userCountryDivisions = getDivisionsByCountry(userCountry);
@@ -879,6 +924,8 @@ export function advanceToNextSeason(
     userOutcome,
     promotedClubNames: userPromotions.map((p) => p.clubName),
     relegatedClubNames: userRelegations.map((r) => r.clubName),
+    europeanQualification: userEuropeanTournament,
+    europeanQualificationReason: userEuropeanReason,
   };
 
   const seasonTransitionReport: SeasonTransitionReport = {
@@ -897,6 +944,8 @@ export function advanceToNextSeason(
     promotions: userPromotions,
     relegations: userRelegations,
     rivalTransfers: preSeasonRivalTransfers,
+    europeanQualification: userEuropeanTournament,
+    europeanQualificationReason: userEuropeanReason,
   };
 
   let earnedTrophy: ClubTrophyRecord | undefined;

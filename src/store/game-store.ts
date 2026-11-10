@@ -66,6 +66,7 @@ import {
   pruneEliminatedTournamentFixtures,
   ensureSeasonTournaments,
   isTrueChampionshipFinal,
+  getInitialSeasonEuropeanTournament,
 } from '@/engine/competitions-engine';
 
 const STORAGE_KEY = 'bluelock_football_manager_v2';
@@ -96,6 +97,7 @@ export interface GameStoreState {
   clubTrophies: ClubTrophyRecord[];
   isSacked: boolean;
   isSeasonCompleted: boolean;
+  qualifiedEuropeanTournament?: 'ucl' | 'uel' | 'uecl' | null;
   simulatedMatchSummary: MatchSummaryData | null;
   lastMatchSummary: MatchSummaryData | null;
   lastSeasonTransitionReport: SeasonTransitionReport | null;
@@ -209,7 +211,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const divClubs = clubs.filter((c) => (c.divisionId || c.league) === resolvedDivision);
     const clubsForFixtures = divClubs.length >= 2 ? divClubs : clubs;
     const userClub = clubs.find((c) => c.id === clubId) || clubsForFixtures[0] || clubs[0];
-    const fixtures = generateSeasonFixturesWithTournaments(1, clubsForFixtures, clubs, userClub.id);
+    const s1Tournament = getInitialSeasonEuropeanTournament(userClub, clubs);
+    const fixtures = generateSeasonFixturesWithTournaments(1, clubsForFixtures, clubs, userClub.id, {
+      europeanTournament: s1Tournament,
+    });
 
     const initialLedger: ClubLedgerEntry[] = [
       {
@@ -236,6 +241,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       clubs,
       players,
       fixtures,
+      qualifiedEuropeanTournament: s1Tournament,
       activeTab: 'office',
       liveMatch: null,
       boardTrust: 75,
@@ -311,13 +317,31 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           parsed.currentSeason || 1
         );
 
-        // Asegurar que la temporada incorpore torneos (Copa Nacional y Torneos Europeos UEFA)
+        // Resolver torneo continental calificado oficial del club del usuario
+        let resolvedQualifiedEuro: 'ucl' | 'uel' | 'uecl' | null = null;
+        if (parsed.qualifiedEuropeanTournament !== undefined) {
+          resolvedQualifiedEuro = parsed.qualifiedEuropeanTournament;
+        } else if (parsed.seasonHistory && parsed.seasonHistory.length > 0) {
+          const lastHistory = parsed.seasonHistory[0];
+          if (lastHistory.europeanQualification !== undefined) {
+            resolvedQualifiedEuro = lastHistory.europeanQualification;
+          } else {
+            const pos = lastHistory.userPosition || 99;
+            const isTier1 = (userClub.tier || 1) === 1;
+            resolvedQualifiedEuro = isTier1 && pos <= 4 ? 'ucl' : isTier1 && pos === 5 ? 'uel' : null;
+          }
+        } else {
+          resolvedQualifiedEuro = getInitialSeasonEuropeanTournament(userClub, completeClubs);
+        }
+
+        // Asegurar que la temporada incorpore torneos (Copa Nacional y Torneos Europeos UEFA respetando clasificación)
         const completeFixtures = ensureSeasonTournaments(
           parsed.currentSeason || 1,
           parsed.currentRound || 1,
           parsed.fixtures || [],
           reconciledClubs,
-          parsed.userClubId || userClub.id
+          parsed.userClubId || userClub.id,
+          resolvedQualifiedEuro
         );
 
         set({
@@ -325,6 +349,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           clubs: reconciledClubs,
           players: completePlayers,
           fixtures: completeFixtures,
+          qualifiedEuropeanTournament: resolvedQualifiedEuro,
           ledger: currentLedger,
           clubTrophies: loadedTrophies,
           selectedCurrency: parsed.selectedCurrency || 'EUR',
@@ -2030,6 +2055,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       clubs: newClubs,
       players: newPlayers,
       fixtures: newFixtures,
+      qualifiedEuropeanTournament: seasonTransitionReport.europeanQualification || null,
       selectedDivisionId: userClubAfter.divisionId || userClubAfter.league,
       selectedTier: userClubAfter.tier || 1,
       seasonHistory: [seasonHistoryEntry, ...seasonHistory],

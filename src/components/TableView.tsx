@@ -257,6 +257,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
     fixtures,
     selectedDivisionId,
     isSeasonCompleted,
+    qualifiedEuropeanTournament,
     proceedToNextSeason,
   } = useGameStore();
 
@@ -294,8 +295,8 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
 
   // 1. Clubes oficiales de la competición continental seleccionada (36 clubes sin solapamiento entre torneos)
   const uefaClubs = useMemo(() => {
-    return getUefa36Clubs(clubs, userClubId, selectedUefaTournament);
-  }, [clubs, userClubId, selectedUefaTournament]);
+    return getUefa36Clubs(clubs, userClubId, selectedUefaTournament, qualifiedEuropeanTournament);
+  }, [clubs, userClubId, selectedUefaTournament, qualifiedEuropeanTournament]);
 
   // 2. Clasificación de la Fase de Liga UEFA (36 equipos)
   const uefaTable = useMemo(() => {
@@ -387,7 +388,7 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
         return {
           bg: 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/30',
           border: 'border-l-4 border-yellow-400',
-          tag: 'Campeón',
+          tag: 'Campeón · Champions',
           isSpecial: true,
         };
       }
@@ -395,15 +396,31 @@ export const TableView: React.FC<TableViewProps> = ({ leagueTable }) => {
         return {
           bg: 'bg-cyan-500 text-black font-black',
           border: 'border-l-4 border-cyan-400',
-          tag: 'Zona Élite',
+          tag: 'Champions League',
           isSpecial: true,
         };
       }
-      if (pos >= 5 && pos <= 6) {
+      if (pos === 5) {
+        return {
+          bg: 'bg-orange-500 text-black font-bold',
+          border: 'border-l-4 border-orange-400',
+          tag: 'Europa League',
+          isSpecial: true,
+        };
+      }
+      if (pos === 6) {
         return {
           bg: 'bg-blue-600 text-white font-bold',
           border: 'border-l-4 border-blue-500',
-          tag: 'Europa',
+          tag: 'Europa / Conference',
+          isSpecial: true,
+        };
+      }
+      if (pos === 7) {
+        return {
+          bg: 'bg-emerald-600 text-white font-bold',
+          border: 'border-l-4 border-emerald-500',
+          tag: 'Conference (Arrastre)',
           isSpecial: true,
         };
       }

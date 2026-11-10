@@ -155,6 +155,62 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
             </span>
           </div>
 
+          {/* Clasificación Continental UEFA */}
+          <div
+            className={clsx(
+              'p-3.5 rounded-2xl border flex items-center justify-between gap-3 text-xs',
+              lastSeasonTransitionReport.europeanQualification === 'ucl' &&
+                'bg-cyan-950/40 border-cyan-500/50 text-cyan-200',
+              lastSeasonTransitionReport.europeanQualification === 'uel' &&
+                'bg-orange-950/40 border-orange-500/50 text-orange-200',
+              lastSeasonTransitionReport.europeanQualification === 'uecl' &&
+                'bg-emerald-950/40 border-emerald-500/50 text-emerald-200',
+              !lastSeasonTransitionReport.europeanQualification &&
+                'bg-slate-900/60 border-slate-800 text-slate-400'
+            )}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-base shrink-0">
+                {lastSeasonTransitionReport.europeanQualification === 'ucl'
+                  ? '⭐'
+                  : lastSeasonTransitionReport.europeanQualification === 'uel'
+                  ? '🏆'
+                  : lastSeasonTransitionReport.europeanQualification === 'uecl'
+                  ? '🏅'
+                  : '🏟️'}
+              </span>
+              <div>
+                <div className="font-bold">
+                  {lastSeasonTransitionReport.europeanQualification === 'ucl' && 'Clasificado a UEFA Champions League'}
+                  {lastSeasonTransitionReport.europeanQualification === 'uel' && 'Clasificado a UEFA Europa League'}
+                  {lastSeasonTransitionReport.europeanQualification === 'uecl' && 'Clasificado a UEFA Conference League'}
+                  {!lastSeasonTransitionReport.europeanQualification && 'Sin acceso a competiciones continentales'}
+                </div>
+                <div className="text-[11px] opacity-80 mt-0.5">
+                  {lastSeasonTransitionReport.europeanQualificationReason ||
+                    (lastSeasonTransitionReport.europeanQualification
+                      ? 'Clasificado por méritos deportivos'
+                      : `Puesto ${lastSeasonTransitionReport.userPosition}.º en liga regular`)}
+                </div>
+              </div>
+            </div>
+            <span
+              className={clsx(
+                'font-mono font-bold px-2.5 py-1 rounded-md text-[10px] uppercase shrink-0 border',
+                lastSeasonTransitionReport.europeanQualification === 'ucl' &&
+                  'bg-cyan-900/40 border-cyan-500/30 text-cyan-300',
+                lastSeasonTransitionReport.europeanQualification === 'uel' &&
+                  'bg-orange-900/40 border-orange-500/30 text-orange-300',
+                lastSeasonTransitionReport.europeanQualification === 'uecl' &&
+                  'bg-emerald-900/40 border-emerald-500/30 text-emerald-300',
+                !lastSeasonTransitionReport.europeanQualification &&
+                  'bg-slate-800 border-slate-700 text-slate-400'
+              )}
+            >
+              {lastSeasonTransitionReport.europeanQualification?.toUpperCase() || 'Sin Europa'}
+            </span>
+          </div>
+
           {/* Campeones de las 4 Categorías */}
           <div>
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
