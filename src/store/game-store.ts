@@ -62,6 +62,9 @@ import {
 import {
   reconstructClubTrophiesFromHistory,
   awardTrophyToClub,
+  generateSeasonFixturesWithTournaments,
+  pruneEliminatedTournamentFixtures,
+  ensureSeasonTournaments,
 } from '@/engine/competitions-engine';
 
 const STORAGE_KEY = 'bluelock_football_manager_v2';
@@ -204,9 +207,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     // Si los clubes pertenecen a la división, armar el calendario de esa categoría
     const divClubs = clubs.filter((c) => (c.divisionId || c.league) === resolvedDivision);
     const clubsForFixtures = divClubs.length >= 2 ? divClubs : clubs;
-    const fixtures = generateSeasonFixtures(1, clubsForFixtures);
-
     const userClub = clubs.find((c) => c.id === clubId) || clubsForFixtures[0] || clubs[0];
+    const fixtures = generateSeasonFixturesWithTournaments(1, clubsForFixtures, clubs, userClub.id);
 
     const initialLedger: ClubLedgerEntry[] = [
       {
@@ -306,10 +308,20 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           parsed.clubTrophies || []
         );
 
+        // Asegurar que la temporada incorpore torneos (Copa Nacional y Torneos Europeos UEFA)
+        const completeFixtures = ensureSeasonTournaments(
+          parsed.currentSeason || 1,
+          parsed.currentRound || 1,
+          parsed.fixtures || [],
+          reconciledClubs,
+          parsed.userClubId || userClub.id
+        );
+
         set({
           ...parsed,
           clubs: reconciledClubs,
           players: completePlayers,
+          fixtures: completeFixtures,
           ledger: currentLedger,
           clubTrophies: loadedTrophies,
           selectedCurrency: parsed.selectedCurrency || 'EUR',
@@ -345,7 +357,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const awayClub = clubs.find((c) => c.id === userFixture.awayClubId);
     if (!homeClub || !awayClub) return;
 
-    const liveMatch = initLiveMatch(currentSeason, currentRound, homeClub, awayClub);
+    const liveMatch = initLiveMatch(currentSeason, currentRound, homeClub, awayClub, {
+      competitionType: userFixture.competitionType,
+      competitionName: userFixture.competitionName,
+      roundStageName: userFixture.roundStageName,
+      isKnockout: userFixture.isKnockout,
+      trophyKey: userFixture.trophyKey,
+    });
     set({ liveMatch, activeTab: 'live_match' });
   },
 
@@ -366,7 +384,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     }, {} as Record<string, Player>);
 
     // Iniciar partido y simular los 90 minutos con cambios tácticos automáticos para ambos equipos
-    let match = initLiveMatch(currentSeason, currentRound, homeClub, awayClub);
+    let match = initLiveMatch(currentSeason, currentRound, homeClub, awayClub, {
+      competitionType: userFixture.competitionType,
+      competitionName: userFixture.competitionName,
+      roundStageName: userFixture.roundStageName,
+      isKnockout: userFixture.isKnockout,
+      trophyKey: userFixture.trophyKey,
+    });
     let safetyCounter = 0;
     while (!match.isFinished && safetyCounter < 120) {
       match = tickLiveMatch(match, playersMap, true);
@@ -440,6 +464,63 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     if (!liveMatch) return;
 
+    // 0. Comprobar datos del partido del usuario y tanda de penaltis en eliminatorias
+    const userFixture = fixtures.find(
+      (f) => f.round === currentRound && (f.homeClubId === userClubId || f.awayClubId === userClubId)
+    );
+
+    let penaltyHomeScore: number | undefined = undefined;
+    let penaltyAwayScore: number | undefined = undefined;
+
+    // Si es eliminatoria y finalizó en empate tras 90 min, definir por tanda de penaltis
+    if (userFixture?.isKnockout && liveMatch.homeScore === liveMatch.awayScore) {
+      let pH = 4;
+      let pA = 4;
+      while (pH === pA) {
+        pH = Math.floor(Math.random() * 3) + 3;
+        pA = Math.floor(Math.random() * 3) + 3;
+        if (Math.random() < 0.5) pH += 1;
+        else pA += 1;
+      }
+      penaltyHomeScore = pH;
+      penaltyAwayScore = pA;
+
+      liveMatch.events.push({
+        minute: 120,
+        type: 'commentary',
+        teamId: pH > pA ? liveMatch.homeClub.id : liveMatch.awayClub.id,
+        description: `🎯 ¡FINAL DE LA TANDA DE PENALTIS! ${liveMatch.homeClub.shortName} (${pH}) - (${pA}) ${liveMatch.awayClub.shortName}.`,
+        ballZone: { x: 50, y: 50 },
+      });
+    }
+
+    const userIsHome = liveMatch.homeClub.id === userClubId;
+    const userWonRegular = userIsHome
+      ? liveMatch.homeScore > liveMatch.awayScore
+      : liveMatch.awayScore > liveMatch.homeScore;
+
+    const userWonPenalties =
+      userFixture?.isKnockout && liveMatch.homeScore === liveMatch.awayScore
+        ? userIsHome
+          ? (penaltyHomeScore || 0) > (penaltyAwayScore || 0)
+          : (penaltyAwayScore || 0) > (penaltyHomeScore || 0)
+        : false;
+
+    const userWon = userWonRegular || userWonPenalties;
+    const userDrew = !userFixture?.isKnockout && liveMatch.homeScore === liveMatch.awayScore;
+
+    // Otorgar trofeo oficial de torneo al usuario si ganó una Final
+    if (userWon && userFixture?.trophyKey && (userFixture.roundStageName?.includes('Final') || userFixture.isKnockout)) {
+      get().awardClubTrophy(userFixture.trophyKey, userFixture.competitionName);
+      liveMatch.events.push({
+        minute: 90,
+        type: 'commentary',
+        teamId: userClubId,
+        description: `🏆 ¡¡CAMPEONES HISTÓRICOS!! ¡${userIsHome ? liveMatch.homeClub.name : liveMatch.awayClub.name} conquista el título oficial de ${userFixture.competitionName}!`,
+        ballZone: { x: 50, y: 50 },
+      });
+    }
+
     // 1. Mark user fixture as played
     const updatedFixtures = fixtures.map((f) => {
       if (f.round === currentRound && (f.homeClubId === userClubId || f.awayClubId === userClubId)) {
@@ -448,6 +529,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           isPlayed: true,
           homeScore: liveMatch.homeScore,
           awayScore: liveMatch.awayScore,
+          penaltyHomeScore,
+          penaltyAwayScore,
           events: liveMatch.events,
           homeStats: liveMatch.homeStats,
           awayStats: liveMatch.awayStats,
@@ -471,10 +554,16 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       players
     );
 
-    // 4. Update stats for user players from the live match
-    const userIsHome = liveMatch.homeClub.id === userClubId;
-    const userWon = userIsHome ? liveMatch.homeScore > liveMatch.awayScore : liveMatch.awayScore > liveMatch.homeScore;
-    const userDrew = liveMatch.homeScore === liveMatch.awayScore;
+    // 3b. Si el usuario cayó eliminado en un torneo eliminatorio (isKnockout), podar futuros partidos de ese torneo
+    let finalFixturesWithPrune = finalFixtures;
+    if (userFixture?.isKnockout && !userWon && userFixture.competitionType) {
+      finalFixturesWithPrune = pruneEliminatedTournamentFixtures(
+        finalFixtures,
+        currentRound,
+        userFixture.competitionType,
+        userClubId
+      );
+    }
 
     const playerPerformances: PlayerPerformanceSummary[] = [];
 
@@ -812,7 +901,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const newSquadMorale = Math.min(100, Math.max(20, squadMorale + (userWon ? 6 : userDrew ? 0 : -5)));
 
     // Check if season is complete (All regular league rounds finished)
-    const maxSeasonRound = fixtures.length > 0 ? Math.max(...fixtures.map((f) => f.round)) : 22;
+    const maxSeasonRound =
+      finalFixturesWithPrune.length > 0 ? Math.max(...finalFixturesWithPrune.map((f) => f.round)) : 46;
     const isSeasonCompleted = currentRound >= maxSeasonRound;
 
     // Pick random decision event occasionally (every 3-4 rounds)
@@ -834,13 +924,20 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       awayClub: liveMatch.awayClub,
       homeScore: liveMatch.homeScore,
       awayScore: liveMatch.awayScore,
+      penaltyHomeScore,
+      penaltyAwayScore,
+      competitionType: userFixture?.competitionType,
+      competitionName: userFixture?.competitionName,
+      roundStageName: userFixture?.roundStageName,
+      isKnockout: userFixture?.isKnockout,
+      trophyKey: userFixture?.trophyKey,
       userClubId,
       userIsHome,
       events: [...liveMatch.events],
       homeStats: { ...liveMatch.homeStats },
       awayStats: { ...liveMatch.awayStats },
       playerPerformances,
-      roundFixtures: finalFixtures.filter((f) => f.round === currentRound),
+      roundFixtures: finalFixturesWithPrune.filter((f) => f.round === currentRound),
       isSimulated: isSimulation,
     };
 
@@ -934,7 +1031,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     }
 
     set({
-      fixtures: finalFixtures,
+      fixtures: finalFixturesWithPrune,
       players: finalMarketPlayers,
       clubs: finalMarketClubs,
       ledger: updatedLedger,

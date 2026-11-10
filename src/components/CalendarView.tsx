@@ -60,6 +60,25 @@ function getSimulatedDate(round: number, season: number): string {
   return `${day} ${monthName} ${matchDate.getFullYear()}`;
 }
 
+/**
+ * Obtiene la bandera según el país de procedencia del club
+ */
+function getCountryFlag(country?: string): string {
+  switch (country) {
+    case 'England':
+      return '🏴󠁧󠁢󠁥󠁮󠁧󠁿';
+    case 'Germany':
+      return '🇩🇪';
+    case 'Italy':
+      return '🇮🇹';
+    case 'France':
+      return '🇫🇷';
+    case 'Spain':
+    default:
+      return '🇪🇸';
+  }
+}
+
 export const CalendarView: React.FC = () => {
   const {
     currentSeason,
@@ -97,7 +116,7 @@ export const CalendarView: React.FC = () => {
   // Estados de vista y filtros
   const [viewMode, setViewMode] = useState<'timeline' | 'month' | 'grid'>('timeline');
   const [filterType, setFilterType] = useState<
-    'all' | 'played' | 'pending' | 'first_half' | 'second_half' | 'home' | 'away'
+    'all' | 'played' | 'pending' | 'league' | 'uefa' | 'cup' | 'first_half' | 'second_half' | 'home' | 'away'
   >('all');
   const [inspectRound, setInspectRound] = useState<number | null>(null);
 
@@ -165,6 +184,10 @@ export const CalendarView: React.FC = () => {
       const isHome = f.homeClubId === userClubId;
       if (filterType === 'played') return f.isPlayed;
       if (filterType === 'pending') return !f.isPlayed;
+      if (filterType === 'league') return !f.competitionType || f.competitionType === 'league';
+      if (filterType === 'uefa')
+        return f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl';
+      if (filterType === 'cup') return f.competitionType === 'cup' || f.competitionType === 'secondary_cup';
       if (filterType === 'first_half') return f.round <= 23;
       if (filterType === 'second_half') return f.round > 23;
       if (filterType === 'home') return isHome;
@@ -343,12 +366,28 @@ export const CalendarView: React.FC = () => {
           </span>
           {[
             { id: 'all', label: `Todos (${userFixtures.length})` },
+            {
+              id: 'league',
+              label: `⚽ Liga (${userFixtures.filter((f) => !f.competitionType || f.competitionType === 'league').length})`,
+            },
+            {
+              id: 'uefa',
+              label: `🏆 Europa (${
+                userFixtures.filter(
+                  (f) => f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl'
+                ).length
+              })`,
+            },
+            {
+              id: 'cup',
+              label: `🛡️ Copa (${userFixtures.filter((f) => f.competitionType === 'cup').length})`,
+            },
             { id: 'pending', label: `Pendientes (${userFixtures.filter((f) => !f.isPlayed).length})` },
             { id: 'played', label: `Jugados (${userFixtures.filter((f) => f.isPlayed).length})` },
-            { id: 'first_half', label: '1.ª Vuelta (J1-23)' },
-            { id: 'second_half', label: '2.ª Vuelta (J24-46)' },
-            { id: 'home', label: 'En Casa (Local)' },
-            { id: 'away', label: 'Fuera (Visitante)' },
+            { id: 'first_half', label: '1.ª Vuelta' },
+            { id: 'second_half', label: '2.ª Vuelta' },
+            { id: 'home', label: 'Local' },
+            { id: 'away', label: 'Visitante' },
           ].map((flt) => (
             <button
               key={flt.id}
@@ -411,7 +450,39 @@ export const CalendarView: React.FC = () => {
                   )}
                 >
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                    <span className="font-mono font-black text-white text-[11px] sm:text-xs">JORNADA {fix.round}</span>
+                    {/* INSIGNIA DE COMPETICIÓN */}
+                    {fix.competitionType === 'ucl' ? (
+                      <span className="px-2 py-0.5 rounded-lg bg-blue-900/90 text-blue-200 border border-blue-400/50 font-mono font-black text-[10px] sm:text-xs flex items-center gap-1 shadow-sm">
+                        <Trophy className="w-3.5 h-3.5 text-amber-300" />
+                        UEFA Champions League · {fix.roundStageName || 'Fase de Liga'}
+                      </span>
+                    ) : fix.competitionType === 'uel' ? (
+                      <span className="px-2 py-0.5 rounded-lg bg-orange-950 text-orange-300 border border-orange-500/50 font-mono font-black text-[10px] sm:text-xs flex items-center gap-1 shadow-sm">
+                        <Trophy className="w-3.5 h-3.5 text-orange-400" />
+                        UEFA Europa League · {fix.roundStageName || 'Fase de Liga'}
+                      </span>
+                    ) : fix.competitionType === 'uecl' ? (
+                      <span className="px-2 py-0.5 rounded-lg bg-emerald-950 text-emerald-300 border border-emerald-500/50 font-mono font-black text-[10px] sm:text-xs flex items-center gap-1 shadow-sm">
+                        <Trophy className="w-3.5 h-3.5 text-emerald-400" />
+                        UEFA Conference League · {fix.roundStageName || 'Fase de Liga'}
+                      </span>
+                    ) : fix.competitionType === 'cup' ? (
+                      <span className="px-2 py-0.5 rounded-lg bg-rose-950 text-rose-200 border border-rose-500/50 font-mono font-black text-[10px] sm:text-xs flex items-center gap-1 shadow-sm">
+                        <Shield className="w-3.5 h-3.5 text-amber-300" />
+                        {fix.competitionName || 'Copa Nacional'} · {fix.roundStageName || 'Eliminatoria'}
+                      </span>
+                    ) : (
+                      <span className="font-mono font-black text-white text-[11px] sm:text-xs">
+                        {fix.competitionName || divisionName} · {fix.roundStageName || `Jornada ${fix.round}`}
+                      </span>
+                    )}
+
+                    {fix.isKnockout && (
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] font-black uppercase tracking-wider">
+                        Eliminatoria
+                      </span>
+                    )}
+
                     <span className="text-slate-600">·</span>
                     <span className="flex items-center gap-1 text-[10px] sm:text-[11px]">
                       <Clock className="w-3 h-3 text-slate-500" />
@@ -497,7 +568,7 @@ export const CalendarView: React.FC = () => {
                         <div className="text-[10px] sm:text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 truncate">
                           <span>Nivel {homeC.level}</span>
                           <span className="text-slate-600 hidden sm:inline">·</span>
-                          <span className="hidden sm:inline">{homeC.country}</span>
+                          <span className="hidden sm:inline">{getCountryFlag(homeC.country)} {homeC.country}</span>
                         </div>
                       </div>
                     </div>
@@ -511,6 +582,11 @@ export const CalendarView: React.FC = () => {
                             <span className="text-slate-600 mx-1.5 sm:mx-2">-</span>
                             <span>{fix.awayScore}</span>
                           </div>
+                          {fix.penaltyHomeScore !== undefined && fix.penaltyAwayScore !== undefined && (
+                            <span className="text-[10px] text-amber-400 font-bold font-mono mt-0.5 block">
+                              (Penaltis: {fix.penaltyHomeScore} - {fix.penaltyAwayScore})
+                            </span>
+                          )}
                           <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase mt-1 block tracking-wider">
                             Finalizado
                           </span>
@@ -548,7 +624,7 @@ export const CalendarView: React.FC = () => {
                         <div className="text-[10px] sm:text-[11px] text-slate-400 flex items-center justify-end gap-1 mt-0.5 truncate">
                           <span>Nivel {awayC.level}</span>
                           <span className="text-slate-600 hidden sm:inline">·</span>
-                          <span className="hidden sm:inline">{awayC.country}</span>
+                          <span className="hidden sm:inline">{getCountryFlag(awayC.country)} {awayC.country}</span>
                         </div>
                       </div>
                       <div
@@ -700,10 +776,11 @@ export const CalendarView: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <span className="text-[10px] text-cyan-400 font-mono font-bold uppercase tracking-wider block">
-                  Competición Regular · {divisionName}
+                  {roundInspectFixtures[0]?.competitionName || divisionName} ·{' '}
+                  {roundInspectFixtures[0]?.roundStageName || `Jornada ${inspectRound}`}
                 </span>
                 <h3 className="text-xl font-black text-white flex items-center gap-2">
-                  <span>Jornada {inspectRound} Completa</span>
+                  <span>Jornada {inspectRound} Oficial</span>
                   <span className="text-xs text-slate-400 font-normal">
                     ({getSimulatedDate(inspectRound, currentSeason)})
                   </span>
@@ -720,7 +797,7 @@ export const CalendarView: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-400">
-              Todos los 12 enfrentamientos de la jornada correspondientes a los 24 clubes de la división:
+              Enfrentamientos oficiales programados para esta fecha:
             </p>
 
             <div className="overflow-y-auto space-y-2 pr-1 flex-1">

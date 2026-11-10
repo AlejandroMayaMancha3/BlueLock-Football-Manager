@@ -171,6 +171,11 @@ export interface MatchFixture {
   isPlayoff?: boolean;
   playoffStage?: 'semi' | 'final' | 'relegation_tie' | 'barrage' | 'spareggio' | 'playout';
   leg?: number;
+  competitionType?: 'league' | 'ucl' | 'uel' | 'uecl' | 'cup' | 'secondary_cup';
+  competitionName?: string;
+  roundStageName?: string;
+  isKnockout?: boolean;
+  trophyKey?: string;
   homeClubId: string;
   awayClubId: string;
   homeScore?: number;
@@ -369,6 +374,13 @@ export interface MatchSummaryData {
   playerPerformances: PlayerPerformanceSummary[];
   roundFixtures: MatchFixture[];
   isSimulated?: boolean;
+  competitionType?: 'league' | 'ucl' | 'uel' | 'uecl' | 'cup' | 'secondary_cup';
+  competitionName?: string;
+  roundStageName?: string;
+  isKnockout?: boolean;
+  trophyKey?: string;
+  penaltyHomeScore?: number;
+  penaltyAwayScore?: number;
 }
 
 export type TrophyType =

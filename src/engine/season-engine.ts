@@ -15,7 +15,7 @@ import { getDivisionsByCountry, getDivisionById, COUNTRIES_CATALOG } from './dat
 import { calculatePlayerMarketValue } from './player-valuation';
 import { executeAiTransferMarket } from './transfer-engine';
 import { getTierPrizePoolYen, getSeasonRenewalSponsorYen, reconcileClubTreasury } from './finance-engine';
-import { awardTrophyToClub } from './competitions-engine';
+import { awardTrophyToClub, generateSeasonFixturesWithTournaments } from './competitions-engine';
 
 // Generates 22 rounds for 12 clubs using round-robin algorithm
 export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixture[] {
@@ -126,6 +126,20 @@ export function simulateAiMatchesForRound(
     fix.awayScore = aScore;
     fix.isPlayed = true;
 
+    // Si es partido eliminatorio y finalizó en empate, definir por tanda de penaltis
+    if (fix.isKnockout && hScore === aScore) {
+      let pH = 4;
+      let pA = 4;
+      while (pH === pA) {
+        pH = Math.floor(Math.random() * 3) + 3;
+        pA = Math.floor(Math.random() * 3) + 3;
+        if (Math.random() < 0.5) pH += 1;
+        else pA += 1;
+      }
+      fix.penaltyHomeScore = pH;
+      fix.penaltyAwayScore = pA;
+    }
+
     // Asignar goles a delanteros y centrocampistas ofensivos
     const hStrikers = playersCopy.filter((p) => p.clubId === hClub.id && ['DC', 'EI', 'ED', 'MCO'].includes(p.position));
     const aStrikers = playersCopy.filter((p) => p.clubId === aClub.id && ['DC', 'EI', 'ED', 'MCO'].includes(p.position));
@@ -209,9 +223,11 @@ export function simulateAiMatchesForRound(
 export function computeLeagueTable(clubs: Club[], fixtures: MatchFixture[]): LeagueTableRow[] {
   const tableMap: Record<string, LeagueTableRow> = {};
 
-  // Filtrar estrictamente para que solo participen los clubes involucrados en los fixtures de esta división
+  // Filtrar estrictamente para que solo participen los partidos de liga regular
+  const leagueFixtures = fixtures.filter((f) => !f.competitionType || f.competitionType === 'league');
+
   const fixtureClubIds = new Set<string>();
-  fixtures.forEach((f) => {
+  leagueFixtures.forEach((f) => {
     fixtureClubIds.add(f.homeClubId);
     fixtureClubIds.add(f.awayClubId);
   });
@@ -237,7 +253,7 @@ export function computeLeagueTable(clubs: Club[], fixtures: MatchFixture[]): Lea
     };
   });
 
-  fixtures.filter((f) => f.isPlayed && f.homeScore !== undefined && f.awayScore !== undefined).forEach((f) => {
+  leagueFixtures.filter((f) => f.isPlayed && f.homeScore !== undefined && f.awayScore !== undefined).forEach((f) => {
     const hRow = tableMap[f.homeClubId];
     const aRow = tableMap[f.awayClubId];
     if (!hRow || !aRow) return;
@@ -825,11 +841,16 @@ export function advanceToNextSeason(
     userOutcome = userPos === 1 ? 'champion' : 'stayed';
   }
 
-  // 7. Generar nuevo calendario de 46 jornadas para la nueva división del club del usuario
+  // 7. Generar nuevo calendario completo con Liga, Competiciones Europeas y Copa Nacional
   const userNewDivId = userClubAfter.divisionId || userClubAfter.league;
   const divClubs = finalEvolvedClubs.filter((c) => (c.divisionId || c.league) === userNewDivId);
   const clubsForFixtures = divClubs.length >= 2 ? divClubs : finalEvolvedClubs;
-  const newFixtures = generateSeasonFixtures(nextSeason, clubsForFixtures);
+  const newFixtures = generateSeasonFixturesWithTournaments(
+    nextSeason,
+    clubsForFixtures,
+    finalEvolvedClubs,
+    userClubId
+  );
 
   const userCountryDivisions = getDivisionsByCountry(userCountry);
   const userCountryDivIds = new Set(userCountryDivisions.map((d) => d.id));

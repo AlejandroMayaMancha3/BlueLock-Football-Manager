@@ -40,6 +40,13 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
     awayClub,
     homeScore,
     awayScore,
+    penaltyHomeScore,
+    penaltyAwayScore,
+    competitionType,
+    competitionName,
+    roundStageName,
+    isKnockout,
+    trophyKey,
     userClubId,
     userIsHome,
     events,
@@ -49,8 +56,15 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
     roundFixtures,
   } = summary;
 
-  const userWon = userIsHome ? homeScore > awayScore : awayScore > homeScore;
-  const userDrew = homeScore === awayScore;
+  const userWonRegular = userIsHome ? homeScore > awayScore : awayScore > homeScore;
+  const userWonPenalties =
+    isKnockout && homeScore === awayScore
+      ? userIsHome
+        ? (penaltyHomeScore || 0) > (penaltyAwayScore || 0)
+        : (penaltyAwayScore || 0) > (penaltyHomeScore || 0)
+      : false;
+  const userWon = userWonRegular || userWonPenalties;
+  const userDrew = !isKnockout && homeScore === awayScore;
 
   // Jugadores que tuvieron crecimiento de media o potencial
   const upgradedPlayers = playerPerformances.filter(
@@ -113,6 +127,35 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
 
         {/* HERO SCOREBOARD */}
         <div className="bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-800 shrink-0">
+          {/* BANNER DE COMPETICIÓN */}
+          <div className="mb-3 flex items-center justify-center">
+            {competitionType === 'ucl' ? (
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-blue-950/90 border border-blue-500/50 text-blue-200 text-xs font-mono font-black uppercase tracking-wider shadow-lg">
+                <Trophy className="w-3.5 h-3.5 text-amber-300" />
+                <span>UEFA Champions League · {roundStageName || 'Fase de Liga'}</span>
+              </div>
+            ) : competitionType === 'uel' ? (
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-orange-950/90 border border-orange-500/50 text-orange-200 text-xs font-mono font-black uppercase tracking-wider shadow-lg">
+                <Trophy className="w-3.5 h-3.5 text-orange-400" />
+                <span>UEFA Europa League · {roundStageName || 'Fase de Liga'}</span>
+              </div>
+            ) : competitionType === 'uecl' ? (
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-emerald-200 text-xs font-mono font-black uppercase tracking-wider shadow-lg">
+                <Trophy className="w-3.5 h-3.5 text-emerald-400" />
+                <span>UEFA Conference League · {roundStageName || 'Fase de Liga'}</span>
+              </div>
+            ) : competitionType === 'cup' ? (
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-rose-950/90 border border-rose-500/50 text-rose-200 text-xs font-mono font-black uppercase tracking-wider shadow-lg">
+                <Shield className="w-3.5 h-3.5 text-amber-300" />
+                <span>{competitionName || 'Copa Nacional'} · {roundStageName || 'Eliminatoria'}</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-slate-950/80 border border-slate-800 text-slate-300 text-xs font-mono font-black uppercase tracking-wider">
+                <span>{competitionName || 'Liga Regular'} · {roundStageName || `Jornada ${round}`}</span>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 sm:gap-6">
             
             {/* CLUB LOCAL */}
@@ -148,20 +191,38 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
                 </span>
               </div>
 
+              {penaltyHomeScore !== undefined && penaltyAwayScore !== undefined && (
+                <div className="mt-1 px-3 py-0.5 rounded-full bg-amber-950/80 border border-amber-500/40 text-[11px] font-mono font-bold text-amber-300">
+                  Tanda de Penaltis: {penaltyHomeScore} - {penaltyAwayScore}
+                </div>
+              )}
+
               {/* Insignia de resultado para el usuario */}
               <div className="mt-1.5 sm:mt-2">
-                {userWon && (
+                {isKnockout ? (
+                  userWon ? (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 shadow-md">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      {roundStageName?.includes('Final') || trophyKey
+                        ? '🏆 ¡¡CAMPEONES!! TÍTULO CONQUISTADO'
+                        : '¡CLASIFICADO A LA SIGUIENTE RONDA!'}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-rose-950/90 text-rose-300 border border-rose-500/50 shadow-md">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                      ELIMINADO DEL TORNEO
+                    </span>
+                  )
+                ) : userWon ? (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-emerald-950/80 text-emerald-400 border border-emerald-500/40">
                     <CheckCircle className="w-3.5 h-3.5" />
                     VICTORIA (+3 PUNTOS)
                   </span>
-                )}
-                {userDrew && (
+                ) : userDrew ? (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-yellow-950/80 text-yellow-400 border border-yellow-500/40">
                     EMPATE (+1 PUNTO)
                   </span>
-                )}
-                {!userWon && !userDrew && (
+                ) : (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-rose-950/80 text-rose-400 border border-rose-500/40">
                     DERROTA (0 PUNTOS)
                   </span>

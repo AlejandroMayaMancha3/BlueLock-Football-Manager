@@ -104,6 +104,39 @@ export const LiveMatchView: React.FC = () => {
     <div className="space-y-6">
       {/* 1. MARCADOR EN VIVO Y CRONÓMETRO */}
       <div className="bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-2xl relative overflow-hidden">
+        {/* BANNER DE COMPETICIÓN */}
+        <div className="mb-3 flex items-center justify-center">
+          {liveMatch.competitionType === 'ucl' ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950/80 border border-blue-500/50 text-blue-200 text-xs font-mono font-black uppercase tracking-wider shadow-lg">
+              <Award className="w-3.5 h-3.5 text-amber-300" />
+              <span>UEFA Champions League · {liveMatch.roundStageName || 'Fase de Liga'}</span>
+            </div>
+          ) : liveMatch.competitionType === 'uel' ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-950/80 border border-orange-500/50 text-orange-200 text-xs font-mono font-black uppercase tracking-wider shadow-lg">
+              <Award className="w-3.5 h-3.5 text-orange-400" />
+              <span>UEFA Europa League · {liveMatch.roundStageName || 'Fase de Liga'}</span>
+            </div>
+          ) : liveMatch.competitionType === 'uecl' ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs font-mono font-black uppercase tracking-wider shadow-lg">
+              <Award className="w-3.5 h-3.5 text-emerald-400" />
+              <span>UEFA Conference League · {liveMatch.roundStageName || 'Fase de Liga'}</span>
+            </div>
+          ) : liveMatch.competitionType === 'cup' ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-950/80 border border-rose-500/50 text-rose-200 text-xs font-mono font-black uppercase tracking-wider shadow-lg">
+              <Shield className="w-3.5 h-3.5 text-amber-300" />
+              <span>
+                {liveMatch.competitionName || 'Copa Nacional'} · {liveMatch.roundStageName || 'Eliminatoria'}
+              </span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/80 border border-slate-800 text-slate-300 text-xs font-mono font-black uppercase tracking-wider">
+              <span>
+                {liveMatch.competitionName || 'Liga Regular'} · {liveMatch.roundStageName || `Jornada ${liveMatch.round}`}
+              </span>
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6">
           {/* Matchup row */}
           <div className="flex items-center justify-between w-full md:contents gap-2 sm:gap-4">

@@ -54,6 +54,13 @@ export interface LiveMatchState {
   awayBench: string[];
   playerRatings: Record<string, number>; // playerId -> 6.0 to 10.0
   playerMinutes: Record<string, number>; // playerId -> minutos disputados en el encuentro
+  competitionType?: 'league' | 'ucl' | 'uel' | 'uecl' | 'cup' | 'secondary_cup';
+  competitionName?: string;
+  roundStageName?: string;
+  isKnockout?: boolean;
+  trophyKey?: string;
+  penaltyHomeScore?: number;
+  penaltyAwayScore?: number;
 }
 
 // Coordenadas base en escala 0-100 para el campo completo (11v11 reglamentario)
@@ -286,7 +293,14 @@ export function initLiveMatch(
   season: number,
   round: number,
   homeClub: Club,
-  awayClub: Club
+  awayClub: Club,
+  competitionOptions?: {
+    competitionType?: 'league' | 'ucl' | 'uel' | 'uecl' | 'cup' | 'secondary_cup';
+    competitionName?: string;
+    roundStageName?: string;
+    isKnockout?: boolean;
+    trophyKey?: string;
+  }
 ): LiveMatchState {
   const ratings: Record<string, number> = {};
   const initialPositions: Record<string, { x: number; y: number }> = {};
@@ -318,6 +332,10 @@ export function initLiveMatch(
     initialPositions[kickoffCarrierId] = { x: 50, y: 50 };
   }
 
+  const compTitle = competitionOptions?.competitionName
+    ? `${competitionOptions.competitionName} (${competitionOptions.roundStageName || 'Partido Oficial'})`
+    : `Jornada ${round}`;
+
   return {
     id: `live-m-${season}-${round}-${Date.now()}`,
     season,
@@ -336,12 +354,17 @@ export function initLiveMatch(
     attackingTeamId: homeClub.id,
     pendingKickoffTeamId: null,
     pendingSetPiece: null,
+    competitionType: competitionOptions?.competitionType,
+    competitionName: competitionOptions?.competitionName,
+    roundStageName: competitionOptions?.roundStageName,
+    isKnockout: competitionOptions?.isKnockout,
+    trophyKey: competitionOptions?.trophyKey,
     events: [
       {
         minute: 0,
         type: 'commentary',
         teamId: homeClub.id,
-        description: `¡Arranca el partido en el ${homeClub.stadiumName}! ${homeClub.name} vs ${awayClub.name}`,
+        description: `¡Arranca el partido en el ${homeClub.stadiumName}! [${compTitle}] ${homeClub.name} vs ${awayClub.name}`,
         ballZone: { x: 50, y: 50 },
       },
     ],
