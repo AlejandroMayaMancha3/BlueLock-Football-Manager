@@ -72,6 +72,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
   const progressInfo = getLeagueProgressInfo(fixtures, currentRound, userClubId, isSeasonCompleted);
 
   const nextUserFixture =
+    progressInfo.nextFixture ||
     fixtures.find(
       (f) => f.round === currentRound && (f.homeClubId === userClubId || f.awayClubId === userClubId)
     ) ||

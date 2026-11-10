@@ -19,6 +19,8 @@ import {
   awardTrophyToClub,
   generateSeasonFixturesWithTournaments,
   getUserEuropeanTournamentQualification,
+  isTrueChampionshipFinal,
+  resolveKnockoutWinnerId,
 } from './competitions-engine';
 
 // Generates 22 rounds for 12 clubs using round-robin algorithm
@@ -399,7 +401,8 @@ export function advanceToNextSeason(
   userClubId: string,
   clubs: Club[],
   players: Player[],
-  table: LeagueTableRow[]
+  table: LeagueTableRow[],
+  pastFixtures?: MatchFixture[]
 ): {
   newSeason: number;
   newClubs: Club[];
@@ -844,8 +847,85 @@ export function advanceToNextSeason(
   );
 
   const finalEvolvedClubs = preSeasonMarket.updatedClubs;
-  const finalEvolvedPlayers = preSeasonMarket.updatedPlayers;
+  const finalEvolvedPlayers = [...preSeasonMarket.updatedPlayers];
   const preSeasonRivalTransfers = preSeasonMarket.news;
+
+  // 5b. Garantizar nómina mínima viable (>= 18 futbolistas) para que ningún club quede descalificado o incompleto
+  finalEvolvedClubs.forEach((club) => {
+    let clubPlayers = finalEvolvedPlayers.filter((p) => p.clubId === club.id);
+    const needed = 18 - clubPlayers.length;
+    if (needed > 0) {
+      const positions: Array<'DC' | 'MC' | 'DFC' | 'POR' | 'EI' | 'ED' | 'LI' | 'LD'> = [
+        'DC', 'MC', 'DFC', 'POR', 'EI', 'ED', 'LI', 'LD',
+      ];
+      for (let k = 0; k < needed; k++) {
+        const pos = positions[k % positions.length];
+        const age = 17 + Math.floor(Math.random() * 4);
+        const ovr = Math.min(88, Math.max(52, club.level - Math.floor(Math.random() * 6) - 4));
+        const pot = Math.min(94, ovr + Math.floor(Math.random() * 8) + 4);
+        const canterano: Player = {
+          id: `ply-gen-s${nextSeason}-${club.id}-${Date.now()}-${k}`,
+          name: `Canterano ${club.shortName} #${k + 1}`,
+          age,
+          nationality: (club.country || 'Spain') as string,
+          clubId: club.id,
+          position: pos,
+          overall: ovr,
+          potential: pot,
+          stats: {
+            pace: Math.min(99, Math.max(40, ovr + Math.floor(Math.random() * 10) - 5)),
+            shooting: Math.min(99, Math.max(40, ovr + Math.floor(Math.random() * 10) - 5)),
+            passing: Math.min(99, Math.max(40, ovr + Math.floor(Math.random() * 10) - 5)),
+            dribbling: Math.min(99, Math.max(40, ovr + Math.floor(Math.random() * 10) - 5)),
+            defense: Math.min(99, Math.max(40, ovr + Math.floor(Math.random() * 10) - 5)),
+            physical: Math.min(99, Math.max(40, ovr + Math.floor(Math.random() * 10) - 5)),
+            goalkeeping: pos === 'POR' ? ovr : 20,
+          },
+          weapons: [],
+          egoRating: Math.floor(Math.random() * 30) + 45,
+          flowState: false,
+          marketValueYen: Math.round(ovr * 1500000),
+          weeklyWageYen: Math.round(ovr * 15000),
+          fitness: 100,
+          morale: 80,
+          form: 75,
+          contractYears: 3,
+          isTransferListed: false,
+          injuryWeeks: 0,
+          isBanned: false,
+          yellowCardsCount: 0,
+          consecutiveMatchesWithoutPlaying: 0,
+          seasonMatches: 0,
+          seasonGoals: 0,
+          seasonAssists: 0,
+          seasonYellowCards: 0,
+          seasonRedCards: 0,
+          seasonCleanSheets: 0,
+          seasonAverageRating: 6.8,
+        };
+        finalEvolvedPlayers.push(canterano);
+        clubPlayers.push(canterano);
+      }
+    }
+
+    const validMemberIds = new Set(clubPlayers.map((p) => p.id));
+    let validStartingXI = club.startingXI.filter((id) => validMemberIds.has(id));
+    if (validStartingXI.length < 11) {
+      const candidates = clubPlayers
+        .filter((p) => !validStartingXI.includes(p.id))
+        .sort((a, b) => b.overall - a.overall);
+      while (validStartingXI.length < 11 && candidates.length > 0) {
+        validStartingXI.push(candidates.shift()!.id);
+      }
+    }
+    const validSubs = clubPlayers
+      .map((p) => p.id)
+      .filter((id) => !validStartingXI.includes(id))
+      .slice(0, 7);
+
+    club.startingXI = validStartingXI;
+    club.substitutes = validSubs;
+  });
 
   // 6. Determinar el destino del club del usuario
   const userClubAfter = finalEvolvedClubs.find((c) => c.id === userClubId) || finalEvolvedClubs[0];
@@ -861,15 +941,69 @@ export function advanceToNextSeason(
   }
 
   // 7. Evaluar clasificación reglamentaria a competiciones UEFA y generar calendario de la nueva temporada
+  // Buscar ganadores reales de los torneos disputados en la temporada previa
+  const playedCupFinal = pastFixtures?.find(
+    (f) =>
+      f.competitionType === 'cup' &&
+      f.isPlayed &&
+      isTrueChampionshipFinal(f.roundStageName, f.trophyKey)
+  );
+  const actualCupWinnerId = playedCupFinal
+    ? resolveKnockoutWinnerId(playedCupFinal, playedCupFinal.homeClubId, playedCupFinal.awayClubId)
+    : undefined;
+
+  const playedUclFinal = pastFixtures?.find(
+    (f) =>
+      f.competitionType === 'ucl' &&
+      f.isPlayed &&
+      isTrueChampionshipFinal(f.roundStageName, f.trophyKey)
+  );
+  const uclChampId = playedUclFinal
+    ? resolveKnockoutWinnerId(playedUclFinal, playedUclFinal.homeClubId, playedUclFinal.awayClubId)
+    : undefined;
+
+  const playedUelFinal = pastFixtures?.find(
+    (f) =>
+      f.competitionType === 'uel' &&
+      f.isPlayed &&
+      isTrueChampionshipFinal(f.roundStageName, f.trophyKey)
+  );
+  const uelChampId = playedUelFinal
+    ? resolveKnockoutWinnerId(playedUelFinal, playedUelFinal.homeClubId, playedUelFinal.awayClubId)
+    : undefined;
+
   const cupWinners: Record<CountryLeague, { mainCupWinnerClubId: string; secondaryCupWinnerClubId?: string }> = {
-    Spain: { mainCupWinnerClubId: allTier1Tables.Spain[1]?.clubId || allTier1Tables.Spain[0]?.clubId || '' },
+    Spain: {
+      mainCupWinnerClubId:
+        userCountry === 'Spain' && actualCupWinnerId
+          ? actualCupWinnerId
+          : allTier1Tables.Spain[1]?.clubId || allTier1Tables.Spain[0]?.clubId || '',
+    },
     England: {
-      mainCupWinnerClubId: allTier1Tables.England[2]?.clubId || allTier1Tables.England[0]?.clubId || '',
+      mainCupWinnerClubId:
+        userCountry === 'England' && actualCupWinnerId
+          ? actualCupWinnerId
+          : allTier1Tables.England[2]?.clubId || allTier1Tables.England[0]?.clubId || '',
       secondaryCupWinnerClubId: allTier1Tables.England[3]?.clubId || allTier1Tables.England[1]?.clubId || '',
     },
-    Germany: { mainCupWinnerClubId: allTier1Tables.Germany[1]?.clubId || allTier1Tables.Germany[0]?.clubId || '' },
-    Italy: { mainCupWinnerClubId: allTier1Tables.Italy[1]?.clubId || allTier1Tables.Italy[0]?.clubId || '' },
-    France: { mainCupWinnerClubId: allTier1Tables.France[1]?.clubId || allTier1Tables.France[0]?.clubId || '' },
+    Germany: {
+      mainCupWinnerClubId:
+        userCountry === 'Germany' && actualCupWinnerId
+          ? actualCupWinnerId
+          : allTier1Tables.Germany[1]?.clubId || allTier1Tables.Germany[0]?.clubId || '',
+    },
+    Italy: {
+      mainCupWinnerClubId:
+        userCountry === 'Italy' && actualCupWinnerId
+          ? actualCupWinnerId
+          : allTier1Tables.Italy[1]?.clubId || allTier1Tables.Italy[0]?.clubId || '',
+    },
+    France: {
+      mainCupWinnerClubId:
+        userCountry === 'France' && actualCupWinnerId
+          ? actualCupWinnerId
+          : allTier1Tables.France[1]?.clubId || allTier1Tables.France[0]?.clubId || '',
+    },
   };
 
   const euroQual = getUserEuropeanTournamentQualification(
@@ -878,6 +1012,8 @@ export function advanceToNextSeason(
     userClubId,
     {
       performanceSpotCountries: ['Spain', 'England'],
+      uclDefendingChampionClubId: uclChampId,
+      uelDefendingChampionClubId: uelChampId,
     }
   );
 

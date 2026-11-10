@@ -306,8 +306,23 @@ export function initLiveMatch(
   const initialPositions: Record<string, { x: number; y: number }> = {};
   const initialMinutes: Record<string, number> = {};
 
+  // Asegurar que ambos clubes cuenten con 11 titulares para evitar errores de render o cálculo
+  const homeXI = [...homeClub.startingXI];
+  while (homeXI.length < 11) {
+    const sub = homeClub.substitutes.find((s) => !homeXI.includes(s));
+    if (sub) homeXI.push(sub);
+    else homeXI.push(`${homeClub.id}-emerg-${homeXI.length}`);
+  }
+
+  const awayXI = [...awayClub.startingXI];
+  while (awayXI.length < 11) {
+    const sub = awayClub.substitutes.find((s) => !awayXI.includes(s));
+    if (sub) awayXI.push(sub);
+    else awayXI.push(`${awayClub.id}-emerg-${awayXI.length}`);
+  }
+
   const homeCoords = getBaseFormationCoords(homeClub.formation, true);
-  homeClub.startingXI.forEach((id, idx) => {
+  homeXI.forEach((id, idx) => {
     ratings[id] = 6.0;
     initialMinutes[id] = 0;
     initialPositions[id] = {
@@ -317,7 +332,7 @@ export function initLiveMatch(
   });
 
   const awayCoords = getBaseFormationCoords(awayClub.formation, false);
-  awayClub.startingXI.forEach((id, idx) => {
+  awayXI.forEach((id, idx) => {
     ratings[id] = 6.0;
     initialMinutes[id] = 0;
     initialPositions[id] = {
@@ -327,10 +342,8 @@ export function initLiveMatch(
   });
 
   // Saque inicial: el delantero centro local tiene el balón en el centro del campo
-  const kickoffCarrierId = homeClub.startingXI[homeClub.startingXI.length - 1] || homeClub.startingXI[0];
-  if (kickoffCarrierId) {
-    initialPositions[kickoffCarrierId] = { x: 50, y: 50 };
-  }
+  const kickoffCarrierId = homeXI[homeXI.length - 1] || homeXI[0] || `${homeClub.id}-kickoff`;
+  initialPositions[kickoffCarrierId] = { x: 50, y: 50 };
 
   const compTitle = competitionOptions?.competitionName
     ? `${competitionOptions.competitionName} (${competitionOptions.roundStageName || 'Partido Oficial'})`

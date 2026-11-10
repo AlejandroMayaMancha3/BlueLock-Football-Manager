@@ -68,6 +68,8 @@ import {
   reconcileSeasonSchedule,
   isTrueChampionshipFinal,
   getInitialSeasonEuropeanTournament,
+  getUefa36Clubs,
+  computeUefaLeagueTable,
 } from '@/engine/competitions-engine';
 
 const STORAGE_KEY = 'bluelock_football_manager_v2';
@@ -628,6 +630,52 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         userFixture.competitionType,
         userClubId
       );
+    }
+
+    // 3c. Si concluyó la Fase de Liga continental UEFA (Fecha 8 de 8), determinar el destino oficial según su posición suiza
+    if (
+      userFixture &&
+      ['ucl', 'uel', 'uecl'].includes(userFixture.competitionType || '') &&
+      userFixture.roundStageName?.includes('Fecha 8')
+    ) {
+      const tourType = userFixture.competitionType as 'ucl' | 'uel' | 'uecl';
+      const uClubs = getUefa36Clubs(clubs, userClubId, tourType, get().qualifiedEuropeanTournament);
+      const uTable = computeUefaLeagueTable(uClubs, finalFixturesWithPrune, currentRound, false, userClubId, tourType);
+      const userRank = uTable.findIndex((r) => r.clubId === userClubId) + 1;
+
+      if (userRank >= 25) {
+        // Puestos 25-36: Eliminado definitivamente de la competición europea sin acceso a eliminatorias
+        finalFixturesWithPrune = pruneEliminatedTournamentFixtures(
+          finalFixturesWithPrune,
+          currentRound,
+          tourType,
+          userClubId
+        );
+      } else if (userRank >= 9 && userRank <= 24) {
+        // Puestos 9-24: Juegan Play-off de Dieciseisavos (1/16)
+        const nextUefaFix = finalFixturesWithPrune.find(
+          (f) =>
+            f.round > currentRound &&
+            f.competitionType === tourType &&
+            (f.homeClubId === userClubId || f.awayClubId === userClubId)
+        );
+        if (nextUefaFix) {
+          nextUefaFix.roundStageName = `${nextUefaFix.competitionName || 'UEFA'} · Play-off de Dieciseisavos (1/16)`;
+          nextUefaFix.isKnockout = true;
+        }
+      } else if (userRank <= 8) {
+        // Puestos 1-8: Cabezas de serie directos a Octavos de Final
+        const nextUefaFix = finalFixturesWithPrune.find(
+          (f) =>
+            f.round > currentRound &&
+            f.competitionType === tourType &&
+            (f.homeClubId === userClubId || f.awayClubId === userClubId)
+        );
+        if (nextUefaFix) {
+          nextUefaFix.roundStageName = `${nextUefaFix.competitionName || 'UEFA'} · Octavos de Final (Cabezas de Serie Directos)`;
+          nextUefaFix.isKnockout = true;
+        }
+      }
     }
 
     const playerPerformances: PlayerPerformanceSummary[] = [];
@@ -2069,7 +2117,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       userClubId,
       clubs,
       players,
-      table
+      table,
+      fixtures
     );
 
     const userClubAfter = newClubs.find((c) => c.id === userClubId) || newClubs[0];

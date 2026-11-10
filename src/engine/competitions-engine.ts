@@ -86,6 +86,41 @@ export function calculateEuropeanQualifications(
 
     const uclClubIds = new Set(entries.map((e) => e.clubId));
 
+    // 1b. PLAZAS DIRECTAS PARA CAMPEONES DEFISORES DE UCL Y UEL
+    if (options?.uclDefendingChampionClubId && !uclClubIds.has(options.uclDefendingChampionClubId)) {
+      const defRow = table.find((r) => r.clubId === options.uclDefendingChampionClubId);
+      if (defRow) {
+        const pos = table.indexOf(defRow) + 1;
+        entries.push({
+          clubId: defRow.clubId,
+          clubName: defRow.clubName,
+          country,
+          leaguePosition: pos,
+          tournament: 'ucl',
+          qualificationReason: 'Campeón Vigente de la UEFA Champions League',
+          stage: 'league_phase',
+        });
+        uclClubIds.add(defRow.clubId);
+      }
+    }
+
+    if (options?.uelDefendingChampionClubId && !uclClubIds.has(options.uelDefendingChampionClubId)) {
+      const defRow = table.find((r) => r.clubId === options.uelDefendingChampionClubId);
+      if (defRow) {
+        const pos = table.indexOf(defRow) + 1;
+        entries.push({
+          clubId: defRow.clubId,
+          clubName: defRow.clubName,
+          country,
+          leaguePosition: pos,
+          tournament: 'ucl',
+          qualificationReason: 'Campeón Vigente de la UEFA Europa League (Boleto directo a Champions League)',
+          stage: 'league_phase',
+        });
+        uclClubIds.add(defRow.clubId);
+      }
+    }
+
     // 2. EVALUACIÓN DE LA COPA NACIONAL PRINCIPAL (Copa del Rey, FA Cup, Coppa Italia, DFB-Pokal, Coupe de France)
     const mainCupWinnerId = cups.mainCupWinnerClubId;
     const cupWinnerInUcl = uclClubIds.has(mainCupWinnerId);
@@ -433,6 +468,36 @@ function generateLeagueMatchdays(clubs: Club[]): Array<Array<[string, string]>> 
 }
 
 /**
+ * Determina el club ganador de un enfrentamiento eliminatorio considerando
+ * el marcador de los 90 minutos y la tanda de penaltis en caso de empate.
+ */
+export function resolveKnockoutWinnerId(
+  fixture: MatchFixture | undefined,
+  teamAId: string,
+  teamBId: string
+): string | undefined {
+  if (!fixture || !fixture.isPlayed) return undefined;
+  const isAHome = fixture.homeClubId === teamAId;
+  const aScore = isAHome ? fixture.homeScore ?? 0 : fixture.awayScore ?? 0;
+  const bScore = isAHome ? fixture.awayScore ?? 0 : fixture.homeScore ?? 0;
+
+  if (aScore > bScore) return teamAId;
+  if (bScore > aScore) return teamBId;
+
+  // Empate en marcador regular: verificar tanda de penaltis
+  const aPen = isAHome ? fixture.penaltyHomeScore : fixture.penaltyAwayScore;
+  const bPen = isAHome ? fixture.penaltyAwayScore : fixture.penaltyHomeScore;
+
+  if (aPen !== undefined && bPen !== undefined) {
+    if (aPen > bPen) return teamAId;
+    if (bPen > aPen) return teamBId;
+  }
+
+  // Fallback seguro en caso de empate sin penaltis registrados
+  return teamAId;
+}
+
+/**
  * Determina de forma estricta si un partido es la Gran Final por el título de un torneo eliminatorio.
  * Evita falsos positivos en rondas previas que llevan 'de Final' en su nombre (1/32, 1/16, Octavos, Cuartos, Semis).
  */
@@ -444,12 +509,21 @@ export function isTrueChampionshipFinal(stageName?: string, trophyKey?: string):
   if (
     s.includes('1/32') ||
     s.includes('1/16') ||
-    s.includes('dieciseisavo') ||
+    s.includes('1/8') ||
+    s.includes('1/4') ||
+    s.includes('1/2') ||
+    s.includes('dieciseis') ||
+    s.includes('dieciséis') ||
     s.includes('octavo') ||
     s.includes('round of 16') ||
     s.includes('cuarto') ||
     s.includes('quarter') ||
-    s.includes('semi')
+    s.includes('semi') ||
+    s.includes('play-off') ||
+    s.includes('playoff') ||
+    s.includes('fase previa') ||
+    s.includes('previa') ||
+    s.includes('fecha ')
   ) {
     return false;
   }
@@ -1506,8 +1580,7 @@ export function getUefaKnockoutBracket(
       pH = isHome ? playedFix.penaltyHomeScore : playedFix.penaltyAwayScore;
       pA = isHome ? playedFix.penaltyAwayScore : playedFix.penaltyHomeScore;
 
-      const penaltiesWin = (pH || 0) > (pA || 0);
-      winnerId = hScore > aScore || penaltiesWin ? hTeam.id : aTeam.id;
+      winnerId = resolveKnockoutWinnerId(playedFix, hTeam.id, aTeam.id);
     }
 
     playoff16.push({
@@ -1578,7 +1651,7 @@ export function getUefaKnockoutBracket(
       pH = isHome ? playedFix.penaltyHomeScore : playedFix.penaltyAwayScore;
       pA = isHome ? playedFix.penaltyAwayScore : playedFix.penaltyHomeScore;
 
-      winnerId = hScore > aScore || (pH || 0) > (pA || 0) ? seedTeam.id : poWinnerTeam.id;
+      winnerId = resolveKnockoutWinnerId(playedFix, seedTeam.id, poWinnerTeam.id);
     }
 
     roundOf16.push({
@@ -1649,7 +1722,7 @@ export function getUefaKnockoutBracket(
       aScore = isHome ? playedFix.awayScore || 0 : playedFix.homeScore || 0;
       pH = isHome ? playedFix.penaltyHomeScore : playedFix.penaltyAwayScore;
       pA = isHome ? playedFix.penaltyAwayScore : playedFix.penaltyHomeScore;
-      winnerId = hScore > aScore || (pH || 0) > (pA || 0) ? tA.id : tB.id;
+      winnerId = resolveKnockoutWinnerId(playedFix, tA.id, tB.id);
     }
 
     quarters.push({
@@ -1720,7 +1793,7 @@ export function getUefaKnockoutBracket(
       aScore = isHome ? playedFix.awayScore || 0 : playedFix.homeScore || 0;
       pH = isHome ? playedFix.penaltyHomeScore : playedFix.penaltyAwayScore;
       pA = isHome ? playedFix.penaltyAwayScore : playedFix.penaltyHomeScore;
-      winnerId = hScore > aScore || (pH || 0) > (pA || 0) ? tA.id : tB.id;
+      winnerId = resolveKnockoutWinnerId(playedFix, tA.id, tB.id);
     }
 
     semis.push({
@@ -1801,7 +1874,7 @@ export function getUefaKnockoutBracket(
     finAscore = isHome ? playedFinal.awayScore || 0 : playedFinal.homeScore || 0;
     finPH = isHome ? playedFinal.penaltyHomeScore : playedFinal.penaltyAwayScore;
     finPA = isHome ? playedFinal.penaltyAwayScore : playedFinal.penaltyHomeScore;
-    finWin = finH > finAscore || (finPH || 0) > (finPA || 0) ? finA.id : finB.id;
+    finWin = resolveKnockoutWinnerId(playedFinal, finA.id, finB.id);
   }
 
   const finalMatchup: KnockoutMatchup = {
@@ -1917,13 +1990,17 @@ export function getNationalCupBracket(
     let hScore: number | undefined;
     let aScore: number | undefined;
     let winnerId: string | undefined;
+    let pH: number | undefined;
+    let pA: number | undefined;
 
     if (playedFix) {
       isPlayed = true;
       const isHome = playedFix.homeClubId === hTeam.id;
       hScore = isHome ? playedFix.homeScore || 0 : playedFix.awayScore || 0;
       aScore = isHome ? playedFix.awayScore || 0 : playedFix.homeScore || 0;
-      winnerId = hScore > aScore ? hTeam.id : aTeam.id;
+      pH = isHome ? playedFix.penaltyHomeScore : playedFix.penaltyAwayScore;
+      pA = isHome ? playedFix.penaltyAwayScore : playedFix.penaltyHomeScore;
+      winnerId = resolveKnockoutWinnerId(playedFix, hTeam.id, aTeam.id);
     }
 
     round16.push({
@@ -1934,6 +2011,8 @@ export function getNationalCupBracket(
       awayTeam: aTeam,
       homeScore: isPlayed ? hScore : undefined,
       awayScore: isPlayed ? aScore : undefined,
+      penaltyHomeScore: pH,
+      penaltyAwayScore: pA,
       winnerTeamId: winnerId,
       isPlayed,
       statusLabel: isPlayed ? 'Finalizado' : 'Por Disputar',
@@ -1975,13 +2054,17 @@ export function getNationalCupBracket(
     let hScore: number | undefined;
     let aScore: number | undefined;
     let winnerId: string | undefined;
+    let pH: number | undefined;
+    let pA: number | undefined;
 
     if (playedFix) {
       isPlayed = true;
       const isHome = playedFix.homeClubId === tA.id;
       hScore = isHome ? playedFix.homeScore || 0 : playedFix.awayScore || 0;
       aScore = isHome ? playedFix.awayScore || 0 : playedFix.homeScore || 0;
-      winnerId = hScore > aScore ? tA.id : tB.id;
+      pH = isHome ? playedFix.penaltyHomeScore : playedFix.penaltyAwayScore;
+      pA = isHome ? playedFix.penaltyAwayScore : playedFix.penaltyHomeScore;
+      winnerId = resolveKnockoutWinnerId(playedFix, tA.id, tB.id);
     }
 
     round8.push({
@@ -1992,6 +2075,8 @@ export function getNationalCupBracket(
       awayTeam: tB,
       homeScore: isPlayed ? hScore : undefined,
       awayScore: isPlayed ? aScore : undefined,
+      penaltyHomeScore: pH,
+      penaltyAwayScore: pA,
       winnerTeamId: winnerId,
       isPlayed,
       statusLabel: isPlayed
@@ -2037,13 +2122,17 @@ export function getNationalCupBracket(
     let hScore: number | undefined;
     let aScore: number | undefined;
     let winnerId: string | undefined;
+    let pH: number | undefined;
+    let pA: number | undefined;
 
     if (playedFix) {
       isPlayed = true;
       const isHome = playedFix.homeClubId === tA.id;
       hScore = isHome ? playedFix.homeScore || 0 : playedFix.awayScore || 0;
       aScore = isHome ? playedFix.awayScore || 0 : playedFix.homeScore || 0;
-      winnerId = hScore > aScore ? tA.id : tB.id;
+      pH = isHome ? playedFix.penaltyHomeScore : playedFix.penaltyAwayScore;
+      pA = isHome ? playedFix.penaltyAwayScore : playedFix.penaltyHomeScore;
+      winnerId = resolveKnockoutWinnerId(playedFix, tA.id, tB.id);
     }
 
     quarters.push({
@@ -2054,6 +2143,8 @@ export function getNationalCupBracket(
       awayTeam: tB,
       homeScore: isPlayed ? hScore : undefined,
       awayScore: isPlayed ? aScore : undefined,
+      penaltyHomeScore: pH,
+      penaltyAwayScore: pA,
       winnerTeamId: winnerId,
       isPlayed,
       statusLabel: isPlayed
@@ -2097,13 +2188,17 @@ export function getNationalCupBracket(
   let finH: number | undefined;
   let finAscore: number | undefined;
   let finWin: string | undefined;
+  let finPH: number | undefined;
+  let finPA: number | undefined;
 
   if (playedFinal) {
     isFinPlayed = true;
     const isHome = playedFinal.homeClubId === finA.id;
     finH = isHome ? playedFinal.homeScore || 0 : playedFinal.awayScore || 0;
     finAscore = isHome ? playedFinal.awayScore || 0 : playedFinal.homeScore || 0;
-    finWin = finH > finAscore ? finA.id : finB.id;
+    finPH = isHome ? playedFinal.penaltyHomeScore : playedFinal.penaltyAwayScore;
+    finPA = isHome ? playedFinal.penaltyAwayScore : playedFinal.penaltyHomeScore;
+    finWin = resolveKnockoutWinnerId(playedFinal, finA.id, finB.id);
   }
 
   const finalMatchup: KnockoutMatchup = {
@@ -2114,6 +2209,8 @@ export function getNationalCupBracket(
     awayTeam: finB,
     homeScore: isFinPlayed ? finH : undefined,
     awayScore: isFinPlayed ? finAscore : undefined,
+    penaltyHomeScore: finPH,
+    penaltyAwayScore: finPA,
     winnerTeamId: finWin,
     isPlayed: isFinPlayed,
     statusLabel: isFinPlayed
@@ -2162,7 +2259,11 @@ export function getLeagueProgressInfo(
     (f) => (f.competitionType === 'league' || !f.competitionType) && f.isPlayed
   ).length;
 
-  const nextFixture = userFixtures.find((f) => f.round === currentRound);
+  const nextFixture =
+    userFixtures.find((f) => f.round === currentRound) ||
+    (!isSeasonCompleted
+      ? userFixtures.filter((f) => !f.isPlayed).sort((a, b) => a.round - b.round)[0]
+      : undefined);
 
   const isCupNext = nextFixture?.competitionType === 'cup';
   const isUefaNext =
