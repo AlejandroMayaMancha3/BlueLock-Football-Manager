@@ -434,6 +434,7 @@ export interface KnockoutMatchup {
     seedRank?: number;
     country?: CountryLeague;
     level?: number;
+    isTbd?: boolean;
   };
   awayTeam: {
     id: string;
@@ -444,6 +445,7 @@ export interface KnockoutMatchup {
     seedRank?: number;
     country?: CountryLeague;
     level?: number;
+    isTbd?: boolean;
   };
   homeScore?: number;
   awayScore?: number;

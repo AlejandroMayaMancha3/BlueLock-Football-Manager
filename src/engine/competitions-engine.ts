@@ -836,61 +836,115 @@ export function ensureSeasonTournaments(
 }
 
 /**
- * Obtiene los 36 clubes que disputan la UEFA Champions League en formato suizo único
+ * Asigna de forma estricta y sin solapamientos los clubes europeos a cada competición:
+ * - Un club NUNCA puede disputar simultáneamente Champions, Europa League o Conference.
+ * - Cada torneo cuenta con 36 clubes únicos de las 5 grandes ligas (España, Inglaterra, Alemania, Italia, Francia).
  */
-export function getUefa36Clubs(
+export function getEuropeanTournamentsClubs(
   allClubs: Club[],
-  userClubId: string,
-  _tournament: 'ucl' | 'uel' | 'uecl' = 'ucl'
-): Club[] {
+  userClubId: string
+): {
+  ucl: Club[];
+  uel: Club[];
+  uecl: Club[];
+} {
   const userClub = allClubs.find((c) => c.id === userClubId);
-  const selectedClubs: Club[] = [];
+  const countries: CountryLeague[] = ['Spain', 'England', 'Germany', 'Italy', 'France'];
 
-  // 1. Incluir club del usuario si existe
-  if (userClub) {
-    selectedClubs.push(userClub);
+  // Determinar si el usuario participa en Europa según su nivel y división
+  let userTournament: 'ucl' | 'uel' | 'uecl' | null = null;
+  if (userClub && userClub.tier === 1) {
+    if (userClub.level >= 82) userTournament = 'ucl';
+    else if (userClub.level >= 77) userTournament = 'uel';
+    else userTournament = 'uecl';
   }
 
-  // 2. Filtrar clubes de primera categoría de los 5 países (España, Inglaterra, Alemania, Italia, Francia)
-  const tier1Clubs = allClubs
-    .filter((c) => c.tier === 1 && c.id !== userClubId)
-    .sort((a, b) => b.level * 1.5 + b.reputation - (a.level * 1.5 + a.reputation));
+  const uclList: Club[] = [];
+  const uelList: Club[] = [];
+  const ueclList: Club[] = [];
+  const assignedClubIds = new Set<string>();
 
-  // Distribuir de forma equilibrada entre las 5 grandes ligas
-  const countries: CountryLeague[] = ['Spain', 'England', 'Germany', 'Italy', 'France'];
+  // Si el usuario participa en Europa, se le asigna a su competición exclusiva
+  if (userClub && userTournament) {
+    if (userTournament === 'ucl') uclList.push(userClub);
+    else if (userTournament === 'uel') uelList.push(userClub);
+    else if (userTournament === 'uecl') ueclList.push(userClub);
+    assignedClubIds.add(userClub.id);
+  }
+
+  // Distribuir 7 clubes por país para UCL, 7 para UEL, 7 para UECL (7 * 5 = 35)
   countries.forEach((country) => {
-    const countryClubs = tier1Clubs.filter((c) => c.country === country);
-    const toTake = countryClubs.slice(0, 7);
-    toTake.forEach((c) => {
-      if (!selectedClubs.some((sc) => sc.id === c.id) && selectedClubs.length < 36) {
-        selectedClubs.push(c);
+    const countryTier1 = allClubs
+      .filter((c) => c.country === country && c.tier === 1 && !assignedClubIds.has(c.id))
+      .sort((a, b) => (b.level * 1.5 + b.reputation) - (a.level * 1.5 + a.reputation));
+
+    // Top 7 para UCL
+    const uclCandidates = countryTier1.slice(0, 7);
+    uclCandidates.forEach((c) => {
+      if (uclList.length < 36 && !assignedClubIds.has(c.id)) {
+        uclList.push(c);
+        assignedClubIds.add(c.id);
+      }
+    });
+
+    // Siguientes 7 para UEL
+    const uelCandidates = countryTier1.slice(7, 14);
+    uelCandidates.forEach((c) => {
+      if (uelList.length < 36 && !assignedClubIds.has(c.id)) {
+        uelList.push(c);
+        assignedClubIds.add(c.id);
+      }
+    });
+
+    // Siguientes 7 para UECL
+    const ueclCandidates = countryTier1.slice(14, 21);
+    ueclCandidates.forEach((c) => {
+      if (ueclList.length < 36 && !assignedClubIds.has(c.id)) {
+        ueclList.push(c);
+        assignedClubIds.add(c.id);
       }
     });
   });
 
-  // Completar si falta alguno hasta llegar a 36
-  tier1Clubs.forEach((c) => {
-    if (!selectedClubs.some((sc) => sc.id === c.id) && selectedClubs.length < 36) {
-      selectedClubs.push(c);
-    }
-  });
+  // Completar hasta 36 en cada una con los mejores clubes disponibles restantes
+  const fillTournament = (targetList: Club[], limit = 36) => {
+    if (targetList.length >= limit) return;
+    const remaining = allClubs
+      .filter((c) => !assignedClubIds.has(c.id))
+      .sort((a, b) => (b.level * 1.5 + b.reputation) - (a.level * 1.5 + a.reputation));
 
-  // Fallback si la base tuviese menos de 36 clubes Tier 1
-  if (selectedClubs.length < 36) {
-    const extras = allClubs
-      .filter((c) => !selectedClubs.some((sc) => sc.id === c.id))
-      .sort((a, b) => b.level - a.level);
-    for (const c of extras) {
-      if (selectedClubs.length >= 36) break;
-      selectedClubs.push(c);
+    for (const c of remaining) {
+      if (targetList.length >= limit) break;
+      targetList.push(c);
+      assignedClubIds.add(c.id);
     }
-  }
+  };
 
-  return selectedClubs;
+  fillTournament(uclList, 36);
+  fillTournament(uelList, 36);
+  fillTournament(ueclList, 36);
+
+  return {
+    ucl: uclList,
+    uel: uelList,
+    uecl: ueclList,
+  };
 }
 
 /**
- * Calcula la clasificación oficial de la Fase de Liga de la UEFA Champions League (36 equipos)
+ * Obtiene los 36 clubes que disputan la competición continental seleccionada en formato suizo único
+ */
+export function getUefa36Clubs(
+  allClubs: Club[],
+  userClubId: string,
+  tournament: 'ucl' | 'uel' | 'uecl' = 'ucl'
+): Club[] {
+  const tours = getEuropeanTournamentsClubs(allClubs, userClubId);
+  return tours[tournament] || tours.ucl;
+}
+
+/**
+ * Calcula la clasificación oficial de la Fase de Liga de la competición continental (36 equipos)
  * aplicando los 8 partidos de la fase suiza.
  */
 export function computeUefaLeagueTable(
@@ -898,12 +952,12 @@ export function computeUefaLeagueTable(
   fixtures: MatchFixture[],
   _currentRound: number,
   isSeasonCompleted: boolean,
-  userClubId: string
+  userClubId: string,
+  tournament: 'ucl' | 'uel' | 'uecl' = 'ucl'
 ): LeagueTableRow[] {
-  // Número de jornadas suizas disputadas por el club del usuario
   const playedUserUefaMatches = fixtures.filter(
     (f) =>
-      (f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl') &&
+      f.competitionType === tournament &&
       !f.isKnockout &&
       f.isPlayed &&
       (f.homeClubId === userClubId || f.awayClubId === userClubId)
@@ -912,10 +966,9 @@ export function computeUefaLeagueTable(
   const completedMatchdays = isSeasonCompleted ? 8 : Math.min(8, playedUserUefaMatches.length);
 
   const tableRows: LeagueTableRow[] = uefaClubs.map((club) => {
-    // Si el club tiene partidos oficiales jugados en los fixtures de la temporada
     const clubPlayedFixtures = fixtures.filter(
       (f) =>
-        (f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl') &&
+        f.competitionType === tournament &&
         !f.isKnockout &&
         f.isPlayed &&
         (f.homeClubId === club.id || f.awayClubId === club.id)
@@ -964,7 +1017,6 @@ export function computeUefaLeagueTable(
       };
     }
 
-    // Si aún no se ha jugado ninguna jornada
     if (completedMatchdays === 0) {
       return {
         clubId: club.id,
@@ -982,7 +1034,7 @@ export function computeUefaLeagueTable(
       };
     }
 
-    // Simulación determinista y coherente basada en el nivel y prestigio del club
+    // Simulación determinista coherente para IA según nivel y prestigio
     const pwr = club.level * 1.5 + (club.reputation || 70) * 0.5;
     let hash = 0;
     for (let i = 0; i < club.id.length; i++) {
@@ -991,7 +1043,7 @@ export function computeUefaLeagueTable(
     const seed = Math.abs(hash) / 0xffffffff;
 
     const winProb = Math.min(0.82, Math.max(0.18, (pwr - 60) / 45));
-    const drawProb = 0.20;
+    const drawProb = 0.2;
 
     let won = 0;
     let drawn = 0;
@@ -1042,17 +1094,17 @@ export function computeUefaLeagueTable(
 }
 
 /**
- * Construye el cuadro de eliminatorias de la UEFA Champions League a partir de los resultados
- * de la Fase de Liga:
+ * Construye el cuadro de eliminatorias DIIIINÁMICO de la competición continental:
+ * - NO se inventan equipos para rondas futuras hasta que los partidos previos se hayan jugado realmente.
  * - Puestos 1.º al 8.º: Pasan directamente a Octavos de Final (Cabezas de serie)
  * - Puestos 9.º al 24.º: Disputan el Play-off de Dieciseisavos (1/16)
- * - Puestos 25.º al 36.º: Quedan eliminados
  */
 export function getUefaKnockoutBracket(
   uefaTable: LeagueTableRow[],
   allClubsMap: Record<string, Club>,
   fixtures: MatchFixture[],
-  _userClubId: string
+  _userClubId: string,
+  tournament: 'ucl' | 'uel' | 'uecl' = 'ucl'
 ): {
   playoff16: KnockoutMatchup[];
   roundOf16: KnockoutMatchup[];
@@ -1060,6 +1112,20 @@ export function getUefaKnockoutBracket(
   semis: KnockoutMatchup[];
   final: KnockoutMatchup[];
 } {
+  const tournamentName =
+    tournament === 'ucl'
+      ? 'UEFA Champions League'
+      : tournament === 'uel'
+      ? 'UEFA Europa League'
+      : 'UEFA Conference League';
+
+  const trophyTitle =
+    tournament === 'ucl'
+      ? '¡Campeón de la UEFA Champions League!'
+      : tournament === 'uel'
+      ? '¡Campeón de la UEFA Europa League!'
+      : '¡Campeón de la UEFA Conference League!';
+
   const getClubData = (clubId: string, seedRank?: number) => {
     const c = allClubsMap[clubId] || {
       id: clubId,
@@ -1079,6 +1145,7 @@ export function getUefaKnockoutBracket(
       seedRank,
       country: (c.country || 'Spain') as CountryLeague,
       level: c.level,
+      isTbd: false,
     };
   };
 
@@ -1087,7 +1154,7 @@ export function getUefaKnockoutBracket(
       (f) =>
         f.isKnockout &&
         f.isPlayed &&
-        (f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl') &&
+        f.competitionType === tournament &&
         f.roundStageName?.toLowerCase().includes(stageKeyword.toLowerCase()) &&
         (f.homeClubId === clubAId || f.awayClubId === clubAId) &&
         (!clubBId || f.homeClubId === clubBId || f.awayClubId === clubBId)
@@ -1095,27 +1162,48 @@ export function getUefaKnockoutBracket(
   };
 
   // 1. PLAY-OFF DE DIECISEISAVOS (1/16) - Puestos 9 al 24 de la Fase de Liga
-  // 8 emparejamientos: 9º vs 24º, 10º vs 23º, 11º vs 22º, 12º vs 21º, 13º vs 20º, 14º vs 19º, 15º vs 18º, 16º vs 17º
   const playoff16: KnockoutMatchup[] = [];
-  const playoffWinners: string[] = [];
 
   for (let i = 0; i < 8; i++) {
     const highIdx = 8 + i; // 9º a 16º
     const lowIdx = 23 - i; // 24º a 17º
-    const highRow = uefaTable[highIdx] || uefaTable[8] || { clubId: `club-p16-h-${i}` };
-    const lowRow = uefaTable[lowIdx] || uefaTable[23] || { clubId: `club-p16-l-${i}` };
+    const highRow = uefaTable[highIdx];
+    const lowRow = uefaTable[lowIdx];
 
-    const hTeam = getClubData(highRow.clubId, highIdx + 1);
-    const aTeam = getClubData(lowRow.clubId, lowIdx + 1);
+    const hTeam = highRow
+      ? getClubData(highRow.clubId, highIdx + 1)
+      : {
+          id: `seed-${highIdx}`,
+          name: `${highIdx + 1}.º Fase de Liga`,
+          shortName: `${highIdx + 1}º`,
+          primaryColor: '#334155',
+          secondaryColor: '#94a3b8',
+          seedRank: highIdx + 1,
+          isTbd: true,
+        };
+
+    const aTeam = lowRow
+      ? getClubData(lowRow.clubId, lowIdx + 1)
+      : {
+          id: `seed-${lowIdx}`,
+          name: `${lowIdx + 1}.º Fase de Liga`,
+          shortName: `${lowIdx + 1}º`,
+          primaryColor: '#334155',
+          secondaryColor: '#94a3b8',
+          seedRank: lowIdx + 1,
+          isTbd: true,
+        };
 
     const playedFix =
-      findPlayedKnockout('dieciseisavos', hTeam.id, aTeam.id) ||
-      findPlayedKnockout('1/16', hTeam.id, aTeam.id);
+      !hTeam.isTbd && !aTeam.isTbd
+        ? findPlayedKnockout('dieciseisavos', hTeam.id, aTeam.id) ||
+          findPlayedKnockout('1/16', hTeam.id, aTeam.id)
+        : undefined;
 
     let isPlayed = false;
-    let hScore = 0;
-    let aScore = 0;
-    let winnerId = '';
+    let hScore: number | undefined;
+    let aScore: number | undefined;
+    let winnerId: string | undefined;
     let pH: number | undefined;
     let pA: number | undefined;
 
@@ -1129,14 +1217,10 @@ export function getUefaKnockoutBracket(
 
       const penaltiesWin = (pH || 0) > (pA || 0);
       winnerId = hScore > aScore || penaltiesWin ? hTeam.id : aTeam.id;
-    } else {
-      winnerId = (hTeam.level || 82) >= (aTeam.level || 80) ? hTeam.id : aTeam.id;
     }
 
-    playoffWinners.push(winnerId);
-
     playoff16.push({
-      id: `ko-po16-${i}`,
+      id: `ko-po16-${tournament}-${i}`,
       stageKey: 'playoff_16',
       stageName: `Play-off 1/16 · Cruce ${i + 1}`,
       homeTeam: hTeam,
@@ -1145,31 +1229,53 @@ export function getUefaKnockoutBracket(
       awayScore: isPlayed ? aScore : undefined,
       penaltyHomeScore: pH,
       penaltyAwayScore: pA,
-      winnerTeamId: isPlayed ? winnerId : undefined,
+      winnerTeamId: winnerId,
       isPlayed,
       statusLabel: isPlayed ? 'Finalizado' : `${highIdx + 1}.º vs ${lowIdx + 1}.º`,
     });
   }
 
-  // 2. OCTAVOS DE FINAL - 8 partidos
-  // Los 8 primeros (cabezas de serie) esperan a los 8 ganadores de Dieciseisavos
+  // 2. OCTAVOS DE FINAL (1/8) - 8 cruces
+  // Los puestos 1º al 8º (Cabezas de serie directos) esperan a los 8 ganadores de 1/16
   const roundOf16: KnockoutMatchup[] = [];
-  const r16Winners: string[] = [];
 
   for (let i = 0; i < 8; i++) {
-    const seedRow = uefaTable[i]; // 1º al 8º clasificados directos
-    const seedTeam = getClubData(seedRow?.clubId || `seed-${i}`, i + 1);
-    const poWinnerId = playoffWinners[7 - i] || playoff16[7 - i]?.homeTeam.id;
-    const poWinnerTeam = getClubData(poWinnerId);
+    const seedRow = uefaTable[i];
+    const seedTeam = seedRow
+      ? getClubData(seedRow.clubId, i + 1)
+      : {
+          id: `seed-${i}`,
+          name: `${i + 1}.º Fase de Liga`,
+          shortName: `${i + 1}º`,
+          primaryColor: '#334155',
+          secondaryColor: '#94a3b8',
+          seedRank: i + 1,
+          isTbd: true,
+        };
+
+    const poMatch = playoff16[7 - i];
+    const poWinnerTeam =
+      poMatch && poMatch.isPlayed && poMatch.winnerTeamId
+        ? getClubData(poMatch.winnerTeamId)
+        : {
+            id: `tbd-po-${i}`,
+            name: `Ganador Cruce ${8 - i} (1/16)`,
+            shortName: '1/16',
+            primaryColor: '#1e293b',
+            secondaryColor: '#64748b',
+            isTbd: true,
+          };
 
     const playedFix =
-      findPlayedKnockout('octavos', seedTeam.id, poWinnerTeam.id) ||
-      findPlayedKnockout('round of 16', seedTeam.id, poWinnerTeam.id);
+      !seedTeam.isTbd && !poWinnerTeam.isTbd
+        ? findPlayedKnockout('octavos', seedTeam.id, poWinnerTeam.id) ||
+          findPlayedKnockout('round of 16', seedTeam.id, poWinnerTeam.id)
+        : undefined;
 
     let isPlayed = false;
-    let hScore = 0;
-    let aScore = 0;
-    let winnerId = '';
+    let hScore: number | undefined;
+    let aScore: number | undefined;
+    let winnerId: string | undefined;
     let pH: number | undefined;
     let pA: number | undefined;
 
@@ -1182,14 +1288,10 @@ export function getUefaKnockoutBracket(
       pA = isHome ? playedFix.penaltyAwayScore : playedFix.penaltyHomeScore;
 
       winnerId = hScore > aScore || (pH || 0) > (pA || 0) ? seedTeam.id : poWinnerTeam.id;
-    } else {
-      winnerId = (seedTeam.level || 86) >= (poWinnerTeam.level || 82) ? seedTeam.id : poWinnerTeam.id;
     }
 
-    r16Winners.push(winnerId);
-
     roundOf16.push({
-      id: `ko-r16-${i}`,
+      id: `ko-r16-${tournament}-${i}`,
       stageKey: 'round_of_16',
       stageName: `Octavos de Final · Cruce ${i + 1}`,
       homeTeam: seedTeam,
@@ -1198,25 +1300,54 @@ export function getUefaKnockoutBracket(
       awayScore: isPlayed ? aScore : undefined,
       penaltyHomeScore: pH,
       penaltyAwayScore: pA,
-      winnerTeamId: isPlayed ? winnerId : undefined,
+      winnerTeamId: winnerId,
       isPlayed,
-      statusLabel: isPlayed ? 'Finalizado' : 'Cabeza de Serie Directo vs Ganador 1/16',
+      statusLabel: isPlayed
+        ? 'Finalizado'
+        : poWinnerTeam.isTbd
+        ? 'Esperando rival de 1/16'
+        : 'Por Disputar',
     });
   }
 
-  // 3. CUARTOS DE FINAL - 4 partidos
+  // 3. CUARTOS DE FINAL (1/4) - 4 cruces
   const quarters: KnockoutMatchup[] = [];
-  const qWinners: string[] = [];
 
   for (let i = 0; i < 4; i++) {
-    const tA = getClubData(r16Winners[i * 2] || roundOf16[i * 2]?.homeTeam.id);
-    const tB = getClubData(r16Winners[i * 2 + 1] || roundOf16[i * 2 + 1]?.homeTeam.id);
+    const m1 = roundOf16[i * 2];
+    const m2 = roundOf16[i * 2 + 1];
 
-    const playedFix = findPlayedKnockout('cuartos', tA.id, tB.id);
+    const tA =
+      m1 && m1.isPlayed && m1.winnerTeamId
+        ? getClubData(m1.winnerTeamId)
+        : {
+            id: `tbd-r16-${i * 2}`,
+            name: `Ganador Octavos ${i * 2 + 1}`,
+            shortName: '8vos',
+            primaryColor: '#1e293b',
+            secondaryColor: '#64748b',
+            isTbd: true,
+          };
+
+    const tB =
+      m2 && m2.isPlayed && m2.winnerTeamId
+        ? getClubData(m2.winnerTeamId)
+        : {
+            id: `tbd-r16-${i * 2 + 1}`,
+            name: `Ganador Octavos ${i * 2 + 2}`,
+            shortName: '8vos',
+            primaryColor: '#1e293b',
+            secondaryColor: '#64748b',
+            isTbd: true,
+          };
+
+    const playedFix =
+      !tA.isTbd && !tB.isTbd ? findPlayedKnockout('cuartos', tA.id, tB.id) : undefined;
+
     let isPlayed = false;
-    let hScore = 0;
-    let aScore = 0;
-    let winnerId = '';
+    let hScore: number | undefined;
+    let aScore: number | undefined;
+    let winnerId: string | undefined;
     let pH: number | undefined;
     let pA: number | undefined;
 
@@ -1228,14 +1359,10 @@ export function getUefaKnockoutBracket(
       pH = isHome ? playedFix.penaltyHomeScore : playedFix.penaltyAwayScore;
       pA = isHome ? playedFix.penaltyAwayScore : playedFix.penaltyHomeScore;
       winnerId = hScore > aScore || (pH || 0) > (pA || 0) ? tA.id : tB.id;
-    } else {
-      winnerId = (tA.level || 87) >= (tB.level || 87) ? tA.id : tB.id;
     }
 
-    qWinners.push(winnerId);
-
     quarters.push({
-      id: `ko-qf-${i}`,
+      id: `ko-qf-${tournament}-${i}`,
       stageKey: 'quarter',
       stageName: `Cuartos de Final · Cruce ${i + 1}`,
       homeTeam: tA,
@@ -1244,25 +1371,54 @@ export function getUefaKnockoutBracket(
       awayScore: isPlayed ? aScore : undefined,
       penaltyHomeScore: pH,
       penaltyAwayScore: pA,
-      winnerTeamId: isPlayed ? winnerId : undefined,
+      winnerTeamId: winnerId,
       isPlayed,
-      statusLabel: isPlayed ? 'Finalizado' : 'Por Disputar',
+      statusLabel: isPlayed
+        ? 'Finalizado'
+        : tA.isTbd || tB.isTbd
+        ? 'Esperando clasificados'
+        : 'Por Disputar',
     });
   }
 
-  // 4. SEMIFINALES - 2 partidos
+  // 4. SEMIFINALES (1/2) - 2 cruces
   const semis: KnockoutMatchup[] = [];
-  const semiWinners: string[] = [];
 
   for (let i = 0; i < 2; i++) {
-    const tA = getClubData(qWinners[i * 2] || quarters[i * 2]?.homeTeam.id);
-    const tB = getClubData(qWinners[i * 2 + 1] || quarters[i * 2 + 1]?.homeTeam.id);
+    const q1 = quarters[i * 2];
+    const q2 = quarters[i * 2 + 1];
 
-    const playedFix = findPlayedKnockout('semifinal', tA.id, tB.id);
+    const tA =
+      q1 && q1.isPlayed && q1.winnerTeamId
+        ? getClubData(q1.winnerTeamId)
+        : {
+            id: `tbd-qf-${i * 2}`,
+            name: `Ganador Cuartos ${i * 2 + 1}`,
+            shortName: '1/4',
+            primaryColor: '#1e293b',
+            secondaryColor: '#64748b',
+            isTbd: true,
+          };
+
+    const tB =
+      q2 && q2.isPlayed && q2.winnerTeamId
+        ? getClubData(q2.winnerTeamId)
+        : {
+            id: `tbd-qf-${i * 2 + 1}`,
+            name: `Ganador Cuartos ${i * 2 + 2}`,
+            shortName: '1/4',
+            primaryColor: '#1e293b',
+            secondaryColor: '#64748b',
+            isTbd: true,
+          };
+
+    const playedFix =
+      !tA.isTbd && !tB.isTbd ? findPlayedKnockout('semifinal', tA.id, tB.id) : undefined;
+
     let isPlayed = false;
-    let hScore = 0;
-    let aScore = 0;
-    let winnerId = '';
+    let hScore: number | undefined;
+    let aScore: number | undefined;
+    let winnerId: string | undefined;
     let pH: number | undefined;
     let pA: number | undefined;
 
@@ -1274,14 +1430,10 @@ export function getUefaKnockoutBracket(
       pH = isHome ? playedFix.penaltyHomeScore : playedFix.penaltyAwayScore;
       pA = isHome ? playedFix.penaltyAwayScore : playedFix.penaltyHomeScore;
       winnerId = hScore > aScore || (pH || 0) > (pA || 0) ? tA.id : tB.id;
-    } else {
-      winnerId = (tA.level || 89) >= (tB.level || 89) ? tA.id : tB.id;
     }
 
-    semiWinners.push(winnerId);
-
     semis.push({
-      id: `ko-sf-${i}`,
+      id: `ko-sf-${tournament}-${i}`,
       stageKey: 'semi',
       stageName: `Semifinal ${i + 1}`,
       homeTeam: tA,
@@ -1290,59 +1442,94 @@ export function getUefaKnockoutBracket(
       awayScore: isPlayed ? aScore : undefined,
       penaltyHomeScore: pH,
       penaltyAwayScore: pA,
-      winnerTeamId: isPlayed ? winnerId : undefined,
+      winnerTeamId: winnerId,
       isPlayed,
-      statusLabel: isPlayed ? 'Finalizado' : 'Por Disputar',
+      statusLabel: isPlayed
+        ? 'Finalizado'
+        : tA.isTbd || tB.isTbd
+        ? 'Esperando semifinalistas'
+        : 'Por Disputar',
     });
   }
 
-  // 5. GRAN FINAL - 1 partido por el trofeo continental ("La Orejona")
-  const finalTeamA = getClubData(semiWinners[0] || semis[0]?.homeTeam.id);
-  const finalTeamB = getClubData(semiWinners[1] || semis[1]?.homeTeam.id);
+  // 5. GRAN FINAL CONTINENTAL - 1 partido
+  const s1 = semis[0];
+  const s2 = semis[1];
 
-  const playedFinal = fixtures.find(
-    (f) =>
-      f.isKnockout &&
-      f.isPlayed &&
-      (f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl') &&
-      f.roundStageName?.toLowerCase().includes('final') &&
-      !f.roundStageName?.toLowerCase().includes('semi') &&
-      !f.roundStageName?.toLowerCase().includes('cuarto') &&
-      !f.roundStageName?.toLowerCase().includes('octavo') &&
-      !f.roundStageName?.toLowerCase().includes('1/16') &&
-      (f.homeClubId === finalTeamA.id || f.awayClubId === finalTeamA.id)
-  );
+  const finA =
+    s1 && s1.isPlayed && s1.winnerTeamId
+      ? getClubData(s1.winnerTeamId)
+      : {
+          id: 'tbd-sf-1',
+          name: 'Ganador Semifinal 1',
+          shortName: 'Semi 1',
+          primaryColor: '#1e293b',
+          secondaryColor: '#64748b',
+          isTbd: true,
+        };
+
+  const finB =
+    s2 && s2.isPlayed && s2.winnerTeamId
+      ? getClubData(s2.winnerTeamId)
+      : {
+          id: 'tbd-sf-2',
+          name: 'Ganador Semifinal 2',
+          shortName: 'Semi 2',
+          primaryColor: '#1e293b',
+          secondaryColor: '#64748b',
+          isTbd: true,
+        };
+
+  const playedFinal =
+    !finA.isTbd && !finB.isTbd
+      ? fixtures.find(
+          (f) =>
+            f.isKnockout &&
+            f.isPlayed &&
+            f.competitionType === tournament &&
+            f.roundStageName?.toLowerCase().includes('final') &&
+            !f.roundStageName?.toLowerCase().includes('semi') &&
+            !f.roundStageName?.toLowerCase().includes('cuarto') &&
+            !f.roundStageName?.toLowerCase().includes('octavo') &&
+            !f.roundStageName?.toLowerCase().includes('1/16') &&
+            (f.homeClubId === finA.id || f.awayClubId === finA.id)
+        )
+      : undefined;
 
   let finalPlayed = false;
-  let finH = 0;
-  let finA = 0;
-  let finWin = '';
+  let finH: number | undefined;
+  let finAscore: number | undefined;
+  let finWin: string | undefined;
   let finPH: number | undefined;
   let finPA: number | undefined;
 
   if (playedFinal) {
     finalPlayed = true;
-    const isHome = playedFinal.homeClubId === finalTeamA.id;
+    const isHome = playedFinal.homeClubId === finA.id;
     finH = isHome ? playedFinal.homeScore || 0 : playedFinal.awayScore || 0;
-    finA = isHome ? playedFinal.awayScore || 0 : playedFinal.homeScore || 0;
+    finAscore = isHome ? playedFinal.awayScore || 0 : playedFinal.homeScore || 0;
     finPH = isHome ? playedFinal.penaltyHomeScore : playedFinal.penaltyAwayScore;
     finPA = isHome ? playedFinal.penaltyAwayScore : playedFinal.penaltyHomeScore;
-    finWin = finH > finA || (finPH || 0) > (finPA || 0) ? finalTeamA.id : finalTeamB.id;
+    finWin = finH > finAscore || (finPH || 0) > (finPA || 0) ? finA.id : finB.id;
   }
 
   const finalMatchup: KnockoutMatchup = {
-    id: 'ko-final-ucl',
+    id: `ko-final-${tournament}`,
     stageKey: 'final',
-    stageName: '¡Gran Final de la UEFA Champions League!',
-    homeTeam: finalTeamA,
-    awayTeam: finalTeamB,
+    stageName: `¡Gran Final de la ${tournamentName}!`,
+    homeTeam: finA,
+    awayTeam: finB,
     homeScore: finalPlayed ? finH : undefined,
-    awayScore: finalPlayed ? finA : undefined,
+    awayScore: finalPlayed ? finAscore : undefined,
     penaltyHomeScore: finPH,
     penaltyAwayScore: finPA,
-    winnerTeamId: finalPlayed ? finWin : undefined,
+    winnerTeamId: finWin,
     isPlayed: finalPlayed,
-    statusLabel: finalPlayed ? '🏆 ¡Campeón de Europa!' : 'Partido por La Orejona',
+    statusLabel: finalPlayed
+      ? trophyTitle
+      : finA.isTbd || finB.isTbd
+      ? 'Esperando finalistas'
+      : 'Partido por el Título',
   };
 
   return {
@@ -1350,6 +1537,307 @@ export function getUefaKnockoutBracket(
     roundOf16,
     quarters,
     semis,
+    final: [finalMatchup],
+  };
+}
+
+/**
+ * Construye el cuadro de eliminatorias DINÁMICO de la Copa Nacional:
+ * - Participan clubes de varias categorías del país (Primera división y categorías inferiores)
+ * - Los partidos futuros NO se inventan: muestran 'Ganador Cruce X' hasta que se disputan.
+ */
+export function getNationalCupBracket(
+  country: CountryLeague,
+  allClubs: Club[],
+  fixtures: MatchFixture[],
+  userClubId: string
+): {
+  cupName: string;
+  trophyKey: string;
+  round16: KnockoutMatchup[];
+  round8: KnockoutMatchup[];
+  quarters: KnockoutMatchup[];
+  final: KnockoutMatchup[];
+} {
+  const cupInfo = getNationalCupInfo(country);
+  const nationalClubs = allClubs.filter((c) => c.country === country);
+  const tier1 = nationalClubs.filter((c) => c.tier === 1);
+  const lowerTiers = nationalClubs.filter((c) => (c.tier || 1) > 1);
+
+  const selectedCupClubs: Club[] = [];
+  const userClub = nationalClubs.find((c) => c.id === userClubId);
+  if (userClub) {
+    selectedCupClubs.push(userClub);
+  }
+
+  tier1.forEach((c) => {
+    if (!selectedCupClubs.some((sc) => sc.id === c.id) && selectedCupClubs.length < 10) {
+      selectedCupClubs.push(c);
+    }
+  });
+
+  lowerTiers.forEach((c) => {
+    if (!selectedCupClubs.some((sc) => sc.id === c.id) && selectedCupClubs.length < 16) {
+      selectedCupClubs.push(c);
+    }
+  });
+
+  nationalClubs.forEach((c) => {
+    if (!selectedCupClubs.some((sc) => sc.id === c.id) && selectedCupClubs.length < 16) {
+      selectedCupClubs.push(c);
+    }
+  });
+
+  const getClubData = (c: Club) => ({
+    id: c.id,
+    name: c.name,
+    shortName: c.shortName,
+    primaryColor: c.primaryColor,
+    secondaryColor: c.secondaryColor,
+    country,
+    level: c.level,
+    isTbd: false,
+  });
+
+  const findPlayedCup = (stageKeyword: string, clubAId: string, clubBId?: string) => {
+    return fixtures.find(
+      (f) =>
+        f.competitionType === 'cup' &&
+        f.isKnockout &&
+        f.isPlayed &&
+        f.roundStageName?.toLowerCase().includes(stageKeyword.toLowerCase()) &&
+        (f.homeClubId === clubAId || f.awayClubId === clubAId) &&
+        (!clubBId || f.homeClubId === clubBId || f.awayClubId === clubBId)
+    );
+  };
+
+  // 1. Dieciseisavos (8 cruces)
+  const round16: KnockoutMatchup[] = [];
+  for (let i = 0; i < 8; i++) {
+    const cA = selectedCupClubs[i * 2] || selectedCupClubs[0];
+    const cB = selectedCupClubs[i * 2 + 1] || selectedCupClubs[1];
+
+    const hTeam = getClubData(cA);
+    const aTeam = getClubData(cB);
+
+    const playedFix =
+      findPlayedCup('1/16', hTeam.id, aTeam.id) || findPlayedCup('dieciseisavos', hTeam.id, aTeam.id);
+    let isPlayed = false;
+    let hScore: number | undefined;
+    let aScore: number | undefined;
+    let winnerId: string | undefined;
+
+    if (playedFix) {
+      isPlayed = true;
+      const isHome = playedFix.homeClubId === hTeam.id;
+      hScore = isHome ? playedFix.homeScore || 0 : playedFix.awayScore || 0;
+      aScore = isHome ? playedFix.awayScore || 0 : playedFix.homeScore || 0;
+      winnerId = hScore > aScore ? hTeam.id : aTeam.id;
+    }
+
+    round16.push({
+      id: `cup-r16-${country}-${i}`,
+      stageKey: 'playoff_16',
+      stageName: `${cupInfo.name} · 1/16 de Final · Cruce ${i + 1}`,
+      homeTeam: hTeam,
+      awayTeam: aTeam,
+      homeScore: isPlayed ? hScore : undefined,
+      awayScore: isPlayed ? aScore : undefined,
+      winnerTeamId: winnerId,
+      isPlayed,
+      statusLabel: isPlayed ? 'Finalizado' : 'Por Disputar',
+    });
+  }
+
+  // 2. Octavos de Final (4 cruces)
+  const round8: KnockoutMatchup[] = [];
+  for (let i = 0; i < 4; i++) {
+    const m1 = round16[i * 2];
+    const m2 = round16[i * 2 + 1];
+
+    const tA =
+      m1 && m1.isPlayed && m1.winnerTeamId
+        ? getClubData(selectedCupClubs.find((c) => c.id === m1.winnerTeamId) || selectedCupClubs[0])
+        : {
+            id: `tbd-cup-r16-${i * 2}`,
+            name: `Ganador Cruce ${i * 2 + 1} (1/16)`,
+            shortName: '1/16',
+            primaryColor: '#1e293b',
+            secondaryColor: '#64748b',
+            isTbd: true,
+          };
+
+    const tB =
+      m2 && m2.isPlayed && m2.winnerTeamId
+        ? getClubData(selectedCupClubs.find((c) => c.id === m2.winnerTeamId) || selectedCupClubs[1])
+        : {
+            id: `tbd-cup-r16-${i * 2 + 1}`,
+            name: `Ganador Cruce ${i * 2 + 2} (1/16)`,
+            shortName: '1/16',
+            primaryColor: '#1e293b',
+            secondaryColor: '#64748b',
+            isTbd: true,
+          };
+
+    const playedFix = !tA.isTbd && !tB.isTbd ? findPlayedCup('octavos', tA.id, tB.id) : undefined;
+    let isPlayed = false;
+    let hScore: number | undefined;
+    let aScore: number | undefined;
+    let winnerId: string | undefined;
+
+    if (playedFix) {
+      isPlayed = true;
+      const isHome = playedFix.homeClubId === tA.id;
+      hScore = isHome ? playedFix.homeScore || 0 : playedFix.awayScore || 0;
+      aScore = isHome ? playedFix.awayScore || 0 : playedFix.homeScore || 0;
+      winnerId = hScore > aScore ? tA.id : tB.id;
+    }
+
+    round8.push({
+      id: `cup-r8-${country}-${i}`,
+      stageKey: 'round_of_16',
+      stageName: `${cupInfo.name} · Octavos de Final · Cruce ${i + 1}`,
+      homeTeam: tA,
+      awayTeam: tB,
+      homeScore: isPlayed ? hScore : undefined,
+      awayScore: isPlayed ? aScore : undefined,
+      winnerTeamId: winnerId,
+      isPlayed,
+      statusLabel: isPlayed
+        ? 'Finalizado'
+        : tA.isTbd || tB.isTbd
+        ? 'Esperando clasificados'
+        : 'Por Disputar',
+    });
+  }
+
+  // 3. Cuartos de Final (2 cruces)
+  const quarters: KnockoutMatchup[] = [];
+  for (let i = 0; i < 2; i++) {
+    const m1 = round8[i * 2];
+    const m2 = round8[i * 2 + 1];
+
+    const tA =
+      m1 && m1.isPlayed && m1.winnerTeamId
+        ? getClubData(selectedCupClubs.find((c) => c.id === m1.winnerTeamId) || selectedCupClubs[0])
+        : {
+            id: `tbd-cup-r8-${i * 2}`,
+            name: `Ganador Octavos ${i * 2 + 1}`,
+            shortName: '8vos',
+            primaryColor: '#1e293b',
+            secondaryColor: '#64748b',
+            isTbd: true,
+          };
+
+    const tB =
+      m2 && m2.isPlayed && m2.winnerTeamId
+        ? getClubData(selectedCupClubs.find((c) => c.id === m2.winnerTeamId) || selectedCupClubs[1])
+        : {
+            id: `tbd-cup-r8-${i * 2 + 1}`,
+            name: `Ganador Octavos ${i * 2 + 2}`,
+            shortName: '8vos',
+            primaryColor: '#1e293b',
+            secondaryColor: '#64748b',
+            isTbd: true,
+          };
+
+    const playedFix = !tA.isTbd && !tB.isTbd ? findPlayedCup('cuartos', tA.id, tB.id) : undefined;
+    let isPlayed = false;
+    let hScore: number | undefined;
+    let aScore: number | undefined;
+    let winnerId: string | undefined;
+
+    if (playedFix) {
+      isPlayed = true;
+      const isHome = playedFix.homeClubId === tA.id;
+      hScore = isHome ? playedFix.homeScore || 0 : playedFix.awayScore || 0;
+      aScore = isHome ? playedFix.awayScore || 0 : playedFix.homeScore || 0;
+      winnerId = hScore > aScore ? tA.id : tB.id;
+    }
+
+    quarters.push({
+      id: `cup-qf-${country}-${i}`,
+      stageKey: 'quarter',
+      stageName: `${cupInfo.name} · Cuartos de Final · Cruce ${i + 1}`,
+      homeTeam: tA,
+      awayTeam: tB,
+      homeScore: isPlayed ? hScore : undefined,
+      awayScore: isPlayed ? aScore : undefined,
+      winnerTeamId: winnerId,
+      isPlayed,
+      statusLabel: isPlayed
+        ? 'Finalizado'
+        : tA.isTbd || tB.isTbd
+        ? 'Esperando clasificados'
+        : 'Por Disputar',
+    });
+  }
+
+  // 4. Gran Final de Copa
+  const q1 = quarters[0];
+  const q2 = quarters[1];
+
+  const finA =
+    q1 && q1.isPlayed && q1.winnerTeamId
+      ? getClubData(selectedCupClubs.find((c) => c.id === q1.winnerTeamId) || selectedCupClubs[0])
+      : {
+          id: 'tbd-cup-q1',
+          name: 'Ganador Cuartos 1',
+          shortName: '1/4',
+          primaryColor: '#1e293b',
+          secondaryColor: '#64748b',
+          isTbd: true,
+        };
+
+  const finB =
+    q2 && q2.isPlayed && q2.winnerTeamId
+      ? getClubData(selectedCupClubs.find((c) => c.id === q2.winnerTeamId) || selectedCupClubs[1])
+      : {
+          id: 'tbd-cup-q2',
+          name: 'Ganador Cuartos 2',
+          shortName: '1/4',
+          primaryColor: '#1e293b',
+          secondaryColor: '#64748b',
+          isTbd: true,
+        };
+
+  const playedFinal = !finA.isTbd && !finB.isTbd ? findPlayedCup('final', finA.id, finB.id) : undefined;
+  let isFinPlayed = false;
+  let finH: number | undefined;
+  let finAscore: number | undefined;
+  let finWin: string | undefined;
+
+  if (playedFinal) {
+    isFinPlayed = true;
+    const isHome = playedFinal.homeClubId === finA.id;
+    finH = isHome ? playedFinal.homeScore || 0 : playedFinal.awayScore || 0;
+    finAscore = isHome ? playedFinal.awayScore || 0 : playedFinal.homeScore || 0;
+    finWin = finH > finAscore ? finA.id : finB.id;
+  }
+
+  const finalMatchup: KnockoutMatchup = {
+    id: `cup-final-${country}`,
+    stageKey: 'final',
+    stageName: `¡Gran Final de la ${cupInfo.name}!`,
+    homeTeam: finA,
+    awayTeam: finB,
+    homeScore: isFinPlayed ? finH : undefined,
+    awayScore: isFinPlayed ? finAscore : undefined,
+    winnerTeamId: finWin,
+    isPlayed: isFinPlayed,
+    statusLabel: isFinPlayed
+      ? `🏆 ¡Campeón de ${cupInfo.name}!`
+      : finA.isTbd || finB.isTbd
+      ? 'Esperando finalistas'
+      : 'Partido por el Título',
+  };
+
+  return {
+    cupName: cupInfo.name,
+    trophyKey: cupInfo.trophyKey,
+    round16,
+    round8,
+    quarters,
     final: [finalMatchup],
   };
 }
