@@ -71,9 +71,15 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
   const divisionName = divisionInfo?.name || 'Liga';
   const progressInfo = getLeagueProgressInfo(fixtures, currentRound, userClubId, isSeasonCompleted);
 
-  const nextUserFixture = fixtures.find(
-    (f) => f.round === currentRound && (f.homeClubId === userClubId || f.awayClubId === userClubId)
-  );
+  const nextUserFixture =
+    fixtures.find(
+      (f) => f.round === currentRound && (f.homeClubId === userClubId || f.awayClubId === userClubId)
+    ) ||
+    fixtures
+      .filter((f) => (f.homeClubId === userClubId || f.awayClubId === userClubId) && !f.isPlayed)
+      .sort((a, b) => a.round - b.round)[0] ||
+    null;
+
   const rivalClub = nextUserFixture
     ? clubs.find(
         (c) =>
@@ -560,7 +566,7 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
               )}
             </div>
           </div>
-        ) : (
+        ) : isSeasonCompleted ? (
           <div className="text-center py-6 text-slate-400">
             <p>Has completado todas las jornadas de la temporada regular.</p>
             <button
@@ -569,6 +575,17 @@ export const OfficeView: React.FC<OfficeViewProps> = ({ leagueTable }) => {
               className="mt-3 px-6 py-2.5 bg-yellow-500 text-black font-bold rounded-xl"
             >
               Avanzar a la Temporada {currentSeason + 1}
+            </button>
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-400 space-y-3">
+            <p>Preparando próximo partido del calendario oficial...</p>
+            <button
+              type="button"
+              onClick={simulateFullMatchDay}
+              className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-black font-bold text-xs rounded-xl shadow-lg transition-all"
+            >
+              Continuar Calendario
             </button>
           </div>
         )}

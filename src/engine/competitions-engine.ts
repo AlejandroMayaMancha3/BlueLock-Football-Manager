@@ -926,6 +926,77 @@ export function generateSeasonFixturesWithTournaments(
 }
 
 /**
+ * Reconcilia y sincroniza de forma estricta el calendario oficial del club del usuario:
+ * 1. Garantiza que cada jornada 1, 2, 3... contenga SIEMPRE un partido en el que el club del usuario participe.
+ * 2. Si el usuario fue eliminado de un torneo eliminatorio (o no clasifica a Europa), descarta las fechas
+ *    exclusivas huérfanas y compacta las fechas de liga y copa sin huecos.
+ * 3. Corrige la ronda activa (currentRound) para que apunte exactamente al primer partido pendiente del usuario.
+ * 4. Solo marca isSeasonCompleted cuando el usuario ha disputado las 46 jornadas de liga y no quedan partidos pendientes.
+ */
+export function reconcileSeasonSchedule(
+  allFixtures: MatchFixture[],
+  userClubId: string,
+  currentRound: number
+): {
+  reconciledFixtures: MatchFixture[];
+  reconciledRound: number;
+  isSeasonCompleted: boolean;
+} {
+  const userFixtures = allFixtures.filter(
+    (f) => f.homeClubId === userClubId || f.awayClubId === userClubId
+  );
+
+  if (userFixtures.length === 0) {
+    return {
+      reconciledFixtures: allFixtures,
+      reconciledRound: currentRound,
+      isSeasonCompleted: false,
+    };
+  }
+
+  const userRounds = Array.from(new Set(userFixtures.map((f) => f.round))).sort((a, b) => a - b);
+  const roundMap = new Map<number, number>();
+  userRounds.forEach((oldRound, idx) => {
+    roundMap.set(oldRound, idx + 1);
+  });
+
+  const reconciledFixtures = allFixtures
+    .filter((f) => roundMap.has(f.round))
+    .map((f) => {
+      const newRound = roundMap.get(f.round)!;
+      return newRound === f.round ? f : { ...f, round: newRound };
+    });
+
+  const unplayedUser = reconciledFixtures
+    .filter((f) => (f.homeClubId === userClubId || f.awayClubId === userClubId) && !f.isPlayed)
+    .sort((a, b) => a.round - b.round);
+
+  const userLeaguePlayed = reconciledFixtures.filter(
+    (f) =>
+      (!f.competitionType || f.competitionType === 'league') &&
+      (f.homeClubId === userClubId || f.awayClubId === userClubId) &&
+      f.isPlayed
+  ).length;
+
+  const isSeasonCompleted = userLeaguePlayed >= 46 && unplayedUser.length === 0;
+
+  let reconciledRound = currentRound;
+  if (!isSeasonCompleted) {
+    if (unplayedUser.length > 0) {
+      reconciledRound = unplayedUser[0].round;
+    }
+  } else {
+    reconciledRound = Math.max(...reconciledFixtures.map((f) => f.round), 46);
+  }
+
+  return {
+    reconciledFixtures,
+    reconciledRound,
+    isSeasonCompleted,
+  };
+}
+
+/**
  * Poda los partidos futuros de un torneo eliminatorio cuando el usuario resulta eliminado,
  * y renumera las jornadas restantes de manera correlativa y sin huecos para una experiencia continua.
  */
@@ -935,35 +1006,16 @@ export function pruneEliminatedTournamentFixtures(
   competitionType: string,
   userClubId: string
 ): MatchFixture[] {
-  // Descartar futuros partidos del usuario en esa competición de eliminatoria
+  // Descartar futuros partidos (del usuario y de IA de esa ronda eliminatoria) para evitar fechas huérfanas
   const filtered = fixtures.filter((f) => {
-    const isUserMatch = f.homeClubId === userClubId || f.awayClubId === userClubId;
-    if (f.round > currentRound && isUserMatch && f.competitionType === competitionType && !f.isPlayed) {
+    if (f.round > currentRound && f.competitionType === competitionType && !f.isPlayed) {
       return false;
     }
     return true;
   });
 
-  // Identificar todas las jornadas futuras que aún tienen al menos un partido programado
-  const remainingFutureRounds = Array.from(
-    new Set(filtered.filter((f) => f.round > currentRound).map((f) => f.round))
-  ).sort((a, b) => a - b);
-
-  // Mapear cada jornada antigua a una jornada correlativa (currentRound + 1, currentRound + 2...)
-  const roundMap = new Map<number, number>();
-  remainingFutureRounds.forEach((oldRound, idx) => {
-    roundMap.set(oldRound, currentRound + 1 + idx);
-  });
-
-  return filtered.map((f) => {
-    if (f.round > currentRound && roundMap.has(f.round)) {
-      return {
-        ...f,
-        round: roundMap.get(f.round)!,
-      };
-    }
-    return f;
-  });
+  const { reconciledFixtures } = reconcileSeasonSchedule(filtered, userClubId, currentRound);
+  return reconciledFixtures;
 }
 
 /**
@@ -983,43 +1035,30 @@ export function ensureSeasonTournaments(
   const divClubs = allClubs.filter((c) => (c.divisionId || c.league) === userDivId);
   const clubsForFixtures = divClubs.length >= 2 ? divClubs : allClubs;
 
-  // Si el usuario NO clasificó a torneos continentales (userTournamentOverride === null),
-  // saneamos para que no tenga partidos de UCL / UEL / UECL en su calendario activo
+  // Si el usuario no disputa competiciones continentales, purgar partidos futuros de ucl/uel/uecl
+  let baseFixtures = existingFixtures;
   if (userTournamentOverride === null) {
-    const hasInvalidEuroMatches = existingFixtures.some(
+    const hasEuro = existingFixtures.some(
       (f) =>
-        (f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl') &&
+        ['ucl', 'uel', 'uecl'].includes(f.competitionType || '') &&
         (f.homeClubId === userClubId || f.awayClubId === userClubId)
     );
 
-    if (hasInvalidEuroMatches) {
-      const filtered = existingFixtures.filter((f) => {
-        const isUserEuro =
-          (f.homeClubId === userClubId || f.awayClubId === userClubId) &&
-          (f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl');
-        return !isUserEuro;
+    if (hasEuro) {
+      baseFixtures = existingFixtures.filter((f) => {
+        const isEuro = ['ucl', 'uel', 'uecl'].includes(f.competitionType || '');
+        return !isEuro;
       });
-
-      const remainingRounds = Array.from(new Set(filtered.map((f) => f.round))).sort((a, b) => a - b);
-      const roundMap = new Map<number, number>();
-      remainingRounds.forEach((oldRound, idx) => {
-        roundMap.set(oldRound, idx + 1);
-      });
-
-      return filtered.map((f) => ({
-        ...f,
-        round: roundMap.get(f.round) || f.round,
-      }));
     }
   }
 
-  const hasTournaments = existingFixtures.some(
+  const hasTournaments = baseFixtures.some(
     (f) => f.competitionType === 'cup' || f.competitionType === 'ucl' || f.competitionType === 'uel' || f.competitionType === 'uecl'
   );
 
   if (hasTournaments) {
     // Asegurar que las jornadas de liga tengan asignado su leagueMatchday correspondiente (1 a 46)
-    return existingFixtures.map((f) => {
+    const annotated = baseFixtures.map((f) => {
       if (!f.competitionType || f.competitionType === 'league') {
         let lMatchday = f.leagueMatchday;
         if (!lMatchday && f.roundStageName?.startsWith('Jornada ')) {
@@ -1028,30 +1067,34 @@ export function ensureSeasonTournaments(
         }
         return {
           ...f,
-          competitionType: 'league',
+          competitionType: 'league' as const,
           leagueMatchday: lMatchday,
         };
       }
       return f;
     });
+
+    const { reconciledFixtures } = reconcileSeasonSchedule(annotated, userClubId, currentRound);
+    return reconciledFixtures;
   }
 
   // Si la temporada aún está al inicio (jornada 1 sin jugar)
-  if (currentRound <= 1 && existingFixtures.every((f) => !f.isPlayed)) {
-    return generateSeasonFixturesWithTournaments(season, clubsForFixtures, allClubs, userClubId, {
+  if (currentRound <= 1 && baseFixtures.every((f) => !f.isPlayed)) {
+    const generated = generateSeasonFixturesWithTournaments(season, clubsForFixtures, allClubs, userClubId, {
       europeanTournament: userTournamentOverride,
     });
+    const { reconciledFixtures } = reconcileSeasonSchedule(generated, userClubId, currentRound);
+    return reconciledFixtures;
   }
 
   // Si ya se han jugado jornadas, generamos el calendario completo y preservamos los jugados
   const fullCalendar = generateSeasonFixturesWithTournaments(season, clubsForFixtures, allClubs, userClubId, {
     europeanTournament: userTournamentOverride,
   });
-  const playedFixtures = existingFixtures.filter((f) => f.isPlayed);
+  const playedFixtures = baseFixtures.filter((f) => f.isPlayed);
   const playedUserFixtures = playedFixtures.filter((f) => f.homeClubId === userClubId || f.awayClubId === userClubId);
-  const playedCount = playedUserFixtures.length;
 
-  // Reemplazar los primeros 'playedCount' partidos con los datos ya jugados
+  // Reemplazar los primeros partidos con los datos ya jugados
   const userFullMatches = fullCalendar
     .filter((f) => f.homeClubId === userClubId || f.awayClubId === userClubId)
     .sort((a, b) => a.round - b.round);
@@ -1071,7 +1114,8 @@ export function ensureSeasonTournaments(
     }
   });
 
-  return fullCalendar;
+  const { reconciledFixtures } = reconcileSeasonSchedule(fullCalendar, userClubId, currentRound);
+  return reconciledFixtures;
 }
 
 /**

@@ -65,6 +65,7 @@ import {
   generateSeasonFixturesWithTournaments,
   pruneEliminatedTournamentFixtures,
   ensureSeasonTournaments,
+  reconcileSeasonSchedule,
   isTrueChampionshipFinal,
   getInitialSeasonEuropeanTournament,
 } from '@/engine/competitions-engine';
@@ -344,11 +345,24 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           resolvedQualifiedEuro
         );
 
+        // Reconciliación de integridad y continuidad del calendario del club
+        const {
+          reconciledFixtures,
+          reconciledRound,
+          isSeasonCompleted: scheduleCompleted,
+        } = reconcileSeasonSchedule(
+          completeFixtures,
+          parsed.userClubId || userClub.id,
+          parsed.currentRound || 1
+        );
+
         set({
           ...parsed,
           clubs: reconciledClubs,
           players: completePlayers,
-          fixtures: completeFixtures,
+          fixtures: reconciledFixtures,
+          currentRound: reconciledRound,
+          isSeasonCompleted: scheduleCompleted,
           qualifiedEuropeanTournament: resolvedQualifiedEuro,
           ledger: currentLedger,
           clubTrophies: loadedTrophies,
@@ -376,16 +390,27 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   startMatchDay: () => {
     const { fixtures, currentSeason, currentRound, userClubId, clubs } = get();
-    const userFixture = fixtures.find(
+    let userFixture = fixtures.find(
       (f) => f.round === currentRound && (f.homeClubId === userClubId || f.awayClubId === userClubId)
     );
+    let activeRound = currentRound;
+    if (!userFixture) {
+      const nextPending = fixtures
+        .filter((f) => (f.homeClubId === userClubId || f.awayClubId === userClubId) && !f.isPlayed)
+        .sort((a, b) => a.round - b.round)[0];
+      if (nextPending) {
+        userFixture = nextPending;
+        activeRound = nextPending.round;
+        set({ currentRound: activeRound });
+      }
+    }
     if (!userFixture) return;
 
     const homeClub = clubs.find((c) => c.id === userFixture.homeClubId);
     const awayClub = clubs.find((c) => c.id === userFixture.awayClubId);
     if (!homeClub || !awayClub) return;
 
-    const liveMatch = initLiveMatch(currentSeason, currentRound, homeClub, awayClub, {
+    const liveMatch = initLiveMatch(currentSeason, activeRound, homeClub, awayClub, {
       competitionType: userFixture.competitionType,
       competitionName: userFixture.competitionName,
       roundStageName: userFixture.roundStageName,
@@ -397,9 +422,20 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   simulateFullMatchDay: () => {
     const { fixtures, currentSeason, currentRound, userClubId, clubs, players } = get();
-    const userFixture = fixtures.find(
+    let userFixture = fixtures.find(
       (f) => f.round === currentRound && (f.homeClubId === userClubId || f.awayClubId === userClubId)
     );
+    let activeRound = currentRound;
+    if (!userFixture) {
+      const nextPending = fixtures
+        .filter((f) => (f.homeClubId === userClubId || f.awayClubId === userClubId) && !f.isPlayed)
+        .sort((a, b) => a.round - b.round)[0];
+      if (nextPending) {
+        userFixture = nextPending;
+        activeRound = nextPending.round;
+        set({ currentRound: activeRound });
+      }
+    }
     if (!userFixture) return;
 
     const homeClub = clubs.find((c) => c.id === userFixture.homeClubId);
@@ -412,7 +448,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     }, {} as Record<string, Player>);
 
     // Iniciar partido y simular los 90 minutos con cambios tácticos automáticos para ambos equipos
-    let match = initLiveMatch(currentSeason, currentRound, homeClub, awayClub, {
+    let match = initLiveMatch(currentSeason, activeRound, homeClub, awayClub, {
       competitionType: userFixture.competitionType,
       competitionName: userFixture.competitionName,
       roundStageName: userFixture.roundStageName,
@@ -929,10 +965,27 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const newBoardTrust = Math.min(100, Math.max(5, boardTrust + trustDelta));
     const newSquadMorale = Math.min(100, Math.max(20, squadMorale + (userWon ? 6 : userDrew ? 0 : -5)));
 
-    // Check if season is complete (All regular league rounds finished)
-    const maxSeasonRound =
-      finalFixturesWithPrune.length > 0 ? Math.max(...finalFixturesWithPrune.map((f) => f.round)) : 46;
-    const isSeasonCompleted = currentRound >= maxSeasonRound;
+    // Check if season is complete (Requiere disputar las 46 jornadas de liga y no tener partidos pendientes)
+    const userLeagueMatchesPlayed = finalFixturesWithPrune.filter(
+      (f) =>
+        (!f.competitionType || f.competitionType === 'league') &&
+        (f.homeClubId === userClubId || f.awayClubId === userClubId) &&
+        f.isPlayed
+    ).length;
+
+    const remainingUserMatches = finalFixturesWithPrune.filter(
+      (f) => (f.homeClubId === userClubId || f.awayClubId === userClubId) && !f.isPlayed
+    ).length;
+
+    const isSeasonCompleted = userLeagueMatchesPlayed >= 46 && remainingUserMatches === 0;
+
+    let nextActiveRound = currentRound;
+    if (!isSeasonCompleted) {
+      const nextPending = finalFixturesWithPrune
+        .filter((f) => (f.homeClubId === userClubId || f.awayClubId === userClubId) && !f.isPlayed)
+        .sort((a, b) => a.round - b.round)[0];
+      nextActiveRound = nextPending ? nextPending.round : currentRound + 1;
+    }
 
     // Pick random decision event occasionally (every 3-4 rounds)
     let nextDecisionEvent: DecisionEvent | null = null;
@@ -1086,7 +1139,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       recentTransfers: updatedRecentTransfers,
       boardTrust: newBoardTrust,
       squadMorale: newSquadMorale,
-      currentRound: isSeasonCompleted ? currentRound : currentRound + 1,
+      currentRound: nextActiveRound,
       isSeasonCompleted,
       isSacked: newBoardTrust < 15,
       activeDecisionEvent: nextDecisionEvent,
