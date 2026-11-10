@@ -421,4 +421,37 @@ export interface EuropeanQualificationEntry {
   stage: 'league_phase' | 'playoff';
 }
 
+export interface KnockoutMatchup {
+  id: string;
+  stageKey: 'playoff_16' | 'round_of_16' | 'quarter' | 'semi' | 'final';
+  stageName: string;
+  homeTeam: {
+    id: string;
+    name: string;
+    shortName: string;
+    primaryColor: string;
+    secondaryColor: string;
+    seedRank?: number;
+    country?: CountryLeague;
+    level?: number;
+  };
+  awayTeam: {
+    id: string;
+    name: string;
+    shortName: string;
+    primaryColor: string;
+    secondaryColor: string;
+    seedRank?: number;
+    country?: CountryLeague;
+    level?: number;
+  };
+  homeScore?: number;
+  awayScore?: number;
+  penaltyHomeScore?: number;
+  penaltyAwayScore?: number;
+  winnerTeamId?: string;
+  isPlayed: boolean;
+  statusLabel?: string;
+}
+
 
