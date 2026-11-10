@@ -13,6 +13,7 @@ import { shouldAwakenWeapon, generateContextualWeapon } from './weapon-registry'
 import { getDivisionsByCountry, getDivisionById, COUNTRIES_CATALOG } from './data/divisions-catalog';
 import { calculatePlayerMarketValue } from './player-valuation';
 import { executeAiTransferMarket } from './transfer-engine';
+import { getTierPrizePoolYen, getSeasonRenewalSponsorYen, reconcileClubTreasury } from './finance-engine';
 
 // Generates 22 rounds for 12 clubs using round-robin algorithm
 export function generateSeasonFixtures(season: number, clubs: Club[]): MatchFixture[] {
@@ -384,14 +385,9 @@ export function advanceToNextSeason(
   const userOldTier = (userClub.tier || getDivisionById(userClub.divisionId || userClub.league)?.tier || 1) as TierLevel;
   const champion = table[0];
 
-  // Premios económicos escalonados para 24 posiciones
-  const prizePool = [
-    500000000, 420000000, 360000000, 310000000, 270000000, 240000000,
-    210000000, 190000000, 170000000, 150000000, 135000000, 120000000,
-    110000000, 100000000, 90000000, 80000000, 70000000, 60000000,
-    55000000, 50000000, 45000000, 40000000, 35000000, 30000000,
-  ];
-  const userPrize = prizePool[userPos - 1] || 30000000;
+  // Premios económicos escalonados por división y categoría (Tier 1 a 4)
+  const userTierPrizePool = getTierPrizePoolYen(userOldTier);
+  const userPrize = userTierPrizePool[userPos - 1] || userTierPrizePool[userTierPrizePool.length - 1];
 
   // Máximo goleador
   const topScorer = [...players].sort((a, b) => b.seasonGoals - a.seasonGoals)[0];
@@ -514,11 +510,14 @@ export function advanceToNextSeason(
     };
   });
 
-  // 2. Evolución de presupuestos y alineaciones de los clubes
+  // 2. Evolución de presupuestos, patrocinios y alineaciones de los clubes
   const evolvedClubs: Club[] = clubs.map((c) => {
     const isUserC = c.id === userClubId;
     const pos = isUserC ? userPos : Math.floor(Math.random() * 24) + 1;
-    const prize = prizePool[pos - 1] || 30000000;
+    const cTier = (c.tier || getDivisionById(c.divisionId || c.league)?.tier || 1) as TierLevel;
+    const tierPrizePool = getTierPrizePoolYen(cTier);
+    const prize = isUserC ? userPrize : tierPrizePool[pos - 1] || tierPrizePool[tierPrizePool.length - 1];
+    const seasonSponsor = getSeasonRenewalSponsorYen(cTier, c.reputation);
 
     let startingXI = [...c.startingXI];
     let substitutes = [...c.substitutes];
@@ -552,16 +551,22 @@ export function advanceToNextSeason(
       ? c.freeKickTakerId
       : startingXI.find((id) => ['MCO', 'MC', 'EI'].includes(clubMembers.find((m) => m.id === id)?.position || '')) || validCaptain;
 
-    return {
+    const updatedCash = c.cashYen + prize + seasonSponsor;
+    const updatedBudget = Math.round(c.budgetYen * 0.9) + Math.round((prize + seasonSponsor) * 0.65);
+
+    const clubCandidate: Club = {
       ...c,
-      cashYen: c.cashYen + prize,
-      budgetYen: Math.round(c.budgetYen * 0.9) + Math.round(prize * 0.7),
+      cashYen: updatedCash,
+      budgetYen: updatedBudget,
       startingXI,
       substitutes,
       captainId: validCaptain,
       penaltyTakerId: validPenalty,
       freeKickTakerId: validFk,
     };
+
+    const { reconciledClub } = reconcileClubTreasury(clubCandidate);
+    return reconciledClub;
   });
 
   // 3. Simulación de la pirámide completa y ascensos/descensos para TODAS las 5 naciones

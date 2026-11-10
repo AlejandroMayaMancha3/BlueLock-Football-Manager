@@ -255,10 +255,10 @@ export function executeEmergencyReplacement(
     const fromClub = bestCandidate.club;
 
     // Actualizar presupuestos respetando el límite
-    sellerClub.budgetYen = Math.max(0, sellerClub.budgetYen - fee);
     sellerClub.cashYen = Math.max(0, sellerClub.cashYen - fee);
-    fromClub.budgetYen += Math.round(fee * 0.85);
+    sellerClub.budgetYen = Math.min(sellerClub.cashYen, Math.max(0, sellerClub.budgetYen - fee));
     fromClub.cashYen += fee;
+    fromClub.budgetYen = Math.min(fromClub.cashYen, fromClub.budgetYen + Math.round(fee * 0.85));
 
     // Cambiar club del jugador
     playersCopy = playersCopy.map((p) =>
@@ -467,10 +467,10 @@ export function executeAiTransferMarket(
       const seller = bestTarget.sellerClub;
 
       // 1. Descontar fondos al comprador y sumar al vendedor respetando límites
-      buyerClub.budgetYen = Math.max(0, buyerClub.budgetYen - fee);
       buyerClub.cashYen = Math.max(0, buyerClub.cashYen - fee);
+      buyerClub.budgetYen = Math.min(buyerClub.cashYen, Math.max(0, buyerClub.budgetYen - fee));
       seller.cashYen += fee;
-      seller.budgetYen += Math.round(fee * 0.85);
+      seller.budgetYen = Math.min(seller.cashYen, seller.budgetYen + Math.round(fee * 0.85));
 
       // 2. Traspasar al futbolista
       playersCopy = playersCopy.map((p) =>

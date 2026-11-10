@@ -233,7 +233,7 @@ export interface ClubLedgerEntry {
   id: string;
   season: number;
   round: number;
-  type: 'taquilla' | 'patrocinio' | 'premios' | 'salarios' | 'fichaje_compra' | 'fichaje_venta' | 'cantera';
+  type: 'taquilla' | 'patrocinio' | 'premios' | 'salarios' | 'fichaje_compra' | 'fichaje_venta' | 'cantera' | 'tv' | 'mantenimiento' | 'rebalanceo';
   concept: string;
   amountYen: number;
   dateStr: string;

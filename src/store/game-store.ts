@@ -53,6 +53,11 @@ import {
   checkSquadDepartmentDeficit,
   rebalanceClubLineup,
 } from '@/engine/transfer-engine';
+import {
+  calculateMatchdayFinances,
+  reconcileClubTreasury,
+  getSeasonRenewalSponsorYen,
+} from '@/engine/finance-engine';
 
 const STORAGE_KEY = 'bluelock_football_manager_v2';
 
@@ -86,6 +91,7 @@ export interface GameStoreState {
   lastSeasonTransitionReport: SeasonTransitionReport | null;
   clearSeasonTransitionReport: () => void;
   recentTransfers: TransferNewsEntry[];
+  reconcileUserTreasury: () => void;
 
   // Actions
   startNewGame: (managerName: string, clubId: string, currency?: Currency, country?: CountryLeague, divisionId?: string) => void;
@@ -272,10 +278,22 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           calibratedPlayers,
           (parsed.selectedCountry as CountryLeague) || 'Spain'
         );
+
+        // Reconciliación de tesorería y fondos: sanea deudas operativas históricas con remanentes de fichajes
+        let currentLedger: ClubLedgerEntry[] = parsed.ledger || [];
+        const reconciledClubs = completeClubs.map((club) => {
+          const { reconciledClub, wasAdjusted, adjustmentLedgerEntry } = reconcileClubTreasury(club);
+          if (wasAdjusted && club.id === parsed.userClubId && adjustmentLedgerEntry) {
+            currentLedger = [adjustmentLedgerEntry, ...currentLedger];
+          }
+          return reconciledClub;
+        });
+
         set({
           ...parsed,
-          clubs: completeClubs,
+          clubs: reconciledClubs,
           players: completePlayers,
+          ledger: currentLedger,
           selectedCurrency: parsed.selectedCurrency || 'EUR',
           recentTransfers: parsed.recentTransfers || [],
         });
@@ -741,43 +759,34 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       return p;
     });
 
-    // 5. Financial updates (Ticket revenue if home, weekly wages)
+    // 5. Financial updates (Taquilla, Derechos TV, Patrocinios y Nóminas semanales)
     const userClub = clubs.find((c) => c.id === userClubId)!;
-    const updatedLedger = [...ledger];
-
-    let newCash = userClub.cashYen;
-    if (userIsHome) {
-      const attendance = Math.round(userClub.stadiumCapacity * (0.7 + Math.random() * 0.3));
-      const ticketRevenue = attendance * userClub.ticketPriceYen;
-      newCash += ticketRevenue;
-      updatedLedger.push({
-        id: `led-t-${currentRound}-${Date.now()}`,
-        season: currentSeason,
-        round: currentRound,
-        type: 'taquilla',
-        concept: `Taquilla J${currentRound} (${attendance.toLocaleString()} espectadores)`,
-        amountYen: ticketRevenue,
-        dateStr: `Jornada ${currentRound}`,
-      });
-    }
-
-    // Weekly wages
     const totalWeeklyWage = finalPlayers
       .filter((p) => p.clubId === userClubId)
       .reduce((sum, p) => sum + p.weeklyWageYen, 0);
-    newCash -= totalWeeklyWage;
-    updatedLedger.push({
-      id: `led-w-${currentRound}-${Date.now()}`,
-      season: currentSeason,
-      round: currentRound,
-      type: 'salarios',
-      concept: `Pago de Salarios Semanales (Plantilla)`,
-      amountYen: -totalWeeklyWage,
-      dateStr: `Jornada ${currentRound}`,
-    });
 
-    // Update club cash
-    const updatedClubs = clubs.map((c) => (c.id === userClubId ? { ...c, cashYen: newCash } : c));
+    const matchFinances = calculateMatchdayFinances(
+      userClub,
+      userIsHome,
+      currentRound,
+      currentSeason,
+      totalWeeklyWage
+    );
+
+    const updatedLedger = [...matchFinances.ledgerEntries, ...ledger];
+
+    // Actualizar caja y reconciliar tesorería para evitar contradicciones entre saldo y fichajes
+    const updatedClubs = clubs.map((c) => {
+      if (c.id === userClubId) {
+        const candidate: Club = {
+          ...c,
+          cashYen: c.cashYen + matchFinances.netWeeklyYen,
+        };
+        const { reconciledClub } = reconcileClubTreasury(candidate);
+        return reconciledClub;
+      }
+      return c;
+    });
 
     // Board trust and morale
     const trustDelta = userWon ? 5 : userDrew ? 0 : -6;
@@ -1471,12 +1480,12 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     const updatedClubs = clubs.map((c) => {
       if (c.id === userClubId) {
-        return {
+        return reconcileClubTreasury({
           ...c,
           cashYen: c.cashYen - feeYen,
           budgetYen: c.budgetYen - feeYen,
           substitutes: c.substitutes.length < 7 ? [...c.substitutes, playerId] : c.substitutes,
-        };
+        }).reconciledClub;
       }
       if (c.id === player.clubId) {
         let newXi = c.startingXI.filter((id) => id !== playerId);
@@ -1620,7 +1629,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           ? c.freeKickTakerId
           : newStartingXI.find((id) => ['MCO', 'MC', 'EI'].includes(remainingUserPlayers.find((p) => p.id === id)?.position || '')) || newCaptain;
 
-        return {
+        return reconcileClubTreasury({
           ...c,
           cashYen: c.cashYen + offer.offeredFeeYen,
           budgetYen: c.budgetYen + Math.round(offer.offeredFeeYen * 0.8),
@@ -1629,7 +1638,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
           captainId: newCaptain,
           penaltyTakerId: newPenalty,
           freeKickTakerId: newFk,
-        };
+        }).reconciledClub;
       }
       if (c.id === offer.buyerClubId) {
         return {
@@ -1839,6 +1848,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       table
     );
 
+    const userClubAfter = newClubs.find((c) => c.id === userClubId) || newClubs[0];
+    const preSeasonRivalTransfers = seasonTransitionReport.rivalTransfers || [];
+    const updatedRecentTransfers = [...preSeasonRivalTransfers, ...(get().recentTransfers || [])].slice(0, 60);
+
+    const userTier = (userClubAfter.tier || 1) as TierLevel;
+    const userSeasonSponsorYen = getSeasonRenewalSponsorYen(userTier, userClubAfter.reputation);
+
     const prizeEntry: ClubLedgerEntry = {
       id: `led-p-${newSeason}-${Date.now()}`,
       season: newSeason,
@@ -1849,9 +1865,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       dateStr: `Inicio Temporada ${newSeason}`,
     };
 
-    const userClubAfter = newClubs.find((c) => c.id === userClubId) || newClubs[0];
-    const preSeasonRivalTransfers = seasonTransitionReport.rivalTransfers || [];
-    const updatedRecentTransfers = [...preSeasonRivalTransfers, ...(get().recentTransfers || [])].slice(0, 60);
+    const sponsorEntry: ClubLedgerEntry = {
+      id: `led-sp-season-${newSeason}-${Date.now()}`,
+      season: newSeason,
+      round: 1,
+      type: 'patrocinio',
+      concept: `Renovación de Patrocinio Principal y Derechos Comerciales Temporada ${newSeason}`,
+      amountYen: userSeasonSponsorYen,
+      dateStr: `Inicio Temporada ${newSeason}`,
+    };
 
     set({
       currentSeason: newSeason,
@@ -1862,7 +1884,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       selectedDivisionId: userClubAfter.divisionId || userClubAfter.league,
       selectedTier: userClubAfter.tier || 1,
       seasonHistory: [seasonHistoryEntry, ...seasonHistory],
-      ledger: [prizeEntry, ...ledger],
+      ledger: [sponsorEntry, prizeEntry, ...ledger],
       recentTransfers: updatedRecentTransfers,
       youthPromotedThisSeason: false,
       isSeasonCompleted: false,
@@ -1870,6 +1892,23 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       lastSeasonTransitionReport: seasonTransitionReport,
     });
 
+    get().saveToStorage();
+  },
+
+  reconcileUserTreasury: () => {
+    const { clubs, userClubId, ledger } = get();
+    let updatedLedger = [...ledger];
+    const updatedClubs = clubs.map((c) => {
+      if (c.id === userClubId) {
+        const { reconciledClub, wasAdjusted, adjustmentLedgerEntry } = reconcileClubTreasury(c);
+        if (wasAdjusted && adjustmentLedgerEntry) {
+          updatedLedger = [adjustmentLedgerEntry, ...updatedLedger];
+        }
+        return reconciledClub;
+      }
+      return c;
+    });
+    set({ clubs: updatedClubs, ledger: updatedLedger });
     get().saveToStorage();
   },
 

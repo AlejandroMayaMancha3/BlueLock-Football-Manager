@@ -505,7 +505,12 @@ export default function FootballManagerApp() {
           <div className="flex items-center gap-3 sm:gap-4">
             <div>
               <span className="text-slate-400 block text-[9px] sm:text-[10px] uppercase font-bold">Caja</span>
-              <span className="font-mono font-bold text-emerald-400 text-xs sm:text-sm">
+              <span
+                className={clsx(
+                  'font-mono font-bold text-xs sm:text-sm',
+                  userClub.cashYen >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                )}
+              >
                 {formatMoney(userClub.cashYen, selectedCurrency)}
               </span>
             </div>

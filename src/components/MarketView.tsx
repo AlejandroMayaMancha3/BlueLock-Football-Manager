@@ -332,7 +332,12 @@ export const MarketView: React.FC = () => {
             <div className="h-8 w-px bg-slate-800" />
             <div>
               <span className="text-[10px] text-slate-400 uppercase font-mono block">Fondos Disponibles:</span>
-              <span className="text-sm font-black text-emerald-400 font-mono">
+              <span
+                className={clsx(
+                  'text-sm font-black font-mono',
+                  userClub.cashYen >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                )}
+              >
                 {formatMoney(userClub.cashYen, selectedCurrency)}
               </span>
             </div>
