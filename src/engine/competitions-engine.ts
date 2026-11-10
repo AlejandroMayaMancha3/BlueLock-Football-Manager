@@ -260,10 +260,36 @@ export function awardTrophyToClub(
 export function reconstructClubTrophiesFromHistory(
   club: Club,
   seasonHistory: SeasonHistoryEntry[],
-  existingTrophies: ClubTrophyRecord[] = []
+  existingTrophies: ClubTrophyRecord[] = [],
+  fixtures: MatchFixture[] = [],
+  currentSeason = 1
 ): ClubTrophyRecord[] {
   const trophyMap = new Map<string, ClubTrophyRecord>();
-  existingTrophies.forEach((t) => trophyMap.set(t.id, t));
+
+  // Si hay trofeos de Copa o UEFA guardados para la temporada actual, verificar que realmente se haya ganado la Gran Final
+  existingTrophies.forEach((t) => {
+    if (
+      t.season === currentSeason &&
+      (t.trophyType.includes('cup') || ['ucl', 'uel', 'uecl'].includes(t.trophyType))
+    ) {
+      const userWonFinal = fixtures.some(
+        (f) =>
+          f.season === currentSeason &&
+          f.isPlayed &&
+          f.isKnockout &&
+          isTrueChampionshipFinal(f.roundStageName, f.trophyKey) &&
+          ((f.homeClubId === club.id && (f.homeScore || 0) > (f.awayScore || 0)) ||
+            (f.awayClubId === club.id && (f.awayScore || 0) > (f.homeScore || 0)) ||
+            (f.homeClubId === club.id && (f.penaltyHomeScore || 0) > (f.penaltyAwayScore || 0)) ||
+            (f.awayClubId === club.id && (f.penaltyAwayScore || 0) > (f.penaltyHomeScore || 0)))
+      );
+      if (userWonFinal) {
+        trophyMap.set(t.id, t);
+      }
+    } else {
+      trophyMap.set(t.id, t);
+    }
+  });
 
   const country = (club.country || 'Spain') as CountryLeague;
 
@@ -336,6 +362,40 @@ function generateLeagueMatchdays(clubs: Club[]): Array<Array<[string, string]>> 
   );
 
   return [...firstLegRounds, ...secondLegRounds];
+}
+
+/**
+ * Determina de forma estricta si un partido es la Gran Final por el título de un torneo eliminatorio.
+ * Evita falsos positivos en rondas previas que llevan 'de Final' en su nombre (1/32, 1/16, Octavos, Cuartos, Semis).
+ */
+export function isTrueChampionshipFinal(stageName?: string, trophyKey?: string): boolean {
+  if (!stageName) return false;
+  const s = stageName.toLowerCase();
+
+  // Si contiene cualquier referencia a una ronda eliminatoria previa, NUNCA es la final por el título
+  if (
+    s.includes('1/32') ||
+    s.includes('1/16') ||
+    s.includes('dieciseisavo') ||
+    s.includes('octavo') ||
+    s.includes('round of 16') ||
+    s.includes('cuarto') ||
+    s.includes('quarter') ||
+    s.includes('semi')
+  ) {
+    return false;
+  }
+
+  // Debe ser la Gran Final explícita o una final directa con clave de trofeo
+  if (
+    s.includes('gran final') ||
+    s.includes('final continental') ||
+    (s.includes('final') && Boolean(trophyKey))
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 /**

@@ -65,6 +65,7 @@ import {
   generateSeasonFixturesWithTournaments,
   pruneEliminatedTournamentFixtures,
   ensureSeasonTournaments,
+  isTrueChampionshipFinal,
 } from '@/engine/competitions-engine';
 
 const STORAGE_KEY = 'bluelock_football_manager_v2';
@@ -305,7 +306,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         const loadedTrophies = reconstructClubTrophiesFromHistory(
           userClub,
           parsed.seasonHistory || [],
-          parsed.clubTrophies || []
+          parsed.clubTrophies || [],
+          parsed.fixtures || [],
+          parsed.currentSeason || 1
         );
 
         // Asegurar que la temporada incorpore torneos (Copa Nacional y Torneos Europeos UEFA)
@@ -509,8 +512,9 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const userWon = userWonRegular || userWonPenalties;
     const userDrew = !userFixture?.isKnockout && liveMatch.homeScore === liveMatch.awayScore;
 
-    // Otorgar trofeo oficial de torneo al usuario si ganó una Final
-    if (userWon && userFixture?.trophyKey && (userFixture.roundStageName?.includes('Final') || userFixture.isKnockout)) {
+    // Otorgar trofeo oficial de torneo al usuario ÚNICAMENTE si ganó la Gran Final por el título
+    const isChampionshipFinal = isTrueChampionshipFinal(userFixture?.roundStageName, userFixture?.trophyKey);
+    if (userWon && isChampionshipFinal && userFixture?.trophyKey) {
       get().awardClubTrophy(userFixture.trophyKey, userFixture.competitionName);
       liveMatch.events.push({
         minute: 90,
@@ -2034,6 +2038,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   awardClubTrophy: (trophyKey: string, customOfficialName?: string) => {
     const { clubs, userClubId, currentSeason, clubTrophies } = get();
+    // Evitar otorgar el mismo trofeo más de una vez en la misma temporada
+    if ((clubTrophies || []).some((t) => t.trophyKey === trophyKey && t.season === currentSeason)) {
+      return;
+    }
     const userClub = clubs.find((c) => c.id === userClubId) || clubs[0];
     const newTrophy = awardTrophyToClub(userClub, trophyKey, currentSeason, {
       customOfficialName,

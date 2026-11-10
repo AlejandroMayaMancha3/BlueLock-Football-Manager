@@ -22,6 +22,7 @@ import {
 import clsx from 'clsx';
 import { useGameStore } from '@/store/game-store';
 import { MatchEvent, MatchSummaryData } from '@/types/football-manager';
+import { isTrueChampionshipFinal } from '@/engine/competitions-engine';
 
 interface SimulatedMatchModalProps {
   summary: MatchSummaryData;
@@ -203,7 +204,7 @@ export function SimulatedMatchModal({ summary, onClose }: SimulatedMatchModalPro
                   userWon ? (
                     <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 shadow-md">
                       <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      {roundStageName?.includes('Final') || trophyKey
+                      {isTrueChampionshipFinal(roundStageName, trophyKey)
                         ? '🏆 ¡¡CAMPEONES!! TÍTULO CONQUISTADO'
                         : '¡CLASIFICADO A LA SIGUIENTE RONDA!'}
                     </span>
